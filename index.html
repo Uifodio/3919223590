@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watch-Flow</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #222;
+            color: #fff;
+        }
+
+        .app-container {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .upload-section {
+            margin-top: 20px;
+        }
+
+        .upload-section h2 {
+            margin-top: 0;
+        }
+
+        .upload-section input[type="file"] {
+            display: none;
+        }
+
+        .upload-label {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #ff0000;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .upload-label:hover {
+            background-color: #e60048;
+        }
+
+        .video-feed, .liked-videos {
+            width: 100%;
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .video-grid, .liked-videos-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .video-item, .liked-video-item {
+            position: relative;
+            cursor: pointer;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+
+        .liked-video-item {
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .liked-video-item video {
+            width: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .liked-video-item:hover .overlay {
+            opacity: 1;
+        }
+
+
+
+        .overlay button {
+            background-color: transparent;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .overlay button:hover {
+            color: #ff0050;
+        }
+
+        .navbar {
+            width: 100%;
+            background-color: #000;
+            color: #fff;
+            text-align: center;
+            padding: 10px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+        }
+
+        .navbar a {
+            color: #fff;
+            margin: 0 15px;
+            text-decoration: none;
+        }
+
+        .navbar a:hover {
+            text-decoration: underline;
+        }
+
+        #page-content {
+            display: none;
+            width: 100%;
+            padding-top: 60px; /* Adjust based on navbar height */
+            box-sizing: border-box;
+        }
+
+        #page-content.active,
+        #main-content.active {
+            display: block;
+        }
+
+        /* Share popup styles */
+        .share-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1001;
+        }
+
+        .share-popup.active {
+            display: block;
+        }
+
+        .share-popup label {
+            color: #fff;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .share-popup input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .share-popup button {
+            background-color: #ff0000;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .share-popup button:hover {
+            background-color: #e60048;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container" id="main-content">
+        <div class="navbar">
+            <a href="#" id="homeLink">Home</a>
+            <a href="#" id="likedLink">Liked Videos</a>
+        </div>
+        <div class="video-feed">
+            <h2>Video Feed</h2>
+            <div class="video-grid" id="videoGrid">
+                <!-- Video items will be dynamically added here -->
+            </div>
+        </div>
+        <div class="upload-section">
+            <h2>Upload Video</h2>
+            <input type="file" id="videoUpload" accept="video/*">
+            <label for="videoUpload" class="upload-label">Upload Video</label>
+        </div>
+    </div>
+
+    <div class="app-container" id="page-content">
+        <div class="navbar">
+            <a href="#" id="homeLink2">Home</a>
+            <a href="#" id="likedLink2">Liked Videos</a>
+        </div>
+        <div class="liked-videos">
+            <h2>Liked Videos</h2>
+            <div class="liked-videos-list" id="likedVideosList">
+                <!-- Liked video items will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Popup -->
+    <div class="share-popup" id="sharePopup">
+        <label for="shareLink">Enter Video Link:</label>
+        <input type="text" id="shareLink" placeholder="Paste video link...">
+        <button id="shareButton">Share</button>
+    </div>
+
+    <script>
+        const likedVideos = [];
+
+        document.getElementById('videoUpload').addEventListener('change', function(event) {
+            const videoUpload = event.target;
+            const videoGrid = document.getElementById('videoGrid');
+
+            if (videoUpload.files.length > 0) {
+                const file = videoUpload.files[0];
+                const url = URL.createObjectURL(file);
+
+                const videoItem = document.createElement('div');
+                videoItem.classList.add('video-item');
+
+                const videoElement = document.createElement('video');
+                videoElement.src = url;
+                videoElement.setAttribute('playsinline', '');
+                videoElement.autoplay = true;
+                videoElement.loop = true;
+
+                videoElement.addEventListener('click', function() {
+                    handleVideoClick(videoElement);
+                });
+
+                const overlay = createOverlay(file, videoElement);
+
+                videoItem.appendChild(videoElement);
+                videoItem.appendChild(overlay);
+
+                videoGrid.appendChild(videoItem);
+            }
+        });
+
+        function handleVideoClick(videoElement) {
+            if (!videoElement.paused) {
+                videoElement.pause();
+            } else {
+                videoElement.play();
+            }
+        }
+
+        function createOverlay(file, videoElement) {
+            const overlay = document.createElement('div');
+            overlay.classList.add('overlay');
+
+            const likeButton = document.createElement('button');
+            likeButton.textContent = 'Like';
+            likeButton.addEventListener('click', function() {
+                toggleLikeVideo(file, videoElement);
+            });
+
+            const shareButton = document.createElement('button');
+            shareButton.textContent = 'Share';
+            shareButton.addEventListener('click', function() {
+                showSharePopup(file);
+            });
+
+            overlay.appendChild(likeButton);
+            overlay.appendChild(shareButton);
+
+            return overlay;
+        }
+
+        function showSharePopup(file) {
+            const sharePopup = document.getElementById('sharePopup');
+            sharePopup.classList.add('active');
+
+            const shareButton = document.getElementById('shareButton');
+            shareButton.addEventListener('click', function() {
+                const shareLinkInput = document.getElementById('shareLink');
+                const videoLink = shareLinkInput.value.trim();
+
+                if (videoLink !== '') {
+                    saveToGitHub(file, videoLink);
+                    sharePopup.classList.remove('active');
+                    shareLinkInput.value = '';
+                }
+            });
+        }
+
+        async function saveToGitHub(file, videoLink) {
+            // Placeholder function for saving to GitHub
+            alert(`Uploading file: ${file.name} with link: ${videoLink}`);
+        }
+
+        function toggleLikeVideo(file, videoElement) {
+            const videoData = { file, videoElement };
+            const index = likedVideos.findIndex(item => item.file === file);
+
+            if (index === -1) {
+                likedVideos.push(videoData);
+                showLikedVideo(videoData);
+            } else {
+                likedVideos.splice(index, 1);
+                removeLikedVideo(file);
+            }
+        }
+
+        function showLikedVideo(videoData) {
+            const likedVideosList = document.getElementById('likedVideosList');
+            const likedVideoItem = document.createElement('div');
+            likedVideoItem.classList.add('liked-video-item');
+
+            const video = document.createElement('video');
+            video.src = videoData.videoElement.src;
+            video.setAttribute('playsinline', '');
+            video.autoplay = true;
+            video.loop = true;
+
+            video.addEventListener('click', function() {
+                handleVideoClick(video);
+            });
+
+            const overlay = createOverlay(videoData.file, video);
+
+            likedVideoItem.appendChild(video);
+            likedVideoItem.appendChild(overlay);
+
+            likedVideosList.appendChild(likedVideoItem);
+        }
+
+        function removeLikedVideo(file) {
+            const likedVideosList = document.getElementById('likedVideosList');
+            const items = likedVideosList.getElementsByClassName('liked-video-item');
+
+            for (let i = 0; i < items.length; i++) {
+                const video = items[i].getElementsByTagName('video')[0];
+                if (video && video.src.includes(URL.createObjectURL(file))) {
+                    likedVideosList.removeChild(items[i]);
+                    break;
+                }
+            }
+        }
+
+        document.querySelectorAll('.navbar a').forEach(link => {
+            link.addEventListener('click', function(event) {
+                event.preventDefault();
+                const isMainContent = this.id === 'homeLink' || this.id === 'homeLink2';
+                toggleContentView(isMainContent);
+            });
+        });
+
+        function toggleContentView(isMainContent) {
+            const mainContent = document.getElementById('main-content');
+            const pageContent = document.getElementById('page-content');
+
+            mainContent.style.display = isMainContent ? 'flex' : 'none';
+            pageContent.style.display = isMainContent ? 'none' : 'flex';
+        }
+
+        // Close share popup if clicked outside
+        window.addEventListener('click', function(event) {
+            const sharePopup = document.getElementById('sharePopup');
+            if (event.target !== sharePopup && !sharePopup.contains(event.target)) {
+                sharePopup.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
