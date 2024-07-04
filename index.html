@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Clone</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 800px; /* Increased width for better UI */
+            height: 100%;
+            background: #181818;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow-y: auto;
+        }
+
+        .upload-section {
+            width: 100%;
+            text-align: center;
+            margin-top: auto; /* Keep upload section at the bottom */
+            margin-bottom: 20px; /* Space between upload and video feed */
+        }
+
+        .upload-section h2, .video-feed h2 {
+            margin-top: 0;
+            color: #fff;
+        }
+
+        .upload-section input[type="file"] {
+            display: none;
+        }
+
+        .upload-section label.upload-label {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background-color: #ff0050;
+            color: #fff;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .upload-section label.upload-label:hover {
+            background-color: #e60048;
+        }
+
+        .video-feed {
+            width: 100%;
+            flex-grow: 1;
+            overflow-y: auto; /* Ensure scrolling within the video feed */
+            padding-bottom: 20px; /* Space at the bottom to keep upload button visible */
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            padding: 15px; /* Add padding for spacing */
+            scroll-snap-type: y mandatory; /* Enable smooth scrolling */
+        }
+
+        .video-item {
+            position: relative;
+            cursor: pointer;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            background-color: #000;
+            scroll-snap-align: start; /* Snap items to the start of the container */
+        }
+
+        .video-item video {
+            width: 100%;
+            display: block;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+
+        .video-item .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .video-item:hover .overlay {
+            opacity: 1;
+        }
+
+        .video-item .overlay button {
+            background-color: transparent;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .video-item .overlay button:hover {
+            color: #ff0050;
+        }
+
+        .video-item .overlay .info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .video-item .overlay .info img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .video-item .overlay .info .details {
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+        }
+
+        .video-item .overlay .info .details .username {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .video-item .overlay .info .details .song {
+            font-size: 12px;
+        }
+
+        .video-item .overlay .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .video-item .overlay .actions button {
+            background-color: transparent;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .video-item .overlay .actions button:hover {
+            color: #ff0050;
+        }
+
+        .liked-videos {
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .liked-videos h2 {
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        .liked-videos ul {
+            list-style-type: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .liked-videos li {
+            width: calc(33.33% - 10px);
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .liked-videos li video {
+            width: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+
+        .liked-videos li .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .liked-videos li:hover .overlay {
+            opacity: 1;
+        }
+
+        .liked-videos li .overlay button {
+            background-color: transparent;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .liked-videos li .overlay button:hover {
+            color: #ff0050;
+        }
+
+        .liked-videos li .overlay .info {
+            text-align: center;
+        }
+
+        .liked-videos li .overlay .info h3 {
+            font-size: 16px;
+            margin: 0;
+        }
+
+        .liked-videos li .overlay .info p {
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        /* Separate Liked Videos Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: #181818;
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close {
+            color: #fff;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #ff0050;
+        }
+
+        .liked-videos-modal {
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .liked-videos-modal h2 {
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        .liked-videos-modal ul {
+            list-style-type: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .liked-videos-modal li {
+            width: calc(33.33% - 10px);
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .liked-videos-modal li video {
+            width: 100%;
+            display: block;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+
+        .liked-videos-modal li .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .liked-videos-modal li:hover .overlay {
+            opacity: 1;
+        }
+
+        .liked-videos-modal li .overlay button {
+            background-color: transparent;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .liked-videos-modal li .overlay button:hover {
+            color: #ff0050;
+        }
+
+        .liked-videos-modal li .overlay .info {
+            text-align: center;
+        }
+
+        .liked-videos-modal li .overlay .info h3 {
+            font-size: 16px;
+            margin: 0;
+        }
+
+        .liked-videos-modal li .overlay .info p {
+            font-size: 14px;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="video-feed" id="videoFeed">
+            <h2>Video Feed</h2>
+            <div class="video-grid" id="videoGrid">
+                <!-- Example video items (for demonstration) -->
+            </div>
+        </div>
+        <div class="liked-videos" id="likedVideos">
+            <h2>Liked Videos</h2>
+            <ul id="likedVideosList">
+                <!-- Liked video items will be dynamically added here -->
+            </ul>
+        </div>
+        <div class="upload-section">
+            <h2>Upload Video</h2>
+            <input type="file" id="videoUpload" accept="video/*">
+            <label for="videoUpload" class="upload-label">Choose Video</label>
+        </div>
+    </div>
+
+    <!-- Liked Videos Modal -->
+    <div id="likedVideosModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div class="liked-videos-modal">
+                <h2>Liked Videos</h2>
+                <ul id="likedVideosListModal">
+                    <!-- Liked video items in modal will be dynamically added here -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPlaying = null;
+        const likedVideos = [];
+
+        document.getElementById('videoUpload').addEventListener('change', async function() {
+            const videoUpload = document.getElementById('videoUpload');
+            const videoGrid = document.getElementById('videoGrid');
+
+            if (videoUpload.files.length > 0) {
+                const file = videoUpload.files[0];
+                const url = URL.createObjectURL(file);
+
+                const videoItem = document.createElement('div');
+                videoItem.classList.add('video-item');
+
+                const videoElement = document.createElement('video');
+                videoElement.src = url;
+                videoElement.setAttribute('playsinline', ''); // Ensure iOS plays video in-line
+                videoElement.autoplay = true;
+                videoElement.loop = true;
+                videoElement.muted = false; // Unmuted to play sound
+                videoElement.addEventListener('loadedmetadata', () => {
+                    videoElement.play(); // Start playback once metadata is loaded
+                });
+
+                videoElement.addEventListener('click', function() {
+                    handleVideoClick(videoElement);
+                });
+
+                const overlay = document.createElement('div');
+                overlay.classList.add('overlay');
+
+                const shareButton = document.createElement('button');
+                shareButton.textContent = 'Share';
+                shareButton.addEventListener('click', async function() {
+                    await saveToGitHub(file);
+                });
+
+                const likeButton = document.createElement('button');
+                likeButton.textContent = 'Like';
+                likeButton.addEventListener('click', function() {
+                    toggleLikeVideo(file, videoElement);
+                });
+
+                const userInfo = document.createElement('div');
+                userInfo.classList.add('info');
+
+                const avatar = document.createElement('img');
+                avatar.src = 'https://via.placeholder.com/40'; // Placeholder for user avatar
+                avatar.alt = 'User Avatar';
+
+                const userDetails = document.createElement('div');
+                userDetails.classList.add('details');
+
+                const username = document.createElement('span');
+                username.classList.add('username');
+                username.textContent = 'Username'; // Replace with actual username
+
+                const song = document.createElement('span');
+                song.classList.add('song');
+                song.textContent = 'Song Title'; // Replace with actual song title
+
+                userDetails.appendChild(username);
+                userDetails.appendChild(song);
+
+                userInfo.appendChild(avatar);
+                userInfo.appendChild(userDetails);
+
+                const actions = document.createElement('div');
+                actions.classList.add('actions');
+                actions.appendChild(shareButton);
+                actions.appendChild(likeButton);
+
+                overlay.appendChild(userInfo);
+                overlay.appendChild(actions);
+
+                videoItem.appendChild(videoElement);
+                videoItem.appendChild(overlay);
+
+                videoGrid.appendChild(videoItem);
+            }
+        });
+
+        function handleVideoClick(videoElement) {
+            if (currentPlaying && currentPlaying !== videoElement) {
+                currentPlaying.pause();
+            }
+            if (currentPlaying !== videoElement) {
+                videoElement.play();
+                currentPlaying = videoElement;
+            } else {
+                if (videoElement.paused) {
+                    videoElement.play();
+                } else {
+                    videoElement.pause();
+                }
+            }
+        }
+
+        async function saveToGitHub(file) {
+            // Implementation to save video file to GitHub or any other storage
+            alert(`Uploading file: ${file.name}`);
+        }
+
+        function toggleLikeVideo(file, videoElement) {
+            const videoData = {
+                file,
+                videoElement
+            };
+            const index = likedVideos.findIndex(item => item.file === file);
+
+            if (index === -1) {
+                likedVideos.push(videoData);
+                showLikedVideo(videoData);
+            } else {
+                likedVideos.splice(index, 1);
+                removeLikedVideo(file);
+            }
+        }
+
+        function showLikedVideo(videoData) {
+            const likedVideosList = document.getElementById('likedVideosList');
+            const likedVideosListModal = document.getElementById('likedVideosListModal');
+
+            const likedVideoItem = document.createElement('li');
+            likedVideoItem.classList.add('liked-video-item');
+
+            const video = document.createElement('video');
+            video.src = videoData.videoElement.src;
+            video.setAttribute('playsinline', '');
+            video.autoplay = true;
+            video.loop = true;
+
+            const overlay = document.createElement('div');
+            overlay.classList.add('overlay');
+
+            const removeButton = document.createElement('button');
+            removeButton.textContent = 'Remove';
+            removeButton.addEventListener('click', function() {
+                toggleLikeVideo(videoData.file, videoData.videoElement);
+            });
+
+            const info = document.createElement('div');
+            info.classList.add('info');
+
+            const title = document.createElement('h3');
+            title.textContent = 'Liked Video';
+
+            const details = document.createElement('p');
+            details.textContent = 'Some details about the video'; // Replace with actual details
+
+            info.appendChild(title);
+            info.appendChild(details);
+
+            overlay.appendChild(removeButton);
+            overlay.appendChild(info);
+
+            likedVideoItem.appendChild(video);
+            likedVideoItem.appendChild(overlay);
+
+            likedVideosList.appendChild(likedVideoItem.cloneNode(true)); // Add to main list
+            likedVideosListModal.appendChild(likedVideoItem); // Add to modal list
+        }
+
+        function removeLikedVideo(file) {
+            const likedVideosList = document.getElementById('likedVideosList');
+            const likedVideosListModal = document.getElementById('likedVideosListModal');
+            const items = likedVideosList.getElementsByClassName('liked-video-item');
+
+            for (let i = 0; i < items.length; i++) {
+                const video = items[i].getElementsByTagName('video')[0];
+                if (video && video.src.includes(file.name)) {
+                    likedVideosList.removeChild(items[i]);
+                    break;
+                }
+            }
+
+            const modalItems = likedVideosListModal.getElementsByClassName('liked-video-item');
+            for (let i = 0; i < modalItems.length; i++) {
+                const video = modalItems[i].getElementsByTagName('video')[0];
+                if (video && video.src.includes(file.name)) {
+                    likedVideosListModal.removeChild(modalItems[i]);
+                    break;
+                }
+            }
+        }
+
+        function openModal() {
+            const modal = document.getElementById('likedVideosModal');
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('likedVideosModal');
+            modal.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
+            
