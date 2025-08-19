@@ -8,7 +8,9 @@ public class UIDataBridge : MonoBehaviour
 	public enum DisplayMode
 	{
 		Resource,
-		TotalPlayTime
+		TotalPlayTime,
+		CurrentSceneName,
+		SaveSlotNumber
 	}
 
 	[Header("Mode")]
@@ -20,6 +22,10 @@ public class UIDataBridge : MonoBehaviour
 
 	[Header("Time")]
 	public string timePrefix = "Time: ";
+
+	[Header("Scene/Slot")]
+	public string scenePrefix = "Scene: ";
+	public string slotPrefix = "Slot: ";
 
 	private TMP_Text _text;
 
@@ -89,6 +95,17 @@ public class UIDataBridge : MonoBehaviour
 				{
 					int seconds = Mathf.FloorToInt(GameDataManager.Instance.TotalPlayTimeSeconds);
 					_text.text = timePrefix + FormatSeconds(seconds);
+					break;
+				}
+			case DisplayMode.CurrentSceneName:
+				{
+					_text.text = scenePrefix + UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+					break;
+				}
+			case DisplayMode.SaveSlotNumber:
+				{
+					int slot = GameDataManager.Instance != null ? GameDataManager.Instance.currentSaveSlot : 0;
+					_text.text = slotPrefix + slot;
 					break;
 				}
 		}

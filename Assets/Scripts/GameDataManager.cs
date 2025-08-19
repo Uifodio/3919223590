@@ -15,6 +15,22 @@ public class GameDataManager : MonoBehaviour
 	}
 
 	[Serializable]
+	public class SaveSlotSummary
+	{
+		public bool saveExists;
+		public int slotIndex;
+		public string version;
+		public string productName;
+		public string companyName;
+		public string sceneName;
+		public string savedAtIsoUtc;
+		public long savedAtUnixSeconds;
+		public float totalTimeSeconds;
+		public bool hasCompletedIntro;
+		public Vector3 playerPosition;
+	}
+
+	[Serializable]
 	private class SerializableVector3
 	{
 		public float x;
@@ -37,12 +53,43 @@ public class GameDataManager : MonoBehaviour
 	}
 
 	[Serializable]
+	private class SerializableQuaternion
+	{
+		public float x;
+		public float y;
+		public float z;
+		public float w;
+
+		public SerializableQuaternion() { }
+
+		public SerializableQuaternion(Quaternion q)
+		{
+			x = q.x;
+			y = q.y;
+			z = q.z;
+			w = q.w;
+		}
+
+		public Quaternion ToQuaternion()
+		{
+			return new Quaternion(x, y, z, w);
+		}
+	}
+
+	[Serializable]
 	private class SaveData
 	{
 		public List<ResourceEntry> resources = new List<ResourceEntry>();
 		public float totalTimeSeconds;
 		public SerializableVector3 playerPosition;
+		public SerializableQuaternion playerRotation;
 		public bool hasCompletedIntro;
+		public string sceneName;
+		public string version;
+		public string productName;
+		public string companyName;
+		public string savedAtIsoUtc;
+		public long savedAtUnixSeconds;
 	}
 
 	public static GameDataManager Instance { get; private set; }
@@ -52,6 +99,14 @@ public class GameDataManager : MonoBehaviour
 	public int currentSaveSlot = 1;
 	[Tooltip("If true, on play the manager auto-loads the selected slot and enters the correct scene (intro or game).")]
 	public bool autoLoadOnStartup = false;
+	[Tooltip("If true, spawn the player at the saved position when a scene loads.")]
+	public bool spawnFromSavedPositionOnSceneLoad = true;
+	[Tooltip("If true, also apply saved rotation to the player when a scene loads.")]
+	public bool applySavedRotationOnSceneLoad = false;
+
+	public enum InitialFlowMode { AutoByIntroFlag, ForceIntro, ForceGame }
+	[Tooltip("How to decide which scene to load when entering flow.")]
+	public InitialFlowMode initialFlowMode = InitialFlowMode.AutoByIntroFlag;
 
 	[Header("Scenes")]
 	[Tooltip("Name of the intro/backstory scene.")]
@@ -62,14 +117,37 @@ public class GameDataManager : MonoBehaviour
 	[Header("Player Binding")]
 	[Tooltip("Optional direct reference to the player transform. If not set, the manager will try to find a player with PickupInteractor in each scene.")]
 	public Transform playerTransform;
+	[Tooltip("If true and no player assigned, try to find by tag 'Player'.")]
+	public bool findPlayerByTag = true;
 
 	[Header("Resources (Editable in Inspector)")]
 	[Tooltip("Add, remove, and reorder resources here. These will be saved & loaded automatically.")]
 	public List<ResourceEntry> resources = new List<ResourceEntry>();
+	[Tooltip("If true, autosave will be triggered whenever resources change (subject to autosave throttling).")]
+	public bool markDirtyOnResourceChange = true;
+
+	[Header("Autosave")]
+	public bool enableAutosave = true;
+	[Min(1f)] public float autosaveIntervalSeconds = 30f;
+	[Tooltip("If true, saving only occurs when data has changed since last save.")]
+	public bool autosaveOnlyWhenDirty = true;
+	[Tooltip("If true, also save automatically when the active scene changes.")]
+	public bool saveOnSceneChange = true;
+
+	[Header("Serialization Options")]
+	public bool prettyJson = true;
+	public bool writeBackupFile = true;
+
+	[Header("Debug/Logging")]
+	public bool logOnSave = false;
+	public bool logOnLoad = false;
+	public bool logPaths = false;
 
 	public event Action<string, int> OnResourceChanged;
 	public event Action OnDataLoaded;
 	public event Action<int> OnPlayTimeSecondTick;
+	public event Action<int> OnSlotChanged;
+	public event Action<int, string> OnSaved; // slot, path
 
 	public float TotalPlayTimeSeconds => _totalPlayTimeSeconds;
 
@@ -77,7 +155,11 @@ public class GameDataManager : MonoBehaviour
 	private bool _hasCompletedIntroInMemory = false;
 	private bool _applySavedPlayerPositionWhenAvailable = false;
 	private Vector3 _savedPlayerPosition = Vector3.zero;
+	private Quaternion _savedPlayerRotation = Quaternion.identity;
 	private float _playTimeSecondAccumulator = 0f;
+	private float _autosaveTimer = 0f;
+	private bool _isDirty = false;
+	private string _lastSavePath = string.Empty;
 
 	private void Awake()
 	{
@@ -114,6 +196,19 @@ public class GameDataManager : MonoBehaviour
 			_playTimeSecondAccumulator -= 1f;
 			OnPlayTimeSecondTick?.Invoke(Mathf.FloorToInt(_totalPlayTimeSeconds));
 		}
+
+		if (enableAutosave)
+		{
+			_autosaveTimer += Time.unscaledDeltaTime;
+			if (_autosaveTimer >= Mathf.Max(1f, autosaveIntervalSeconds))
+			{
+				_autosaveTimer = 0f;
+				if (!autosaveOnlyWhenDirty || _isDirty)
+				{
+					SaveGame();
+				}
+			}
+		}
 	}
 
 	private void OnApplicationPause(bool pause)
@@ -139,13 +234,33 @@ public class GameDataManager : MonoBehaviour
 			{
 				playerTransform = interactor.transform;
 			}
+			else if (findPlayerByTag)
+			{
+				GameObject tagged = GameObject.FindGameObjectWithTag("Player");
+				if (tagged != null)
+				{
+					playerTransform = tagged.transform;
+				}
+			}
 		}
 
-		// Apply saved position if flagged and player exists
+		// Apply saved position/rotation if flagged and player exists
 		if (_applySavedPlayerPositionWhenAvailable && playerTransform != null)
 		{
-			playerTransform.position = _savedPlayerPosition;
+			if (spawnFromSavedPositionOnSceneLoad)
+			{
+				playerTransform.position = _savedPlayerPosition;
+			}
+			if (applySavedRotationOnSceneLoad)
+			{
+				playerTransform.rotation = _savedPlayerRotation;
+			}
 			_applySavedPlayerPositionWhenAvailable = false;
+		}
+
+		if (saveOnSceneChange)
+		{
+			SaveGame();
 		}
 	}
 
@@ -153,6 +268,7 @@ public class GameDataManager : MonoBehaviour
 	public void SetCurrentSaveSlot(int slot)
 	{
 		currentSaveSlot = Mathf.Clamp(slot, 1, 3);
+		OnSlotChanged?.Invoke(currentSaveSlot);
 	}
 
 	public void SelectSlotAndLoad(int slot, bool enterSceneFlow)
@@ -167,19 +283,24 @@ public class GameDataManager : MonoBehaviour
 
 	public void EnterSceneFlowBasedOnIntro()
 	{
-		if (_hasCompletedIntroInMemory)
+		switch (initialFlowMode)
 		{
-			if (!string.IsNullOrEmpty(gameSceneName))
-			{
-				LoadSceneSafe(gameSceneName);
-			}
-		}
-		else
-		{
-			if (!string.IsNullOrEmpty(introSceneName))
-			{
-				LoadSceneSafe(introSceneName);
-			}
+			case InitialFlowMode.ForceIntro:
+				if (!string.IsNullOrEmpty(introSceneName)) LoadSceneSafe(introSceneName);
+				break;
+			case InitialFlowMode.ForceGame:
+				if (!string.IsNullOrEmpty(gameSceneName)) LoadSceneSafe(gameSceneName);
+				break;
+			default:
+				if (_hasCompletedIntroInMemory)
+				{
+					if (!string.IsNullOrEmpty(gameSceneName)) LoadSceneSafe(gameSceneName);
+				}
+				else
+				{
+					if (!string.IsNullOrEmpty(introSceneName)) LoadSceneSafe(introSceneName);
+				}
+				break;
 		}
 	}
 
@@ -214,6 +335,7 @@ public class GameDataManager : MonoBehaviour
 		{
 			entry.amount = newAmount;
 			OnResourceChanged?.Invoke(resourceId, entry.amount);
+			if (markDirtyOnResourceChange) _isDirty = true;
 		}
 	}
 
@@ -223,6 +345,7 @@ public class GameDataManager : MonoBehaviour
 		ResourceEntry entry = FindOrCreateResource(resourceId);
 		entry.amount += delta;
 		OnResourceChanged?.Invoke(resourceId, entry.amount);
+		if (markDirtyOnResourceChange) _isDirty = true;
 	}
 
 	public void SavePlayerPositionFromCurrent()
@@ -230,7 +353,9 @@ public class GameDataManager : MonoBehaviour
 		if (playerTransform != null)
 		{
 			_savedPlayerPosition = playerTransform.position;
+			_savedPlayerRotation = playerTransform.rotation;
 			_applySavedPlayerPositionWhenAvailable = true; // Ensures next scene load re-applies if needed
+			_isDirty = true;
 		}
 	}
 
@@ -250,12 +375,33 @@ public class GameDataManager : MonoBehaviour
 			data.totalTimeSeconds = _totalPlayTimeSeconds;
 			Vector3 posToSave = playerTransform != null ? playerTransform.position : _savedPlayerPosition;
 			data.playerPosition = new SerializableVector3(posToSave);
+			Quaternion rotToSave = playerTransform != null ? playerTransform.rotation : _savedPlayerRotation;
+			data.playerRotation = new SerializableQuaternion(rotToSave);
 			data.hasCompletedIntro = _hasCompletedIntroInMemory;
+			data.sceneName = SceneManager.GetActiveScene().name;
+			data.version = Application.version;
+			data.productName = Application.productName;
+			data.companyName = Application.companyName;
+			DateTime now = DateTime.UtcNow;
+			data.savedAtIsoUtc = now.ToString("o");
+			data.savedAtUnixSeconds = (long)(now - new DateTime(1970,1,1,0,0,0,DateTimeKind.Utc)).TotalSeconds;
 
-			string json = JsonUtility.ToJson(data, true);
+			string json = JsonUtility.ToJson(data, prettyJson);
 			string fullPath = GetSaveFilePath(currentSaveSlot);
 			EnsureSavesDirectoryExists();
+			if (writeBackupFile && File.Exists(fullPath))
+			{
+				string backupPath = fullPath + ".bak";
+				File.Copy(fullPath, backupPath, true);
+			}
 			File.WriteAllText(fullPath, json);
+			_lastSavePath = fullPath;
+			_isDirty = false;
+			OnSaved?.Invoke(currentSaveSlot, fullPath);
+			if (logOnSave)
+			{
+				Debug.Log("Saved slot " + currentSaveSlot + " to: " + fullPath);
+			}
 		}
 		catch (Exception e)
 		{
@@ -274,6 +420,10 @@ public class GameDataManager : MonoBehaviour
 				string json = File.ReadAllText(fullPath);
 				SaveData loaded = JsonUtility.FromJson<SaveData>(json);
 				ApplyLoadedData(loaded);
+				if (logOnLoad)
+				{
+					Debug.Log("Loaded slot " + currentSaveSlot + " from: " + fullPath);
+				}
 			}
 			else
 			{
@@ -287,7 +437,15 @@ public class GameDataManager : MonoBehaviour
 				}
 				fresh.totalTimeSeconds = 0f;
 				fresh.playerPosition = new SerializableVector3(_savedPlayerPosition);
+				fresh.playerRotation = new SerializableQuaternion(_savedPlayerRotation);
 				fresh.hasCompletedIntro = false;
+				fresh.sceneName = SceneManager.GetActiveScene().name;
+				fresh.version = Application.version;
+				fresh.productName = Application.productName;
+				fresh.companyName = Application.companyName;
+				DateTime now = DateTime.UtcNow;
+				fresh.savedAtIsoUtc = now.ToString("o");
+				fresh.savedAtUnixSeconds = (long)(now - new DateTime(1970,1,1,0,0,0,DateTimeKind.Utc)).TotalSeconds;
 				ApplyLoadedData(fresh);
 				SaveGame();
 			}
@@ -347,6 +505,7 @@ public class GameDataManager : MonoBehaviour
 		_totalPlayTimeSeconds = Mathf.Max(0f, loaded.totalTimeSeconds);
 		_hasCompletedIntroInMemory = loaded.hasCompletedIntro;
 		_savedPlayerPosition = loaded.playerPosition != null ? loaded.playerPosition.ToVector3() : Vector3.zero;
+		_savedPlayerRotation = loaded.playerRotation != null ? loaded.playerRotation.ToQuaternion() : Quaternion.identity;
 		_applySavedPlayerPositionWhenAvailable = true;
 
 		// Notify resource listeners
@@ -358,6 +517,7 @@ public class GameDataManager : MonoBehaviour
 				OnResourceChanged?.Invoke(entry.id, entry.amount);
 			}
 		}
+		_isDirty = false;
 	}
 
 	private ResourceEntry FindOrCreateResource(string resourceId)
@@ -407,6 +567,93 @@ public class GameDataManager : MonoBehaviour
 		{
 			Debug.LogError("Failed to load scene '" + sceneName + "': " + e);
 		}
+	}
+
+	// Public helpers and management
+	public string GetSavesDirectoryPath() { return GetSavesDirectory(); }
+	public string GetCurrentSaveFilePath() { return GetSaveFilePath(currentSaveSlot); }
+	public string GetSaveFilePathForSlot(int slot) { return GetSaveFilePath(slot); }
+
+	public SaveSlotSummary GetSlotSummary(int slot)
+	{
+		SaveSlotSummary summary = new SaveSlotSummary();
+		summary.slotIndex = Mathf.Clamp(slot, 1, 3);
+		string path = GetSaveFilePath(summary.slotIndex);
+		summary.saveExists = File.Exists(path);
+		if (summary.saveExists)
+		{
+			try
+			{
+				string json = File.ReadAllText(path);
+				SaveData d = JsonUtility.FromJson<SaveData>(json);
+				summary.version = d.version;
+				summary.productName = d.productName;
+				summary.companyName = d.companyName;
+				summary.sceneName = d.sceneName;
+				summary.savedAtIsoUtc = d.savedAtIsoUtc;
+				summary.savedAtUnixSeconds = d.savedAtUnixSeconds;
+				summary.totalTimeSeconds = d.totalTimeSeconds;
+				summary.hasCompletedIntro = d.hasCompletedIntro;
+				summary.playerPosition = d.playerPosition != null ? d.playerPosition.ToVector3() : Vector3.zero;
+			}
+			catch (Exception e)
+			{
+				Debug.LogWarning("Failed to read summary for slot " + slot + ": " + e);
+			}
+		}
+		else
+		{
+			summary.version = Application.version;
+			summary.productName = Application.productName;
+			summary.companyName = Application.companyName;
+			summary.sceneName = string.Empty;
+			summary.savedAtIsoUtc = string.Empty;
+			summary.savedAtUnixSeconds = 0;
+			summary.totalTimeSeconds = 0f;
+			summary.hasCompletedIntro = false;
+			summary.playerPosition = Vector3.zero;
+		}
+		return summary;
+	}
+
+	public void ResetResourcesToDefault()
+	{
+		for (int i = 0; i < resources.Count; i++)
+		{
+			ResourceEntry r = resources[i];
+			if (r != null) r.amount = 0;
+		}
+		_isDirty = true;
+	}
+
+	public void ClearSlotFile(int slot)
+	{
+		int clamped = Mathf.Clamp(slot, 1, 3);
+		string path = GetSaveFilePath(clamped);
+		try
+		{
+			if (File.Exists(path)) File.Delete(path);
+		}
+		catch (Exception e)
+		{
+			Debug.LogError("Failed to delete slot " + clamped + ": " + e);
+		}
+	}
+
+	public void StartNewGameOnCurrentSlot()
+	{
+		_hasCompletedIntroInMemory = false;
+		_totalPlayTimeSeconds = 0f;
+		_savedPlayerPosition = Vector3.zero;
+		_savedPlayerRotation = Quaternion.identity;
+		// Keep resource definitions, set amounts to zero
+		for (int i = 0; i < resources.Count; i++)
+		{
+			ResourceEntry r = resources[i];
+			if (r != null) r.amount = 0;
+		}
+		_isDirty = true;
+		SaveGame();
 	}
 }
 

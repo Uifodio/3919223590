@@ -13,6 +13,11 @@ public class Collectible : MonoBehaviour
 	public float magnetAcceleration = 25f;
 	public float magnetMaxSpeed = 10f;
 	public float collectDistance = 0.75f;
+	[Tooltip("If true, the object will ignore physics/gravity while floating/magnetizing.")]
+	public bool kinematicWhileActive = true;
+	[Tooltip("If true, the collectible will self-destroy after lifetimeSeconds if not collected.")]
+	public bool enableLifetime = false;
+	public float lifetimeSeconds = 20f;
 
 	[Header("Resource Payload")]
 	public string resourceId = "Wood";
@@ -21,13 +26,17 @@ public class Collectible : MonoBehaviour
 	[Header("FX")]
 	public AudioClip collectSfx;
 	public ParticleSystem collectParticlesPrefab;
+	public bool inheritSfxVolumeFromListener = false;
+	[Range(0f,1f)] public float sfxVolume = 1f;
 
 	private Vector3 _startPosition;
 	private float _sineTime;
 	private bool _magnetEnabled;
 	private float _currentMagnetSpeed;
 	private Transform _targetPlayer;
-\tprivate Coroutine _magnetDelayRoutine;
+	private Coroutine _magnetDelayRoutine;
+	private float _lifeTimer;
+	private Rigidbody _rb;
 
 	private void OnEnable()
 	{
@@ -37,6 +46,12 @@ public class Collectible : MonoBehaviour
 		_magnetEnabled = false;
 		_targetPlayer = null;
 		_magnetDelayRoutine = StartCoroutine(EnableMagnetAfterDelay());
+		_lifeTimer = 0f;
+		_rb = GetComponent<Rigidbody>();
+		if (_rb != null && kinematicWhileActive)
+		{
+			_rb.isKinematic = true;
+		}
 	}
 
 	private IEnumerator EnableMagnetAfterDelay()
@@ -60,6 +75,15 @@ public class Collectible : MonoBehaviour
 		else
 		{
 			AnimateFloat();
+		}
+
+		if (enableLifetime)
+		{
+			_lifeTimer += Time.deltaTime;
+			if (_lifeTimer >= Mathf.Max(0.1f, lifetimeSeconds))
+			{
+				Destroy(gameObject);
+			}
 		}
 	}
 
@@ -130,10 +154,14 @@ public class Collectible : MonoBehaviour
 
 		if (collectSfx != null)
 		{
-			AudioSource.PlayClipAtPoint(collectSfx, transform.position);
+			float vol = sfxVolume;
+			if (inheritSfxVolumeFromListener && AudioListener.volume > 0f)
+			{
+				vol *= AudioListener.volume;
+			}
+			AudioSource.PlayClipAtPoint(collectSfx, transform.position, Mathf.Clamp01(vol));
 		}
 
 		Destroy(gameObject);
 	}
 }
-
