@@ -12,7 +12,9 @@ namespace UltimateFloatingJoystick
     /// glow/fade visuals, and an instructional placeholder.
     /// </summary>
     [DisallowMultipleComponent]
-    public class FloatingJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IDragHandler
+    [ExecuteAlways]
+    [AddComponentMenu("UI/Ultimate Floating Joystick/Floating Joystick")]
+    public class FloatingJoystick : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IDragHandler, IJoystick
     {
         public enum ActivationRestriction
         {
@@ -115,6 +117,9 @@ namespace UltimateFloatingJoystick
         [SerializeField] private float placeholderFadeSpeed = 8f;
         [Tooltip("If true, show the placeholder again after releasing the joystick.")]
         [SerializeField] private bool placeholderReappearOnRelease = true;
+        [Tooltip("Delay before placeholder reappears after release (seconds).")]
+        [Min(0f)]
+        [SerializeField] private float placeholderReappearDelay = 0f;
 
         // Runtime state
         private Canvas _canvas;
@@ -141,6 +146,7 @@ namespace UltimateFloatingJoystick
         private int _activePointerId = -1;
         private bool _isPressed;
         private Coroutine _placeholderTimerRoutine;
+        private Coroutine _placeholderReappearRoutine;
 
         public float Horizontal => _currentInput.x;
         public float Vertical => _currentInput.y;
@@ -149,6 +155,10 @@ namespace UltimateFloatingJoystick
         public float AngleDegrees => Mathf.Atan2(_currentInput.y, _currentInput.x) * Mathf.Rad2Deg;
         public static FloatingJoystick ActiveInstance { get; private set; }
         public bool IsPressed => _isPressed;
+
+        // Expose current configuration for adapters
+        public float HandleRangePixels => handleRange;
+        public float DeadZonePixels => deadZoneRadius;
 
         private void Awake()
         {
@@ -202,11 +212,10 @@ namespace UltimateFloatingJoystick
                 }
             }
 
-            // Start hidden until first press, unless hideOnRelease is false (then we can start visible if desired)
+            // Initialize visuals (runtime vs editor preview handled below)
             _targetJoystickAlpha = hideOnRelease ? 0f : 1f;
             if (joystickCanvasGroup != null)
             {
-                joystickCanvasGroup.alpha = _targetJoystickAlpha;
                 joystickCanvasGroup.interactable = true;
                 joystickCanvasGroup.blocksRaycasts = false; // do not block screen touches
             }
@@ -250,6 +259,11 @@ namespace UltimateFloatingJoystick
                 SetPlaceholderVisible(false, immediate: true);
                 SetJoystickVisible(true, immediate: true);
             }
+
+            if (!Application.isPlaying)
+            {
+                UpdateEditorPreviewVisuals();
+            }
         }
 
         private void OnDisable()
@@ -258,11 +272,17 @@ namespace UltimateFloatingJoystick
             _activePointerId = -1;
             _isPressed = false;
             StopPlaceholderTimer();
+            StopPlaceholderReappearRoutine();
             if (ActiveInstance == this) ActiveInstance = null;
         }
 
         private void Update()
         {
+            if (!Application.isPlaying)
+            {
+                UpdateEditorPreviewVisuals();
+                return;
+            }
             // Smooth handle movement
             if (_handleRect != null)
             {
@@ -364,6 +384,7 @@ namespace UltimateFloatingJoystick
             _activePointerId = eventData.pointerId;
             _isPressed = true;
             onPress?.Invoke();
+            StopPlaceholderReappearRoutine();
 
             Vector2 localPoint;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
@@ -454,19 +475,7 @@ namespace UltimateFloatingJoystick
             if (hideOnRelease)
             {
                 SetJoystickVisible(false, immediate: false);
-                if (placeholderEnabled && placeholderReappearOnRelease)
-                {
-                    // Return placeholder to its original position
-                    if (placeholder != null)
-                    {
-                        placeholder.anchoredPosition = _containerInitialAnchoredPos;
-                    }
-                    SetPlaceholderVisible(true, immediate: false);
-                    if (placeholderTimedVisibility)
-                    {
-                        StartPlaceholderTimer();
-                    }
-                }
+                SchedulePlaceholderReappear();
             }
             onRelease?.Invoke();
         }
@@ -499,6 +508,60 @@ namespace UltimateFloatingJoystick
                 placeholderCanvasGroup.alpha = _targetPlaceholderAlpha;
                 placeholderCanvasGroup.gameObject.SetActive(visible);
             }
+        }
+
+        private void SchedulePlaceholderReappear()
+        {
+            StopPlaceholderReappearRoutine();
+            if (!(placeholderEnabled && placeholderReappearOnRelease))
+            {
+                return;
+            }
+            if (placeholder != null)
+            {
+                placeholder.anchoredPosition = _containerInitialAnchoredPos;
+            }
+            if (placeholderReappearDelay <= 0f)
+            {
+                SetPlaceholderVisible(true, immediate: false);
+                if (placeholderTimedVisibility)
+                {
+                    StartPlaceholderTimer();
+                }
+            }
+            else
+            {
+                _placeholderReappearRoutine = StartCoroutine(PlaceholderReappearCoroutine());
+            }
+        }
+
+        private void StopPlaceholderReappearRoutine()
+        {
+            if (_placeholderReappearRoutine != null)
+            {
+                StopCoroutine(_placeholderReappearRoutine);
+                _placeholderReappearRoutine = null;
+            }
+        }
+
+        private IEnumerator PlaceholderReappearCoroutine()
+        {
+            float t = 0f;
+            while (t < placeholderReappearDelay)
+            {
+                if (_isPressed)
+                {
+                    yield break;
+                }
+                t += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            SetPlaceholderVisible(true, immediate: false);
+            if (placeholderTimedVisibility)
+            {
+                StartPlaceholderTimer();
+            }
+            _placeholderReappearRoutine = null;
         }
 
         private void StartPlaceholderTimer()
@@ -617,6 +680,66 @@ namespace UltimateFloatingJoystick
             }
             return input;
         }
+
+#if UNITY_EDITOR
+        private enum EditorPreviewMode
+        {
+            Auto = 0,
+            ShowJoystick = 1,
+            ShowPlaceholder = 2,
+            Hidden = 3
+        }
+
+        [Header("Editor Preview")]
+        [SerializeField] private bool editorPreview = true;
+        [SerializeField] private EditorPreviewMode editorPreviewMode = EditorPreviewMode.Auto;
+
+        private void OnValidate()
+        {
+            if (!Application.isPlaying)
+            {
+                UpdateEditorPreviewVisuals();
+            }
+        }
+
+        private void UpdateEditorPreviewVisuals()
+        {
+            if (!editorPreview)
+            {
+                if (joystickCanvasGroup != null) joystickCanvasGroup.alpha = 0f;
+                if (placeholderCanvasGroup != null) placeholderCanvasGroup.alpha = 0f;
+                return;
+            }
+
+            bool showJoy;
+            bool showPh;
+            switch (editorPreviewMode)
+            {
+                case EditorPreviewMode.ShowJoystick:
+                    showJoy = true; showPh = false; break;
+                case EditorPreviewMode.ShowPlaceholder:
+                    showJoy = false; showPh = true; break;
+                case EditorPreviewMode.Hidden:
+                    showJoy = false; showPh = false; break;
+                default:
+                    showJoy = !hideOnRelease; // if we show at runtime, preview joystick; else preview placeholder
+                    showPh = hideOnRelease && placeholderEnabled;
+                    break;
+            }
+
+            if (joystickCanvasGroup != null)
+            {
+                joystickCanvasGroup.alpha = showJoy ? 1f : 0f;
+            }
+            if (placeholderCanvasGroup != null)
+            {
+                placeholderCanvasGroup.alpha = showPh ? 1f : 0f;
+                placeholderCanvasGroup.gameObject.SetActive(showPh);
+            }
+        }
+#else
+        private void UpdateEditorPreviewVisuals() { }
+#endif
     }
 }
 

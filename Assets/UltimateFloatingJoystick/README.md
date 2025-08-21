@@ -7,7 +7,7 @@ Drag-and-drop, professional floating joystick for Unity UI. Appears at first tou
 1. Open your Unity project.
 2. Copy the `Assets/UltimateFloatingJoystick` folder into your project's `Assets/`.
 3. From the Unity menu: GameObject → UI → Ultimate Floating Joystick. This creates a Canvas (if needed), EventSystem, and the joystick rig.
-4. Enter Play: touch/click anywhere to spawn the joystick at your finger. Release to hide (configurable).
+4. Enter Play: touch/click anywhere to spawn the joystick at your finger. Release to hide (configurable). In the editor, visuals are previewed so you can style without entering Play.
 
 ## Structure
 
@@ -16,6 +16,7 @@ Drag-and-drop, professional floating joystick for Unity UI. Appears at first tou
     - Background (Image)
     - Handle (Image)
   - Placeholder (CanvasGroup)
+ - Joystick (Adapter for compatibility; optional)
 
 ## Inspector Parameters
 
@@ -31,6 +32,7 @@ Drag-and-drop, professional floating joystick for Unity UI. Appears at first tou
 - Activation Restriction: FullScreen, LeftHalf, RightHalf, TopHalf, BottomHalf.
 - Glow: Enable glow on press, with intensity and fade speed.
 - Placeholder: Enable, timed visibility, duration, fade speed, and reappear on release.
+- Placeholder Reappear Delay: Delay before the placeholder shows after release.
 - Keyboard Fallback: Use Horizontal/Vertical axes when not touching.
 - Images: Assign your own sprites for Background and Handle.
 
@@ -40,6 +42,7 @@ Drag-and-drop, professional floating joystick for Unity UI. Appears at first tou
 - Static: `FloatingJoystick.ActiveInstance`.
 - Events: `onPress`, `onRelease`, `onValueChanged(Vector2)`.
 - Methods: `SetSprites(Sprite background, Sprite handle)`, `SetRange(float)`, `SetDeadZone(float)`, `SetHideOnRelease(bool)`, `SetAxisOptions(AxisOptions)`, `SetActivationRestriction(ActivationRestriction)`.
+ - Interfaces: `IJoystick` for generic joystick consumers; `Joystick` adapter component forwards to `FloatingJoystick`.
 
 ## Notes
 

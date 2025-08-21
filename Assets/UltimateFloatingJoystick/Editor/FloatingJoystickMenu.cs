@@ -54,7 +54,7 @@ namespace UltimateFloatingJoystick.Editor
             containerRect.sizeDelta = new Vector2(160, 160);
             containerRect.anchoredPosition = new Vector2(220, 220);
             CanvasGroup containerCg = container.GetComponent<CanvasGroup>();
-            containerCg.alpha = 0f;
+            containerCg.alpha = 1f; // Visible in editor for easy styling
 
             // Background
             GameObject bg = new GameObject("Background", typeof(RectTransform), typeof(Image));
@@ -92,7 +92,7 @@ namespace UltimateFloatingJoystick.Editor
             phRect.sizeDelta = new Vector2(200, 60);
             phRect.anchoredPosition = containerRect.anchoredPosition;
             CanvasGroup phCg = placeholder.GetComponent<CanvasGroup>();
-            phCg.alpha = 1f;
+            phCg.alpha = 0f; // Hidden by default in editor to avoid overlap
 
             // Placeholder background (subtle circle)
             GameObject phBg = new GameObject("Circle", typeof(RectTransform), typeof(Image));
@@ -174,6 +174,22 @@ namespace UltimateFloatingJoystick.Editor
             joystick.GetType().GetField("handleImage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(joystick, handleImage);
             joystick.GetType().GetField("placeholder", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(joystick, phRect);
             joystick.GetType().GetField("placeholderCanvasGroup", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(joystick, phCg);
+
+            // Try to add compatibility Joystick component if available and not already present
+            System.Type compatJoystickType = null;
+            foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var t = asm.GetType("Joystick");
+                if (t != null && t != typeof(UltimateFloatingJoystick.FloatingJoystick))
+                {
+                    compatJoystickType = t;
+                    break;
+                }
+            }
+            if (compatJoystickType != null && root.GetComponent(compatJoystickType) == null)
+            {
+                root.AddComponent(compatJoystickType);
+            }
 
             Selection.activeGameObject = root;
         }
