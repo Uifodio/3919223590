@@ -66,7 +66,10 @@ namespace UltimateFloatingJoystick.Editor
             bgRect.sizeDelta = new Vector2(160, 160);
             bgRect.anchoredPosition = Vector2.zero;
             Image bgImage = bg.GetComponent<Image>();
-            bgImage.color = new Color(1f, 1f, 1f, 0.5f);
+            var uiSprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            bgImage.sprite = uiSprite;
+            bgImage.type = Image.Type.Sliced;
+            bgImage.color = new Color(1f, 1f, 1f, 0.45f);
             bgImage.raycastTarget = false;
 
             // Handle
@@ -79,6 +82,9 @@ namespace UltimateFloatingJoystick.Editor
             handleRect.sizeDelta = new Vector2(72, 72);
             handleRect.anchoredPosition = Vector2.zero;
             Image handleImage = handle.GetComponent<Image>();
+            var knob = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+            handleImage.sprite = knob;
+            handleImage.type = Image.Type.Simple;
             handleImage.color = Color.white;
             handleImage.raycastTarget = false;
 
@@ -174,6 +180,16 @@ namespace UltimateFloatingJoystick.Editor
             joystick.GetType().GetField("handleImage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(joystick, handleImage);
             joystick.GetType().GetField("placeholder", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(joystick, phRect);
             joystick.GetType().GetField("placeholderCanvasGroup", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(joystick, phCg);
+
+            // Ensure editor preview shows joystick for editing size
+            var editorPreviewField = joystick.GetType().GetField("editorPreview", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var editorPreviewModeField = joystick.GetType().GetField("editorPreviewMode", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            editorPreviewField?.SetValue(joystick, true);
+            if (editorPreviewModeField != null)
+            {
+                // enum is private; set by underlying int
+                editorPreviewModeField.SetValue(joystick, System.Enum.ToObject(editorPreviewModeField.FieldType, 1)); // ShowJoystick
+            }
 
             // Try to add compatibility Joystick component if available and not already present
             System.Type compatJoystickType = null;

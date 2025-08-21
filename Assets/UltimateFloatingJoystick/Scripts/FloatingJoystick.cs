@@ -692,7 +692,7 @@ namespace UltimateFloatingJoystick
 
         [Header("Editor Preview")]
         [SerializeField] private bool editorPreview = true;
-        [SerializeField] private EditorPreviewMode editorPreviewMode = EditorPreviewMode.Auto;
+        [SerializeField] private EditorPreviewMode editorPreviewMode = EditorPreviewMode.ShowJoystick;
 
         private void OnValidate()
         {
@@ -730,11 +730,29 @@ namespace UltimateFloatingJoystick
             if (joystickCanvasGroup != null)
             {
                 joystickCanvasGroup.alpha = showJoy ? 1f : 0f;
+                if (joystickCanvasGroup != null && joystickCanvasGroup.gameObject != null)
+                {
+                    if (!joystickCanvasGroup.gameObject.activeSelf) joystickCanvasGroup.gameObject.SetActive(true);
+                }
             }
             if (placeholderCanvasGroup != null)
             {
                 placeholderCanvasGroup.alpha = showPh ? 1f : 0f;
                 placeholderCanvasGroup.gameObject.SetActive(showPh);
+            }
+
+            // Ensure default sprites in editor so visuals are visible for sizing
+            if (backgroundImage != null && backgroundImage.sprite == null)
+            {
+                var s = UnityEditor.AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+                backgroundImage.sprite = s;
+                backgroundImage.type = Image.Type.Sliced;
+            }
+            if (handleImage != null && handleImage.sprite == null)
+            {
+                var s = UnityEditor.AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+                handleImage.sprite = s;
+                handleImage.type = Image.Type.Simple;
             }
         }
 #else
