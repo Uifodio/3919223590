@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace UltimateFloatingJoystick
@@ -17,7 +18,23 @@ namespace UltimateFloatingJoystick
         {
             FullScreen = 0,
             LeftHalf = 1,
-            RightHalf = 2
+            RightHalf = 2,
+            TopHalf = 3,
+            BottomHalf = 4
+        }
+
+        public enum AxisOptions
+        {
+            Both = 0,
+            HorizontalOnly = 1,
+            VerticalOnly = 2
+        }
+
+        public enum SnapMode
+        {
+            None = 0,
+            Four = 4,
+            Eight = 8
         }
 
         [Header("Hierarchy References")]
@@ -44,6 +61,12 @@ namespace UltimateFloatingJoystick
         [Min(0f)]
         [SerializeField] private float handleSmoothTime = 0.06f;
 
+        [Header("Axes & Snapping")]
+        [Tooltip("Restrict axes for input output.")]
+        [SerializeField] private AxisOptions axisOptions = AxisOptions.Both;
+        [Tooltip("Optional angular snapping: None, 4-way, or 8-way.")]
+        [SerializeField] private SnapMode snapMode = SnapMode.None;
+
         [Header("Behavior")]
         [Tooltip("If true, joystick visuals fade out when the finger is lifted.")]
         [SerializeField] private bool hideOnRelease = true;
@@ -52,6 +75,19 @@ namespace UltimateFloatingJoystick
         [SerializeField] private float joystickFadeSpeed = 10f;
         [Tooltip("Where touches are allowed to start the joystick.")]
         [SerializeField] private ActivationRestriction activationRestriction = ActivationRestriction.FullScreen;
+
+        [Header("Output Smoothing & Events")]
+        [Tooltip("Additional smoothing for the output Direction values. 0 to disable.")]
+        [Min(0f)]
+        [SerializeField] private float outputSmoothTime = 0f;
+        [Tooltip("Enable keyboard/controller fallback when not touching (useful for desktop/editor). Uses Horizontal/Vertical axes.")]
+        [SerializeField] private bool editorKeyboardFallback = true;
+        [Space]
+        [SerializeField] private UnityEvent onPress = new UnityEvent();
+        [SerializeField] private UnityEvent onRelease = new UnityEvent();
+        [System.Serializable]
+        public class Vector2Event : UnityEvent<Vector2> {}
+        [SerializeField] private Vector2Event onValueChanged = new Vector2Event();
 
         [Header("Glow Visuals")]
         [Tooltip("If true, handle and background glow when active with smooth fade.")]
@@ -90,7 +126,10 @@ namespace UltimateFloatingJoystick
         private Vector2 _containerInitialAnchoredPos;
         private Vector2 _handleTargetLocalPos;
         private Vector2 _handleSmoothVelocity;
-        private Vector2 _currentInput;
+        private Vector2 _currentInput; // output (optionally smoothed)
+        private Vector2 _rawInput; // raw (pre-smoothing) from pointer/keyboard
+        private Vector2 _outputSmoothVelocity;
+        private Vector2 _lastSentInput;
         private Vector2 _pressLocalPoint;
 
         private Color _initialBackgroundColor;
@@ -106,6 +145,9 @@ namespace UltimateFloatingJoystick
         public float Horizontal => _currentInput.x;
         public float Vertical => _currentInput.y;
         public Vector2 Direction => _currentInput;
+        public float Magnitude => _currentInput.magnitude;
+        public float AngleDegrees => Mathf.Atan2(_currentInput.y, _currentInput.x) * Mathf.Rad2Deg;
+        public static FloatingJoystick ActiveInstance { get; private set; }
         public bool IsPressed => _isPressed;
 
         private void Awake()
@@ -183,11 +225,15 @@ namespace UltimateFloatingJoystick
 
         private void OnEnable()
         {
+            if (ActiveInstance == null) ActiveInstance = this;
             _isPressed = false;
             _activePointerId = -1;
             _currentInput = Vector2.zero;
+            _rawInput = Vector2.zero;
             _handleTargetLocalPos = Vector2.zero;
             _handleSmoothVelocity = Vector2.zero;
+            _outputSmoothVelocity = Vector2.zero;
+            _lastSentInput = Vector2.zero;
 
             if (hideOnRelease)
             {
@@ -212,6 +258,7 @@ namespace UltimateFloatingJoystick
             _activePointerId = -1;
             _isPressed = false;
             StopPlaceholderTimer();
+            if (ActiveInstance == this) ActiveInstance = null;
         }
 
         private void Update()
@@ -231,6 +278,30 @@ namespace UltimateFloatingJoystick
                 {
                     _handleRect.anchoredPosition = _handleTargetLocalPos;
                 }
+            }
+
+            // Output smoothing (and keyboard fallback when not pressed)
+            if (!_isPressed && editorKeyboardFallback)
+            {
+                Vector2 kbd = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+                if (kbd.sqrMagnitude > 1f) kbd.Normalize();
+                _rawInput = ApplyAxisAndSnapping(kbd);
+            }
+
+            if (outputSmoothTime > 0f)
+            {
+                _currentInput = Vector2.SmoothDamp(_currentInput, _rawInput, ref _outputSmoothVelocity, outputSmoothTime);
+            }
+            else
+            {
+                _currentInput = _rawInput;
+            }
+
+            // Send change event if value updated
+            if ((_currentInput - _lastSentInput).sqrMagnitude > 0.000001f)
+            {
+                onValueChanged?.Invoke(_currentInput);
+                _lastSentInput = _currentInput;
             }
 
             // Fade joystick
@@ -292,6 +363,7 @@ namespace UltimateFloatingJoystick
 
             _activePointerId = eventData.pointerId;
             _isPressed = true;
+            onPress?.Invoke();
 
             Vector2 localPoint;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
@@ -312,7 +384,7 @@ namespace UltimateFloatingJoystick
             }
 
             _pressLocalPoint = localPoint;
-            _currentInput = Vector2.zero;
+            _rawInput = Vector2.zero;
 
             // Visuals
             SetJoystickVisible(true, immediate: false);
@@ -363,7 +435,8 @@ namespace UltimateFloatingJoystick
                 input = Vector2.zero;
             }
 
-            _currentInput = input;
+            input = ApplyAxisAndSnapping(input);
+            _rawInput = input;
         }
 
         public void OnPointerUp(PointerEventData eventData)
@@ -395,11 +468,13 @@ namespace UltimateFloatingJoystick
                     }
                 }
             }
+            onRelease?.Invoke();
         }
 
         private void ResetInputAndHandle()
         {
             _currentInput = Vector2.zero;
+            _rawInput = Vector2.zero;
             _handleTargetLocalPos = Vector2.zero;
         }
 
@@ -469,6 +544,10 @@ namespace UltimateFloatingJoystick
                     return screenPosition.x <= (Screen.width * 0.5f);
                 case ActivationRestriction.RightHalf:
                     return screenPosition.x >= (Screen.width * 0.5f);
+                case ActivationRestriction.TopHalf:
+                    return screenPosition.y >= (Screen.height * 0.5f);
+                case ActivationRestriction.BottomHalf:
+                    return screenPosition.y <= (Screen.height * 0.5f);
                 default:
                     return true;
             }
@@ -502,6 +581,41 @@ namespace UltimateFloatingJoystick
         public void SetHideOnRelease(bool hidden)
         {
             hideOnRelease = hidden;
+        }
+
+        public void SetAxisOptions(AxisOptions options)
+        {
+            axisOptions = options;
+        }
+
+        public void SetActivationRestriction(ActivationRestriction restriction)
+        {
+            activationRestriction = restriction;
+        }
+
+        private Vector2 ApplyAxisAndSnapping(Vector2 input)
+        {
+            switch (axisOptions)
+            {
+                case AxisOptions.HorizontalOnly:
+                    input.y = 0f;
+                    break;
+                case AxisOptions.VerticalOnly:
+                    input.x = 0f;
+                    break;
+            }
+
+            if (snapMode != SnapMode.None && input.sqrMagnitude > 0f)
+            {
+                float angle = Mathf.Atan2(input.y, input.x) * Mathf.Rad2Deg;
+                int slices = (int)snapMode; // 4 or 8
+                float step = 360f / slices;
+                float snappedAngle = Mathf.Round(angle / step) * step;
+                float mag = input.magnitude;
+                float rad = snappedAngle * Mathf.Deg2Rad;
+                input = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * mag;
+            }
+            return input;
         }
     }
 }

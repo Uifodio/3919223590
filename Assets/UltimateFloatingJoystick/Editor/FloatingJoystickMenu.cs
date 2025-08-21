@@ -105,20 +105,65 @@ namespace UltimateFloatingJoystick.Editor
             Image phBgImage = phBg.GetComponent<Image>();
             phBgImage.color = new Color(1f, 1f, 1f, 0.08f);
 
-            // Placeholder text
-            GameObject phTextGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
+            // Placeholder text (prefers TMP if available)
+            GameObject phTextGo = new GameObject("Text", typeof(RectTransform));
             GameObjectUtility.SetParentAndAlign(phTextGo, placeholder);
             RectTransform phTextRect = phTextGo.GetComponent<RectTransform>();
             phTextRect.anchorMin = new Vector2(0.5f, 0.5f);
             phTextRect.anchorMax = new Vector2(0.5f, 0.5f);
             phTextRect.sizeDelta = new Vector2(200, 60);
             phTextRect.anchoredPosition = Vector2.zero;
-            Text phText = phTextGo.GetComponent<Text>();
-            phText.text = "Touch to Move";
-            phText.alignment = TextAnchor.MiddleCenter;
-            phText.color = new Color(1f, 1f, 1f, 0.6f);
-            phText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            phText.raycastTarget = false;
+
+            System.Type tmpType = null;
+            foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                tmpType = asm.GetType("TMPro.TextMeshProUGUI");
+                if (tmpType != null) break;
+            }
+            if (tmpType != null)
+            {
+                var tmp = phTextGo.AddComponent(tmpType);
+                // tmp.text = "Touch to Move";
+                tmpType.GetProperty("text")?.SetValue(tmp, "Touch to Move");
+                // tmp.alignment = TextAlignmentOptions.Center;
+                var alignProp = tmpType.GetProperty("alignment");
+                var alignEnum = alignProp?.PropertyType;
+                if (alignProp != null && alignEnum != null)
+                {
+                    var centerValue = System.Enum.Parse(alignEnum, "Center");
+                    alignProp.SetValue(tmp, centerValue);
+                }
+                // tmp.color
+                var colorProp = tmpType.GetProperty("color");
+                if (colorProp != null)
+                {
+                    colorProp.SetValue(tmp, new Color(1f, 1f, 1f, 0.8f));
+                }
+                // tmp.raycastTarget = false
+                var rgProp = tmpType.BaseType?.BaseType?.GetProperty("raycastTarget");
+                rgProp?.SetValue(tmp, false);
+            }
+            else
+            {
+                var phText = phTextGo.AddComponent<Text>();
+                phText.text = "Touch to Move";
+                phText.alignment = TextAnchor.MiddleCenter;
+                phText.color = new Color(1f, 1f, 1f, 0.6f);
+                // Fix for Unity 6: Arial.ttf is deprecated. Use LegacyRuntime.ttf if available.
+                Font fallbackFont = null;
+                try
+                {
+                    fallbackFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                }
+                catch {}
+                if (fallbackFont == null)
+                {
+                    // Last resort: default to system font via new Font("Arial") which Unity resolves if present
+                    fallbackFont = new Font("Arial");
+                }
+                phText.font = fallbackFont;
+                phText.raycastTarget = false;
+            }
 
             // Wire up component
             var joystick = root.GetComponent<UltimateFloatingJoystick.FloatingJoystick>();
