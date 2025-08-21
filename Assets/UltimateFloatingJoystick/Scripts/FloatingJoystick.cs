@@ -691,8 +691,8 @@ namespace UltimateFloatingJoystick
         }
 
         [Header("Editor Preview")]
-        [SerializeField] private bool editorPreview = true;
-        [SerializeField] private EditorPreviewMode editorPreviewMode = EditorPreviewMode.ShowJoystick;
+        [SerializeField] private bool editorPreview = false;
+        [SerializeField] private EditorPreviewMode editorPreviewMode = EditorPreviewMode.Auto;
 
         private void OnValidate()
         {
