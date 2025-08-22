@@ -77,6 +77,18 @@ namespace Game.Managers
 		[Min(1)]
 		[SerializeField] private int defaultDismissMinutes = 5;
 
+		[Header("Reload Safety")]
+		[SerializeField] private bool onlyReloadOncePerSession = true;
+		[Min(0f)] [SerializeField] private float reloadDelaySeconds = 0.15f;
+		[Min(0f)] [SerializeField] private float reloadCooldownSeconds = 5f;
+		private static bool _reloadedThisSession = false;
+		private static double _lastReloadUnix = 0;
+
+		[Header("Testing / Overrides")]
+		[SerializeField] private bool testingForceMismatch = false;
+		[SerializeField] private bool testingForcePanelOnStart = false;
+		[SerializeField] private bool testingBypassDismiss = false;
+
 		[Header("UI - Update Panel")]
 		[Tooltip("Prefab or scene object to show when an update is available. This will be moved under the manager and persist.")]
 		[SerializeField] private GameObject updatePanelPrefab;
@@ -86,6 +98,10 @@ namespace Game.Managers
 		[SerializeField] private Button openUpdateLinkButton;
 		[SerializeField] private Button dismissForMinutesButton;
 		[SerializeField] private Button reloadPageButton;
+
+		[Header("Auto UI Fallbacks")]
+		[SerializeField] private bool autoCreateDefaultPanelIfMissing = true;
+		[SerializeField] private bool autoCreateToastIfMissing = true;
 
 		[Header("Panel Fade")]
 		[SerializeField] private bool usePanelFade = true;
@@ -147,6 +163,11 @@ namespace Game.Managers
 			Instance = this;
 			if (makePersistent)
 			{
+				if (transform.parent != null)
+				{
+					LogVerbose("Detaching manager from parent to satisfy DontDestroyOnLoad root requirement.");
+					transform.SetParent(null, false);
+				}
 				LogVerbose("Marking manager as DontDestroyOnLoad.");
 				DontDestroyOnLoad(gameObject);
 			}
@@ -185,6 +206,13 @@ namespace Game.Managers
 			{
 				LogVerbose("Initial check triggered on Start().");
 				yield return CheckForUpdatesRoutine(false);
+			}
+
+			if (testingForcePanelOnStart)
+			{
+				LogWarn("Testing: forcing panel to show on start.");
+				_lastPayload = new UpdatePayload { updateMessage = "Testing: Forced panel", updateLink = Application.absoluteURL };
+				ShowUpdatePanel(_lastPayload);
 			}
 		}
 
@@ -310,8 +338,8 @@ namespace Game.Managers
 				_lastPayload = payload;
 				LogInfo($"Remote updateCode='{payload.updateCode}', latestVersion='{payload.latestVersion}', forceUpdate={payload.forceUpdate}, requireReload={payload.requireReload}");
 
-				bool mismatch = IsUpdateMismatch(payload);
-				bool isDismissed = IsDismissedNow(payload);
+				bool mismatch = testingForceMismatch || IsUpdateMismatch(payload);
+				bool isDismissed = testingBypassDismiss ? false : IsDismissedNow(payload);
 				LogInfo($"Mismatch={mismatch}, DismissedNow={isDismissed}");
 
 				if (mismatch && !isDismissed)
@@ -328,7 +356,7 @@ namespace Game.Managers
 					if (autoReloadPageOnMismatch || (payload != null && payload.requireReload))
 					{
 						LogInfo("Auto-reload enabled. Attempting to reload page now.");
-						AttemptReloadPage();
+						AttemptReloadPageWithCooldown();
 					}
 				}
 				else
@@ -556,6 +584,13 @@ namespace Game.Managers
 				LogVerbose("Instantiated update panel prefab.");
 			}
 
+			// Auto-create a simple default panel if still missing
+			if (updatePanelInstance == null && autoCreateDefaultPanelIfMissing)
+			{
+				LogWarn("No update panel assigned. Auto-creating a default panel.");
+				CreateDefaultUpdatePanel();
+			}
+
 			if (updatePanelInstance != null)
 			{
 				if (makePersistent)
@@ -592,6 +627,84 @@ namespace Game.Managers
 			}
 		}
 
+		private void CreateDefaultUpdatePanel()
+		{
+			// Canvas root
+			var canvasGO = new GameObject("UpdatePanelCanvas");
+			var canvas = canvasGO.AddComponent<Canvas>();
+			canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+			canvas.sortingOrder = 5000;
+			canvas.pixelPerfect = false;
+			canvasGO.AddComponent<CanvasScaler>();
+			canvasGO.AddComponent<GraphicRaycaster>();
+			var cg = canvasGO.AddComponent<CanvasGroup>();
+			cg.alpha = 0f;
+			cg.blocksRaycasts = false;
+			cg.interactable = false;
+
+			// Background dimmer
+			var bg = new GameObject("Dimmer");
+			bg.transform.SetParent(canvasGO.transform, false);
+			var bgRect = bg.AddComponent<RectTransform>();
+			bgRect.anchorMin = Vector2.zero; bgRect.anchorMax = Vector2.one; bgRect.offsetMin = Vector2.zero; bgRect.offsetMax = Vector2.zero;
+			var bgImg = bg.AddComponent<Image>();
+			bgImg.color = new Color(0f, 0f, 0f, 0.5f);
+
+			// Window
+			var win = new GameObject("Window");
+			win.transform.SetParent(canvasGO.transform, false);
+			var winRect = win.AddComponent<RectTransform>();
+			winRect.sizeDelta = new Vector2(640, 360);
+			winRect.anchorMin = new Vector2(0.5f, 0.5f); winRect.anchorMax = new Vector2(0.5f, 0.5f);
+			winRect.anchoredPosition = Vector2.zero;
+			var winImg = win.AddComponent<Image>();
+			winImg.color = new Color(0.13f, 0.13f, 0.13f, 0.96f);
+
+			// Message
+			var msgGO = new GameObject("MessageText");
+			msgGO.transform.SetParent(win.transform, false);
+			var msgRect = msgGO.AddComponent<RectTransform>();
+			msgRect.anchorMin = new Vector2(0.1f, 0.55f); msgRect.anchorMax = new Vector2(0.9f, 0.9f);
+			msgRect.offsetMin = Vector2.zero; msgRect.offsetMax = Vector2.zero;
+			var msgTMP = msgGO.AddComponent<TextMeshProUGUI>();
+			msgTMP.fontSize = 28f;
+			msgTMP.alignment = TextAlignmentOptions.Center;
+			msgTMP.color = Color.white;
+			msgTMP.text = "Update available";
+
+			// Buttons row
+			var btnY = -110f;
+			openUpdateLinkButton = CreateButton(win.transform, new Vector2(-160f, btnY), new Vector2(200f, 60f), "Open");
+			dismissForMinutesButton = CreateButton(win.transform, new Vector2(0f, btnY), new Vector2(200f, 60f), "Dismiss");
+			reloadPageButton = CreateButton(win.transform, new Vector2(160f, btnY), new Vector2(200f, 60f), "Reload");
+
+			updatePanelInstance = canvasGO;
+			updatePanelCanvasGroup = cg;
+			updateMessageText = msgTMP;
+		}
+
+		private Button CreateButton(Transform parent, Vector2 anchoredPos, Vector2 size, string label)
+		{
+			var go = new GameObject(label + "Button");
+			go.transform.SetParent(parent, false);
+			var rect = go.AddComponent<RectTransform>();
+			rect.sizeDelta = size;
+			rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+			rect.anchoredPosition = anchoredPos;
+			var img = go.AddComponent<Image>();
+			img.color = new Color(0.22f, 0.22f, 0.22f, 1f);
+			var btn = go.AddComponent<Button>();
+			var txtGO = new GameObject("Label");
+			txtGO.transform.SetParent(go.transform, false);
+			var txtRect = txtGO.AddComponent<RectTransform>();
+			txtRect.anchorMin = new Vector2(0.1f, 0.1f); txtRect.anchorMax = new Vector2(0.9f, 0.9f);
+			var tmp = txtGO.AddComponent<TextMeshProUGUI>();
+			tmp.text = label;
+			tmp.alignment = TextAlignmentOptions.Center;
+			tmp.color = Color.white;
+			return btn;
+		}
+
 		private void EnsureCanvasGroup()
 		{
 			if (updatePanelInstance == null) return;
@@ -625,10 +738,21 @@ namespace Game.Managers
 			foreach (var b in buttons)
 			{
 				var n = b.name.ToLower();
-				if (openUpdateLinkButton == null && (n.Contains("update") || n.Contains("link") || n.Contains("store"))) openUpdateLinkButton = b;
-				if (dismissForMinutesButton == null && (n.Contains("dismiss") || n.Contains("later") || n.Contains("close"))) dismissForMinutesButton = b;
-				if (reloadPageButton == null && (n.Contains("reload") || n.Contains("refresh") || n.Contains("restart"))) reloadPageButton = b;
+				if (openUpdateLinkButton == null && (n.Contains("update") || n.Contains("link") || n.Contains("store") || ContainsLabel(b, "update") || ContainsLabel(b, "open"))) openUpdateLinkButton = b;
+				if (dismissForMinutesButton == null && (n.Contains("dismiss") || n.Contains("later") || n.Contains("close") || ContainsLabel(b, "dismiss") || ContainsLabel(b, "later") || ContainsLabel(b, "close"))) dismissForMinutesButton = b;
+				if (reloadPageButton == null && (n.Contains("reload") || n.Contains("refresh") || n.Contains("restart") || ContainsLabel(b, "reload") || ContainsLabel(b, "refresh"))) reloadPageButton = b;
 			}
+		}
+
+		private bool ContainsLabel(Button b, string keyword)
+		{
+			if (b == null) return false;
+			var texts = b.GetComponentsInChildren<TMP_Text>(true);
+			for (int i = 0; i < texts.Length; i++)
+			{
+				if (!string.IsNullOrEmpty(texts[i].text) && texts[i].text.ToLower().Contains(keyword)) return true;
+			}
+			return false;
 		}
 
 		private void OpenUpdateLink()
@@ -637,6 +761,34 @@ namespace Game.Managers
 			if (string.IsNullOrEmpty(link)) { LogWarn("OpenUpdateLink ignored: link is empty."); return; }
 			LogInfo($"Opening update link: {link}");
 			Application.OpenURL(link);
+		}
+
+		private void AttemptReloadPageWithCooldown()
+		{
+			double now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+			if (onlyReloadOncePerSession && _reloadedThisSession)
+			{
+				LogWarn("Reload suppressed: already reloaded this session.");
+				return;
+			}
+			if (now - _lastReloadUnix < reloadCooldownSeconds)
+			{
+				LogWarn("Reload suppressed: cooldown active.");
+				return;
+			}
+			_lastReloadUnix = now;
+			StartCoroutine(ReloadAfterDelay());
+		}
+
+		private IEnumerator ReloadAfterDelay()
+		{
+			if (reloadDelaySeconds > 0f)
+			{
+				LogVerbose($"Waiting {reloadDelaySeconds} seconds before reload...");
+				yield return new WaitForSecondsRealtime(reloadDelaySeconds);
+			}
+			_reloadedThisSession = true;
+			AttemptReloadPage();
 		}
 
 		public void AttemptReloadPage()
@@ -659,15 +811,55 @@ namespace Game.Managers
 
 		private void ShowToast(string message)
 		{
+			if ((toastText == null || toastCanvasGroup == null) && autoCreateToastIfMissing)
+			{
+				LogWarn("Toast UI missing. Auto-creating a default toast.");
+				CreateDefaultToastUI();
+			}
 			if (toastText == null || toastCanvasGroup == null)
 			{
-				// No toast UI provided; silently log
 				LogWarn($"Toast requested but toast UI not wired. Message: {message}");
 				return;
 			}
 
 			StopCoroutineSafe("ToastRoutine");
 			StartCoroutine(ToastRoutine(message));
+		}
+
+		private void CreateDefaultToastUI()
+		{
+			var canvasGO = new GameObject("UpdateToastCanvas");
+			var canvas = canvasGO.AddComponent<Canvas>();
+			canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+			canvas.sortingOrder = 6000;
+			canvasGO.AddComponent<CanvasScaler>();
+			canvasGO.AddComponent<GraphicRaycaster>();
+			var cg = canvasGO.AddComponent<CanvasGroup>();
+			cg.alpha = 0f;
+			cg.blocksRaycasts = false;
+			cg.interactable = false;
+
+			var txtGO = new GameObject("ToastText");
+			txtGO.transform.SetParent(canvasGO.transform, false);
+			var rt = txtGO.AddComponent<RectTransform>();
+			rt.anchorMin = new Vector2(0.5f, 1f); rt.anchorMax = new Vector2(0.5f, 1f);
+			rt.anchoredPosition = new Vector2(0f, -40f);
+			rt.sizeDelta = new Vector2(900f, 80f);
+			var tmp = txtGO.AddComponent<TextMeshProUGUI>();
+			tmp.alignment = TextAlignmentOptions.Center;
+			tmp.fontSize = 24f;
+			tmp.color = Color.white;
+			var bg = txtGO.AddComponent<Image>();
+			bg.color = new Color(0f, 0f, 0f, 0.7f);
+
+			toastCanvasGroup = cg;
+			toastText = tmp;
+
+			if (makePersistent)
+			{
+				if (canvasGO.transform.parent != null) canvasGO.transform.SetParent(null, false);
+				DontDestroyOnLoad(canvasGO);
+			}
 		}
 
 		private IEnumerator ToastRoutine(string message)
