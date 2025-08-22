@@ -226,6 +226,7 @@ function render_header(string $title): void {
   @media (max-width: 1200px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
   @media (max-width: 900px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 640px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .brand span { display:none; } }
+  @media (max-width: 480px) { .nav-actions .pill { padding: 8px 10px; } }
   .card { background: linear-gradient(180deg, var(--surface), var(--surface-2)); border: 1px solid var(--border); border-radius: var(--card-radius); overflow: hidden; box-shadow: var(--shadow); transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
   .card:hover { transform: translateY(-2px); border-color: var(--primary-2); box-shadow: 0 14px 36px rgba(14,165,183,0.25); }
   .card-body { display: grid; grid-template-columns: 64px 1fr; gap: 12px; padding: 14px; align-items: center; }
@@ -244,7 +245,24 @@ function render_header(string $title): void {
   .btn.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
   .error { color: var(--danger); font-size: 13px; margin-bottom: 10px; }
   footer { padding: 24px 16px; color: var(--muted); text-align: center; border-top: 1px solid var(--border); background: linear-gradient(180deg, var(--surface-2), transparent); }
-  <?php echo '</style>'; ?>
+  /* Mobile-first refinements */
+  @media (max-width: 480px) {
+    .grid { grid-template-columns: 1fr; gap: 14px; padding-bottom: 90px; }
+    .card-body { grid-template-columns: 48px 1fr; padding: 12px; }
+    .icon { width: 48px; height: 48px; border-radius: 12px; }
+    .title { font-size: 15px; }
+    .hero { padding: 18px 16px; }
+    .search { padding: 8px 12px; }
+    .search button { padding: 8px 12px; }
+    .login-card { max-width: none; width: 100%; border-radius: 16px 16px 0 0; position: absolute; bottom: 0; left: 0; right: 0; }
+  }
+  /* Bottom mobile nav */
+  .mobile-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 62px; background: linear-gradient(180deg, rgba(10,14,22,0.8), rgba(10,14,22,0.95)); backdrop-filter: blur(10px); border-top: 1px solid var(--border); display: none; z-index: 60; }
+  .mobile-nav .inner { max-width: 1100px; margin: 0 auto; height: 100%; display: grid; grid-template-columns: repeat(4, 1fr); }
+  .mobile-nav a, .mobile-nav button { background: none; border: 0; color: var(--muted); display: grid; place-items: center; gap: 4px; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .mobile-nav a.active, .mobile-nav button.active { color: var(--primary); }
+  @media (max-width: 720px) { .mobile-nav { display: block; padding-bottom: env(safe-area-inset-bottom, 0); } }
+<?php echo '</style>'; ?>
   </head><body>
   <header class="topbar">
     <a class="brand" href="/index.php" aria-label="Nightplay Home">
@@ -263,9 +281,39 @@ function render_header(string $title): void {
         <a class="pill" href="/index.php?action=logout">Logout</a>
       <?php else: ?>
         <button class="pill" id="open-login" type="button">Login</button>
+        <button class="pill" type="button" onclick="document.getElementById('open-login').click()">Sign in</button>
       <?php endif; ?>
     </div>
   </header>
+  <nav class="mobile-nav" aria-label="Bottom navigation">
+    <div class="inner">
+      <a href="/index.php" class="active" aria-label="Home">
+        <div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 10l9-7 9 7v9a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3H9v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9z" stroke="#9ca3af" stroke-width="1.7"/></svg>
+        </div>
+        Home
+      </a>
+      <button type="button" class="mobile-search" aria-label="Search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 21l-4.3-4.3" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="11" r="7" stroke="#9ca3af" stroke-width="2"/></svg>
+        Search
+      </button>
+      <a href="/admin.php" aria-label="Dashboard">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 13h6V4H4v9zm10 7h6V4h-6v16z" stroke="#9ca3af" stroke-width="1.7"/></svg>
+        Uploads
+      </a>
+      <?php if (!empty($_SESSION['username'])): ?>
+        <a href="/admin.php" aria-label="Profile">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="4" stroke="#9ca3af" stroke-width="1.7"/><path d="M4 20c1.5-3.5 5-6 8-6s6.5 2.5 8 6" stroke="#9ca3af" stroke-width="1.7"/></svg>
+          Profile
+        </a>
+      <?php else: ?>
+        <button type="button" class="mobile-login" aria-label="Login">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 17l5-5-5-5" stroke="#9ca3af" stroke-width="1.7" stroke-linecap="round"/><path d="M4 12h11" stroke="#9ca3af" stroke-width="1.7" stroke-linecap="round"/><path d="M15 3h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2" stroke="#9ca3af" stroke-width="1.7"/></svg>
+          Login
+        </button>
+      <?php endif; ?>
+    </div>
+  </nav>
   <div class="login-modal" id="login-modal">
     <div class="login-card">
       <h3>Sign in to Nightplay</h3>
@@ -294,9 +342,9 @@ function render_header(string $title): void {
       const modal = document.getElementById('login-modal');
       const openBtn = document.getElementById('open-login');
       const closeBtn = document.getElementById('close-login');
-      if (openBtn) openBtn.addEventListener('click', () => { modal.style.display = 'flex'; });
-      if (closeBtn) closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
-      modal && modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+      if (openBtn) openBtn.addEventListener('click', () => { modal.style.display = 'flex'; document.body.style.overflow='hidden'; });
+      if (closeBtn) closeBtn.addEventListener('click', () => { modal.style.display = 'none'; document.body.style.overflow=''; });
+      modal && modal.addEventListener('click', (e) => { if (e.target === modal) { modal.style.display = 'none'; document.body.style.overflow=''; } });
 
       // Simple search suggestions
       const input = document.getElementById('q-input');
@@ -343,6 +391,22 @@ function render_header(string $title): void {
         if (!box) return;
         if (!box.contains(e.target) && e.target !== input) hideBox();
       });
+
+      // Mobile bottom nav actions
+      const mobileSearch = document.querySelector('.mobile-search');
+      const mobileLogin = document.querySelector('.mobile-login');
+      if (mobileSearch && input) {
+        mobileSearch.addEventListener('click', () => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          input.focus();
+          if (input.value.trim()) {
+            fetch(`/index.php?ajax=1&q=${encodeURIComponent(input.value.trim())}`).then(r=>r.json()).then(render).catch(()=>{});
+          }
+        });
+      }
+      if (mobileLogin && modal) {
+        mobileLogin.addEventListener('click', () => { modal.style.display = 'flex'; document.body.style.overflow='hidden'; });
+      }
     })();
   </script>
   <?php

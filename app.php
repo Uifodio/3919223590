@@ -250,13 +250,22 @@ render_header($app['name'] . ' – Nightplay', $app);
       <div class="dev">by <?php echo h($app['developer']); ?><?php if ($app['category']): ?> • <?php echo h($app['category']); ?><?php endif; ?></div>
       <div class="actions">
         <?php if ($latest): ?>
-          <a class="btn" href="/app.php?slug=<?php echo h($app['slug']); ?>&download=latest">Download</a>
-          <a class="btn secondary" href="#" onclick="navigator.clipboard.writeText(location.origin + '/app.php?slug=<?php echo h($app['slug']); ?>&download=latest'); return false;">Copy stable link</a>
+          <a class="btn" id="download-managed" href="#">Download</a>
+          <a class="btn secondary" href="#" id="copy-stable">Copy stable link</a>
+          <a class="btn secondary" href="/app.php?slug=<?php echo h($app['slug']); ?>&download=latest" id="download-direct" style="display:none">Direct</a>
           <span class="muted" style="align-self:center;font-size:13px;">v<?php echo h($latest['version_name']); ?> • <?php echo number_format((int)$latest['file_size']/1048576, 2); ?> MB</span>
         <?php else: ?>
           <span class="muted">No release available</span>
         <?php endif; ?>
       </div>
+      <?php if ($latest): ?>
+      <div id="dl-wrap" style="display:none;margin-top:12px;">
+        <div id="dl-progress" style="height:10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);overflow:hidden;">
+          <div id="dl-bar" style="height:100%;width:0;background:linear-gradient(90deg,var(--primary),var(--accent));transition:width .1s ease"></div>
+        </div>
+        <div class="muted" id="dl-text" style="font-size:12px;margin-top:6px;">0%</div>
+      </div>
+      <?php endif; ?>
     </div>
   </section>
 
@@ -295,3 +304,72 @@ render_header($app['name'] . ' – Nightplay', $app);
 <?php
 render_footer();
 ?>
+<?php if ($latest): ?>
+<script>
+(function(){
+  const btn = document.getElementById('download-managed');
+  const stable = '/app.php?slug=<?php echo h($app['slug']); ?>&download=latest';
+  const copy = document.getElementById('copy-stable');
+  const wrap = document.getElementById('dl-wrap');
+  const bar = document.getElementById('dl-bar');
+  const txt = document.getElementById('dl-text');
+  const direct = document.getElementById('download-direct');
+
+  if (copy) copy.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigator.clipboard.writeText(location.origin + stable).then(()=>{
+      copy.textContent = 'Copied';
+      setTimeout(()=>copy.textContent='Copy stable link', 1200);
+    }).catch(()=>{});
+  });
+
+  async function downloadManaged() {
+    try {
+      wrap.style.display = 'block';
+      btn.textContent = 'Downloading...';
+      btn.disabled = true;
+      const res = await fetch(stable, { headers: { 'X-Managed-Download': '1' } });
+      if (!res.ok) { throw new Error('HTTP ' + res.status); }
+      const contentLength = res.headers.get('content-length');
+      const total = contentLength ? parseInt(contentLength) : 0;
+      const reader = res.body.getReader();
+      const chunks = [];
+      let received = 0;
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (total) {
+          const pct = Math.max(1, Math.floor((received / total) * 100));
+          bar.style.width = pct + '%';
+          txt.textContent = pct + '%  (' + (received/1048576).toFixed(1) + ' / ' + (total/1048576).toFixed(1) + ' MB)';
+        } else {
+          const mb = (received/1048576).toFixed(1);
+          bar.style.width = '100%';
+          txt.textContent = mb + ' MB';
+        }
+      }
+      // Blob and save
+      const blob = new Blob(chunks);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '<?php echo h($app['slug']); ?>-v<?php echo h($latest['version_name']); ?>';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 2000);
+      btn.textContent = 'Download again';
+      btn.disabled = false;
+    } catch (e) {
+      if (direct) { direct.style.display = 'inline-block'; }
+      btn.textContent = 'Direct download';
+      btn.href = stable;
+      btn.disabled = false;
+    }
+  }
+  if (btn) btn.addEventListener('click', (e) => { e.preventDefault(); downloadManaged(); });
+})();
+</script>
+<?php endif; ?>

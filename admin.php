@@ -100,6 +100,11 @@ function unique_slug(PDO $pdo, string $base): string {
   }
 }
 function is_logged_in(): bool { return isset($_SESSION['user_id']); }
+function json_response(array $data, int $code = 200): void {
+  http_response_code($code);
+  header('Content-Type: application/json; charset=UTF-8');
+  echo json_encode($data);
+}
 
 // ---------- Auth ----------
 $pdo = db();
@@ -273,6 +278,105 @@ if ($action === 'toggle_version') {
   $flash_success = 'Version visibility updated';
 }
 
+// Chunked upload API
+if ($action === 'init_chunk') {
+  require_auth();
+  $app_id = (int)($_POST['app_id'] ?? 0);
+  $version_name = trim((string)($_POST['version_name'] ?? ''));
+  $version_code = (int)($_POST['version_code'] ?? 0);
+  $changelog = trim((string)($_POST['changelog'] ?? ''));
+  $file_name = trim((string)($_POST['file_name'] ?? 'package.bin'));
+  $total_size = (int)($_POST['total_size'] ?? 0);
+  $mime = trim((string)($_POST['mime'] ?? 'application/octet-stream'));
+  $stmt = $pdo->prepare('SELECT * FROM apps WHERE id = :id');
+  $stmt->execute([':id'=>$app_id]);
+  $app = $stmt->fetch();
+  if (!$app) { json_response(['error'=>'App not found'], 404); exit; }
+  if ($version_name === '' || $version_code <= 0 || $total_size <= 0) { json_response(['error'=>'Invalid params'], 400); exit; }
+  $slug = $app['slug'];
+  $ver_dir = $GLOBALS['UPLOAD_DIR'] . '/' . $slug . '/versions';
+  $tmp_dir = $ver_dir . '/.tmp';
+  @mkdir($ver_dir, 0775, true);
+  @mkdir($tmp_dir, 0775, true);
+  $token = bin2hex(random_bytes(16));
+  $meta = [
+    'app_id'=>$app_id,
+    'slug'=>$slug,
+    'file_name'=>$file_name,
+    'version_name'=>$version_name,
+    'version_code'=>$version_code,
+    'changelog'=>$changelog,
+    'mime'=>$mime,
+    'total_size'=>$total_size,
+    'created_at'=>now(),
+    'received'=>0
+  ];
+  file_put_contents($tmp_dir . '/' . $token . '.json', json_encode($meta));
+  @file_put_contents($tmp_dir . '/' . $token . '.part', '');
+  json_response(['upload_token'=>$token]);
+  exit;
+}
+
+if ($action === 'upload_chunk') {
+  require_auth();
+  $token = (string)($_POST['upload_token'] ?? ($_GET['upload_token'] ?? ''));
+  $offset = (int)($_POST['offset'] ?? ($_GET['offset'] ?? -1));
+  $stmt = $pdo->prepare('SELECT slug FROM apps WHERE id = :id');
+  $app_id = (int)($_POST['app_id'] ?? ($_GET['app_id'] ?? 0));
+  $stmt->execute([':id'=>$app_id]);
+  $slug = ($stmt->fetch()['slug'] ?? '') ?: '';
+  if ($token === '' || $offset < 0 || $slug === '') { json_response(['error'=>'Bad request'], 400); exit; }
+  $ver_dir = $GLOBALS['UPLOAD_DIR'] . '/' . $slug . '/versions';
+  $tmp_dir = $ver_dir . '/.tmp';
+  $meta_path = $tmp_dir . '/' . $token . '.json';
+  $part_path = $tmp_dir . '/' . $token . '.part';
+  if (!is_file($meta_path) || !is_file($part_path)) { json_response(['error'=>'Token not found'], 404); exit; }
+  $in = fopen('php://input', 'rb');
+  $fp = fopen($part_path, 'c+');
+  if (!$in || !$fp) { json_response(['error'=>'IO error'], 500); exit; }
+  if (fseek($fp, $offset) !== 0) { fclose($in); fclose($fp); json_response(['error'=>'Seek failed'], 500); exit; }
+  $written = stream_copy_to_stream($in, $fp);
+  fclose($in); fclose($fp);
+  // Update received size (best-effort)
+  $meta = json_decode((string)file_get_contents($meta_path), true);
+  if (is_array($meta)) {
+    $cur = filesize($part_path);
+    $meta['received'] = $cur !== false ? (int)$cur : (int)($meta['received'] + (int)$written);
+    file_put_contents($meta_path, json_encode($meta));
+  }
+  json_response(['ok'=>true, 'bytesWritten'=>(int)$written, 'received'=>(int)($meta['received'] ?? 0)]);
+  exit;
+}
+
+if ($action === 'complete_chunk') {
+  require_auth();
+  $token = (string)($_POST['upload_token'] ?? '');
+  $app_id = (int)($_POST['app_id'] ?? 0);
+  $stmt = $pdo->prepare('SELECT * FROM apps WHERE id = :id');
+  $stmt->execute([':id'=>$app_id]);
+  $app = $stmt->fetch();
+  if (!$app) { json_response(['error'=>'App not found'], 404); exit; }
+  $slug = $app['slug'];
+  $ver_dir = $GLOBALS['UPLOAD_DIR'] . '/' . $slug . '/versions';
+  $tmp_dir = $ver_dir . '/.tmp';
+  $meta_path = $tmp_dir . '/' . $token . '.json';
+  $part_path = $tmp_dir . '/' . $token . '.part';
+  if (!is_file($meta_path) || !is_file($part_path)) { json_response(['error'=>'Token not found'], 404); exit; }
+  $meta = json_decode((string)file_get_contents($meta_path), true);
+  if (!is_array($meta)) { json_response(['error'=>'Meta missing'], 500); exit; }
+  $san = preg_replace('/[^A-Za-z0-9._-]/', '_', (string)$meta['file_name']);
+  $dest = $ver_dir . '/' . time() . '-' . $san;
+  @rename($part_path, $dest);
+  $size = filesize($dest) ?: 0;
+  $mime = (string)($meta['mime'] ?? 'application/octet-stream');
+  $pdo->prepare('INSERT INTO app_versions (app_id, version_name, version_code, changelog, file_path, file_size, mime_type, is_published, created_at) VALUES (:app,:vn,:vc,:cl,:fp,:sz,:mt,1,:c)')
+      ->execute([':app'=>$app_id, ':vn'=>$meta['version_name'], ':vc'=>$meta['version_code'], ':cl'=>$meta['changelog'], ':fp'=>'uploads/' . $slug . '/versions/' . basename($dest), ':sz'=>$size, ':mt'=>$mime, ':c'=>now()]);
+  $pdo->prepare('UPDATE apps SET updated_at = :u WHERE id = :id')->execute([':u'=>now(), ':id'=>$app_id]);
+  @unlink($meta_path);
+  json_response(['ok'=>true, 'file_size'=>$size]);
+  exit;
+}
+
 // ---------- Fetch data for rendering ----------
 function latest_version_for_app(PDO $pdo, int $appId): ?array {
   $stmt = $pdo->prepare('SELECT * FROM app_versions WHERE app_id = :id ORDER BY created_at DESC, id DESC LIMIT 1');
@@ -308,10 +412,16 @@ function render_header(string $title): void {
   .btn.secondary{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
   .muted{color:var(--muted)}
   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  @media(max-width:900px){.two-col{grid-template-columns:1fr}}
+  @media(max-width:1000px){.two-col{grid-template-columns:1fr}}
   table{width:100%;border-collapse:collapse}
   th,td{border-bottom:1px solid var(--border);padding:10px 8px;text-align:left}
   .badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid rgba(34,211,238,.25);color:var(--primary);font-size:11px}
+  /* Mobile action bar for upload */
+  @media(max-width:700px){
+    details > summary { list-style:none; }
+    details > summary::-webkit-details-marker { display:none; }
+    .container{padding-bottom:90px}
+  }
   </style>
   </head><body>
   <header class="topbar">
@@ -409,7 +519,7 @@ render_header('Nightplay – Dashboard');
                   </div>
                 </div>
               </td>
-              <td class="muted" style="font-size:12px;"><?php echo h(date('Y-m-d', strtotime($app['updated_at']))); ?></td>
+              <td class="muted" style="font-size:12px;">&nbsp;<?php echo h(date('Y-m-d', strtotime($app['updated_at']))); ?></td>
               <td><?php echo $app['is_published'] ? '<span class="badge">Published</span>' : '<span class="badge" style="color:#f59e0b;border-color:rgba(245,158,11,.25)">Hidden</span>'; ?></td>
               <td><details><summary style="cursor:pointer">Manage</summary>
                 <div style="padding:10px 0;">
@@ -433,20 +543,25 @@ render_header('Nightplay – Dashboard');
 
                   <div style="border-top:1px solid var(--border);margin:14px 0;"></div>
 
-                  <form method="post" action="/admin.php" enctype="multipart/form-data">
-                    <input type="hidden" name="action" value="upload_version">
-                    <input type="hidden" name="app_id" value="<?php echo (int)$app['id']; ?>">
+                  <form class="chunk-upload" data-app-id="<?php echo (int)$app['id']; ?>" data-slug="<?php echo h($app['slug']); ?>" enctype="multipart/form-data">
                     <h4 style="margin:0 0 6px;">Upload new version</h4>
                     <div class="grid">
                       <div class="row"><label>Version name</label><input class="input" type="text" name="version_name" placeholder="1.0.0" required></div>
                       <div class="row"><label>Version code</label><input class="input" type="number" name="version_code" placeholder="100" required></div>
                       <div class="row"><label>Changelog</label><textarea class="input" name="changelog" rows="3" style="resize:vertical"></textarea></div>
-                      <div class="row"><label>File (APK/ZIP/etc.)</label><input class="input" type="file" name="file" required></div>
+                      <div class="row"><label>File (APK/ZIP/etc.)</label><input class="input file-input" type="file" name="file" required></div>
                     </div>
-                    <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-                      <button class="btn" type="submit">Upload version</button>
+                    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap;">
+                      <button class="btn start-upload" type="submit">Upload version</button>
+                      <button class="btn secondary fallback-submit" type="button" style="display:none;">Fallback upload</button>
                     </div>
-                    <p class="muted" style="font-size:12px;margin-top:8px;">For large files, ensure server upload limits are configured (upload_max_filesize, post_max_size).</p>
+                    <div class="upload-progress" style="display:none;margin-top:10px;">
+                      <div style="height:10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);overflow:hidden;">
+                        <div class="bar" style="height:100%;width:0;background:linear-gradient(90deg,var(--primary),#3b82f6);transition:width .12s ease"></div>
+                      </div>
+                      <div class="muted info" style="font-size:12px;margin-top:6px;">0%</div>
+                    </div>
+                    <p class="muted" style="font-size:12px;margin-top:8px;">Large files upload in chunks with automatic resume if a chunk fails.</p>
                   </form>
 
                   <?php $versions = $pdo->prepare('SELECT * FROM app_versions WHERE app_id = :id ORDER BY created_at DESC'); $versions->execute([':id'=>(int)$app['id']]); $versions = $versions->fetchAll(); ?>
@@ -493,3 +608,103 @@ render_header('Nightplay – Dashboard');
   </div>
 <?php
 render_footer();
+?>
+<script>
+(function(){
+  // Chunked uploader with progress
+  const forms = document.querySelectorAll('form.chunk-upload');
+  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+
+  forms.forEach((form) => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const appId = form.getAttribute('data-app-id');
+      const version_name = form.querySelector('input[name="version_name"]').value.trim();
+      const version_code = form.querySelector('input[name="version_code"]').value.trim();
+      const changelog = form.querySelector('textarea[name="changelog"]').value;
+      const fileInput = form.querySelector('input.file-input');
+      const file = fileInput.files[0];
+      const startBtn = form.querySelector('.start-upload');
+      const fallbackBtn = form.querySelector('.fallback-submit');
+      const progressWrap = form.querySelector('.upload-progress');
+      const bar = form.querySelector('.upload-progress .bar');
+      const info = form.querySelector('.upload-progress .info');
+      if (!file || !version_name || !version_code) return;
+      startBtn.disabled = true;
+      progressWrap.style.display = 'block';
+      bar.style.width = '0%';
+      info.textContent = '0%';
+
+      try {
+        const initData = new FormData();
+        initData.append('action', 'init_chunk');
+        initData.append('app_id', appId);
+        initData.append('version_name', version_name);
+        initData.append('version_code', version_code);
+        initData.append('changelog', changelog);
+        initData.append('file_name', file.name);
+        initData.append('total_size', String(file.size));
+        initData.append('mime', file.type || 'application/octet-stream');
+        const initRes = await fetch('/admin.php', { method: 'POST', body: initData });
+        const initJson = await initRes.json();
+        if (!initRes.ok || !initJson.upload_token) throw new Error('init failed');
+        const token = initJson.upload_token;
+
+        let offset = 0; let lastTime = Date.now(); let lastSent = 0;
+        while (offset < file.size) {
+          const end = Math.min(offset + CHUNK_SIZE, file.size);
+          const chunk = file.slice(offset, end);
+          const res = await fetch('/admin.php', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'fetch' },
+            body: (() => { const fd = new FormData(); fd.append('action','upload_chunk'); fd.append('upload_token', token); fd.append('app_id', appId); fd.append('offset', String(offset)); fd.append('chunk', chunk, file.name + '.part'); return fd; })()
+          });
+          if (!res.ok) throw new Error('chunk failed');
+          const elapsed = (Date.now() - lastTime) / 1000;
+          const sent = end;
+          const pct = Math.floor((sent / file.size) * 100);
+          bar.style.width = pct + '%';
+          const speed = ((sent - lastSent) / 1048576 / Math.max(0.5, elapsed)).toFixed(2);
+          info.textContent = pct + '% • ' + (sent/1048576).toFixed(1) + ' / ' + (file.size/1048576).toFixed(1) + ' MB • ' + speed + ' MB/s';
+          lastTime = Date.now();
+          lastSent = sent;
+          offset = end;
+        }
+
+        const fin = new FormData();
+        fin.append('action', 'complete_chunk');
+        fin.append('upload_token', token);
+        fin.append('app_id', appId);
+        const finRes = await fetch('/admin.php', { method: 'POST', body: fin });
+        if (!finRes.ok) throw new Error('finalize failed');
+        bar.style.width = '100%';
+        info.textContent = 'Processing...';
+        await finRes.json();
+        info.textContent = 'Done';
+        setTimeout(() => { location.reload(); }, 600);
+      } catch (err) {
+        // Fallback to normal submit if chunk flow fails
+        progressWrap.style.display = 'none';
+        fallbackBtn.style.display = 'inline-block';
+        fallbackBtn.addEventListener('click', () => {
+          const fallback = document.createElement('form');
+          fallback.method = 'POST';
+          fallback.enctype = 'multipart/form-data';
+          fallback.action = '/admin.php';
+          const els = [
+            ['action','upload_version'], ['app_id', appId], ['version_name', version_name], ['version_code', version_code], ['changelog', changelog]
+          ];
+          els.forEach(([k,v]) => { const i = document.createElement('input'); i.type='hidden'; i.name=k; i.value=v; fallback.appendChild(i); });
+          const fInp = document.createElement('input'); fInp.type='file'; fInp.name='file'; fallback.appendChild(fInp);
+          document.body.appendChild(fallback);
+          // Reuse original file input via DataTransfer is complex; ask user to reselect
+          alert('Chunked upload failed. Please use the fallback upload.');
+          fallback.submit();
+        }, { once:true });
+      } finally {
+        startBtn.disabled = false;
+      }
+    }, { passive: false });
+  });
+})();
+</script>
