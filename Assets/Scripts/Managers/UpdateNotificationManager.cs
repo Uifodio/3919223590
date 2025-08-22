@@ -37,6 +37,10 @@ namespace Game.Managers
 
 		public static UpdateNotificationManager Instance { get; private set; }
 
+		[Header("Logging")]
+		[SerializeField] private bool enableLogging = true;
+		[SerializeField] private bool verboseLogging = true;
+
 		[Header("Singleton")]
 		[SerializeField] private bool keepFirstInstance = true;
 		[SerializeField] private bool makePersistent = true;
@@ -54,6 +58,7 @@ namespace Game.Managers
 		[SerializeField] private string relativeJsonFilename = "update.json";
 		[Tooltip("Absolute URL fallback (or primary) to the JSON (e.g., https://example.com/update.json)")]
 		[SerializeField] private string remoteJsonAbsoluteUrl = string.Empty;
+		[SerializeField] private bool addNoCacheQueryParam = true;
 
 		[Header("Check Triggers")]
 		[SerializeField] private bool checkOnStart = true;
@@ -65,7 +70,7 @@ namespace Game.Managers
 		[Header("Behavior")]
 		[Tooltip("If true, pause Time.timeScale when showing the update panel")]
 		[SerializeField] private bool pauseTimeWhenShowing = true;
-		[SerializeField] private bool autoReloadPageOnMismatch = false;
+		[SerializeField] private bool autoReloadPageOnMismatch = true; // default: ON per request
 		[SerializeField] private bool showPanelOnMismatch = true;
 		[SerializeField] private bool allowDismiss = true;
 		[SerializeField] private bool allowDismissEvenIfForceUpdate = false;
@@ -81,6 +86,13 @@ namespace Game.Managers
 		[SerializeField] private Button openUpdateLinkButton;
 		[SerializeField] private Button dismissForMinutesButton;
 		[SerializeField] private Button reloadPageButton;
+
+		[Header("Panel Fade")]
+		[SerializeField] private bool usePanelFade = true;
+		[Min(0f)] [SerializeField] private float panelFadeInDuration = 0.35f;
+		[Min(0f)] [SerializeField] private float panelFadeOutDuration = 0.25f;
+		[SerializeField] private AnimationCurve panelFadeInCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+		[SerializeField] private AnimationCurve panelFadeOutCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
 
 		[Header("Gameplay Lockdown")]
 		[Tooltip("Objects to disable while the update panel is shown (canvases, managers, gameplay objects).")]
@@ -107,7 +119,9 @@ namespace Game.Managers
 		private bool _isPanelVisible;
 		private bool _isChecking;
 		private Coroutine _intervalRoutine;
+		private Coroutine _panelFadeRoutine;
 		private float _timeScaleBeforePause = 1f;
+		private string _lastResolvedUrl = string.Empty;
 
 		#if UNITY_WEBGL && !UNITY_EDITOR
 		[DllImport("__Internal")] private static extern void ReloadPage();
@@ -119,11 +133,13 @@ namespace Game.Managers
 			{
 				if (keepFirstInstance)
 				{
+					LogWarn("Another instance detected, destroying this one to keep the first.");
 					Destroy(gameObject);
 					return;
 				}
 				else
 				{
+					LogWarn("Another instance detected, replacing the existing instance with this one.");
 					Destroy(Instance.gameObject);
 				}
 			}
@@ -131,6 +147,7 @@ namespace Game.Managers
 			Instance = this;
 			if (makePersistent)
 			{
+				LogVerbose("Marking manager as DontDestroyOnLoad.");
 				DontDestroyOnLoad(gameObject);
 			}
 
@@ -142,6 +159,7 @@ namespace Game.Managers
 			if (checkOnSceneLoaded)
 			{
 				SceneManager.sceneLoaded += OnSceneLoaded;
+				LogVerbose("Subscribed to SceneManager.sceneLoaded");
 			}
 		}
 
@@ -150,18 +168,22 @@ namespace Game.Managers
 			if (checkOnSceneLoaded)
 			{
 				SceneManager.sceneLoaded -= OnSceneLoaded;
+				LogVerbose("Unsubscribed from SceneManager.sceneLoaded");
 			}
 		}
 
 		private IEnumerator Start()
 		{
+			LogInfo("UpdateNotificationManager started.");
 			if (checkOnInterval)
 			{
 				_intervalRoutine = StartCoroutine(IntervalChecker());
+				LogVerbose($"Interval checker started: every {checkIntervalMinutes} minutes");
 			}
 
 			if (checkOnStart)
 			{
+				LogVerbose("Initial check triggered on Start().");
 				yield return CheckForUpdatesRoutine(false);
 			}
 		}
@@ -171,7 +193,12 @@ namespace Game.Managers
 		{
 			if (!_isChecking)
 			{
+				LogInfo("ForceCheckNow invoked.");
 				StartCoroutine(CheckForUpdatesRoutine(true));
+			}
+			else
+			{
+				LogVerbose("ForceCheckNow ignored because a check is already running.");
 			}
 		}
 
@@ -183,6 +210,7 @@ namespace Game.Managers
 				yield return wait;
 				if (!_isChecking)
 				{
+					LogVerbose("Interval tick: starting update check.");
 					StartCoroutine(CheckForUpdatesRoutine(false));
 				}
 			}
@@ -192,6 +220,7 @@ namespace Game.Managers
 		{
 			if (checkOnSceneLoaded && !_isChecking)
 			{
+				LogInfo($"Scene loaded: {scene.name}. Triggering update check.");
 				StartCoroutine(CheckForUpdatesRoutine(false));
 			}
 		}
@@ -204,27 +233,48 @@ namespace Game.Managers
 				{
 					var baseUri = new Uri(Application.absoluteURL);
 					var resolved = new Uri(baseUri, relativeJsonFilename);
-					return resolved.ToString();
+					var url = resolved.ToString();
+					if (addNoCacheQueryParam) url = AppendNoCacheQuery(url);
+					LogVerbose($"Resolved JSON via index.html base: {url}");
+					return url;
 				}
-				catch { /* ignored */ }
+				catch (Exception ex)
+				{
+					LogWarn($"Failed to resolve relative JSON URL: {ex.Message}");
+				}
 			}
 
 			if (!string.IsNullOrEmpty(remoteJsonAbsoluteUrl))
 			{
-				return remoteJsonAbsoluteUrl;
+				var url = remoteJsonAbsoluteUrl;
+				if (addNoCacheQueryParam) url = AppendNoCacheQuery(url);
+				LogVerbose($"Using absolute JSON URL: {url}");
+				return url;
 			}
 
 			// As a development fallback, allow local StreamingAssets copy
 			var localPath = System.IO.Path.Combine(Application.streamingAssetsPath, relativeJsonFilename);
+			LogVerbose($"Using StreamingAssets fallback path: {localPath}");
 			return localPath;
+		}
+
+		private string AppendNoCacheQuery(string url)
+		{
+			try
+			{
+				var sep = url.Contains("?") ? "&" : "?";
+				return url + sep + "__ts=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+			}
+			catch { return url; }
 		}
 
 		private IEnumerator CheckForUpdatesRoutine(bool isForced)
 		{
 			_isChecking = true;
+			_lastResolvedUrl = ResolveJsonUrl();
+			LogInfo($"Starting update check (forced={isForced}) at {_lastResolvedUrl}");
 
-			string url = ResolveJsonUrl();
-			using (var req = UnityWebRequest.Get(url))
+			using (var req = UnityWebRequest.Get(_lastResolvedUrl))
 			{
 				// strongly discourage caches
 				req.SetRequestHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -235,6 +285,7 @@ namespace Game.Managers
 
 				if (req.result != UnityWebRequest.Result.Success)
 				{
+					LogError($"Fetch failed: {req.error}");
 					ShowToast(toastFetchFailedMessage);
 					onFetchFailed?.Invoke();
 					_isChecking = false;
@@ -242,22 +293,26 @@ namespace Game.Managers
 				}
 
 				var json = req.downloadHandler.text;
+				LogVerbose($"Fetched JSON: {json}");
 				UpdatePayload payload = null;
 				try
 				{
 					payload = JsonUtility.FromJson<UpdatePayload>(json);
 				}
-				catch (Exception)
+				catch (Exception ex)
 				{
+					LogError($"Invalid update payload: {ex.Message}");
 					ShowToast("Invalid update payload");
 					_isChecking = false;
 					yield break;
 				}
 
 				_lastPayload = payload;
+				LogInfo($"Remote updateCode='{payload.updateCode}', latestVersion='{payload.latestVersion}', forceUpdate={payload.forceUpdate}, requireReload={payload.requireReload}");
 
 				bool mismatch = IsUpdateMismatch(payload);
 				bool isDismissed = IsDismissedNow(payload);
+				LogInfo($"Mismatch={mismatch}, DismissedNow={isDismissed}");
 
 				if (mismatch && !isDismissed)
 				{
@@ -272,6 +327,7 @@ namespace Game.Managers
 
 					if (autoReloadPageOnMismatch || (payload != null && payload.requireReload))
 					{
+						LogInfo("Auto-reload enabled. Attempting to reload page now.");
 						AttemptReloadPage();
 					}
 				}
@@ -293,6 +349,7 @@ namespace Game.Managers
 			{
 				if (!string.Equals(payload.updateCode, localUpdateCode, StringComparison.Ordinal))
 				{
+					LogVerbose($"Update code mismatch: remote='{payload.updateCode}', local='{localUpdateCode}'");
 					return true;
 				}
 			}
@@ -303,10 +360,14 @@ namespace Game.Managers
 				{
 					if (IsNewerVersion(payload.latestVersion, localVersion))
 					{
+						LogVerbose($"Version mismatch: remote='{payload.latestVersion}' > local='{localVersion}'");
 						return true;
 					}
 				}
-				catch { /* ignored */ }
+				catch (Exception ex)
+				{
+					LogWarn($"Version compare failed: {ex.Message}");
+				}
 			}
 
 			return false;
@@ -334,8 +395,8 @@ namespace Game.Managers
 
 		private void DismissForMinutes()
 		{
-			if (!allowDismiss) return;
-			if (_lastPayload != null && _lastPayload.forceUpdate && !allowDismissEvenIfForceUpdate) return;
+			if (!allowDismiss) { LogVerbose("Dismiss ignored: dismiss disabled in settings."); return; }
+			if (_lastPayload != null && _lastPayload.forceUpdate && !allowDismissEvenIfForceUpdate) { LogVerbose("Dismiss ignored: forceUpdate active and dismiss not allowed."); return; }
 
 			int minutes = defaultDismissMinutes;
 			if (_lastPayload != null && _lastPayload.dismissMinutesOverride > 0)
@@ -346,6 +407,7 @@ namespace Game.Managers
 			double untilUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + (minutes * 60);
 			PlayerPrefs.SetString(PlayerPrefsDismissKey, untilUnix.ToString());
 			PlayerPrefs.Save();
+			LogInfo($"Dismissed update for {minutes} minute(s). Hiding panel.");
 
 			HideUpdatePanel();
 		}
@@ -354,9 +416,24 @@ namespace Game.Managers
 		{
 			PrepareUpdatePanel();
 
+			// Wire content
+			if (updateMessageText == null)
+			{
+				updateMessageText = TryAutoFindMessageText(updatePanelInstance);
+			}
 			if (updateMessageText != null)
 			{
 				updateMessageText.text = string.IsNullOrEmpty(payload.updateMessage) ? "Update available" : payload.updateMessage;
+				LogVerbose($"Set update message text: '{updateMessageText.text}'");
+			}
+			else
+			{
+				LogWarn("No TMP_Text assigned/found for update message.");
+			}
+
+			if (openUpdateLinkButton == null || dismissForMinutesButton == null || reloadPageButton == null)
+			{
+				AutoWireButtons(updatePanelInstance);
 			}
 
 			if (openUpdateLinkButton != null)
@@ -380,43 +457,82 @@ namespace Game.Managers
 			}
 
 			SetGameplayDisabled(true);
-			SetPanelVisible(true);
+			ShowPanel();
 		}
 
 		private void HideUpdatePanel()
 		{
-			SetPanelVisible(false);
+			HidePanel();
 			SetGameplayDisabled(false);
 		}
 
-		private void SetPanelVisible(bool visible)
+		private void ShowPanel()
 		{
-			_isPanelVisible = visible;
+			if (updatePanelInstance == null) return;
 
-			if (updatePanelInstance != null)
-			{
-				updatePanelInstance.SetActive(visible);
-			}
-
-			if (updatePanelCanvasGroup != null)
-			{
-				updatePanelCanvasGroup.alpha = visible ? 1f : 0f;
-				updatePanelCanvasGroup.blocksRaycasts = visible;
-				updatePanelCanvasGroup.interactable = visible;
-			}
+			EnsureCanvasGroup();
+			updatePanelInstance.SetActive(true);
+			_isPanelVisible = true;
 
 			if (pauseTimeWhenShowing)
 			{
-				if (visible)
-				{
-					_timeScaleBeforePause = Time.timeScale;
-					Time.timeScale = 0f;
-				}
-				else
+				_timeScaleBeforePause = Time.timeScale;
+				Time.timeScale = 0f;
+				LogVerbose("Time paused (Time.timeScale = 0) while showing panel.");
+			}
+
+			StartPanelFade(targetAlpha: 1f, duration: panelFadeInDuration, curve: panelFadeInCurve);
+		}
+
+		private void HidePanel()
+		{
+			if (updatePanelInstance == null) return;
+			EnsureCanvasGroup();
+			_isPanelVisible = false;
+			StartPanelFade(targetAlpha: 0f, duration: panelFadeOutDuration, curve: panelFadeOutCurve, onComplete: () =>
+			{
+				updatePanelInstance.SetActive(false);
+				if (pauseTimeWhenShowing)
 				{
 					Time.timeScale = _timeScaleBeforePause;
+					LogVerbose($"Time resumed (Time.timeScale = {_timeScaleBeforePause}).");
 				}
+			});
+		}
+
+		private void StartPanelFade(float targetAlpha, float duration, AnimationCurve curve, Action onComplete = null)
+		{
+			if (!usePanelFade || updatePanelCanvasGroup == null || duration <= 0f)
+			{
+				updatePanelCanvasGroup.alpha = targetAlpha;
+				updatePanelCanvasGroup.blocksRaycasts = targetAlpha > 0.99f;
+				updatePanelCanvasGroup.interactable = targetAlpha > 0.99f;
+				onComplete?.Invoke();
+				return;
 			}
+
+			if (_panelFadeRoutine != null)
+			{
+				StopCoroutine(_panelFadeRoutine);
+			}
+			_panelFadeRoutine = StartCoroutine(PanelFadeRoutine(targetAlpha, duration, curve, onComplete));
+		}
+
+		private IEnumerator PanelFadeRoutine(float targetAlpha, float duration, AnimationCurve curve, Action onComplete)
+		{
+			float startAlpha = updatePanelCanvasGroup.alpha;
+			float t = 0f;
+			while (t < duration)
+			{
+				t += Time.unscaledDeltaTime;
+				float a = Mathf.Lerp(startAlpha, targetAlpha, curve.Evaluate(Mathf.Clamp01(t / duration)));
+				updatePanelCanvasGroup.alpha = a;
+				yield return null;
+			}
+			updatePanelCanvasGroup.alpha = targetAlpha;
+			updatePanelCanvasGroup.blocksRaycasts = targetAlpha > 0.99f;
+			updatePanelCanvasGroup.interactable = targetAlpha > 0.99f;
+			onComplete?.Invoke();
 		}
 
 		private void SetGameplayDisabled(bool disabled)
@@ -428,6 +544,7 @@ namespace Game.Managers
 				if (obj == null) continue;
 				obj.SetActive(!disabled);
 			}
+			LogVerbose($"Gameplay objects {(disabled ? "disabled" : "enabled")}.");
 		}
 
 		private void PrepareUpdatePanel()
@@ -435,58 +552,107 @@ namespace Game.Managers
 			// If we don't have an instance in the scene yet, instantiate from prefab
 			if (updatePanelInstance == null && updatePanelPrefab != null)
 			{
-				updatePanelInstance = Instantiate(updatePanelPrefab, transform);
+				updatePanelInstance = Instantiate(updatePanelPrefab);
+				LogVerbose("Instantiated update panel prefab.");
 			}
 
 			if (updatePanelInstance != null)
 			{
 				if (makePersistent)
 				{
+					// Must be root before DontDestroyOnLoad
+					if (updatePanelInstance.transform.parent != null)
+					{
+						updatePanelInstance.transform.SetParent(null, false);
+						LogVerbose("Detached update panel to root for persistence.");
+					}
 					DontDestroyOnLoad(updatePanelInstance);
+					LogVerbose("Marked update panel as DontDestroyOnLoad.");
 				}
 
-				// Try to auto-wire references if not set
-				if (updatePanelCanvasGroup == null)
-				{
-					updatePanelCanvasGroup = updatePanelInstance.GetComponentInChildren<CanvasGroup>(true);
-				}
+				EnsureCanvasGroup();
+
+				// Try to auto-wire message text if not set
 				if (updateMessageText == null)
 				{
-					updateMessageText = updatePanelInstance.GetComponentInChildren<TMP_Text>(true);
+					updateMessageText = TryAutoFindMessageText(updatePanelInstance);
 				}
+
+				// Try to auto-wire buttons if not set
 				if (openUpdateLinkButton == null || dismissForMinutesButton == null || reloadPageButton == null)
 				{
-					var buttons = updatePanelInstance.GetComponentsInChildren<Button>(true);
-					foreach (var b in buttons)
-					{
-						// Heuristic: name-based auto-binding if empty
-						if (openUpdateLinkButton == null && b.name.ToLower().Contains("update")) openUpdateLinkButton = b;
-						if (dismissForMinutesButton == null && b.name.ToLower().Contains("dismiss")) dismissForMinutesButton = b;
-						if (reloadPageButton == null && (b.name.ToLower().Contains("reload") || b.name.ToLower().Contains("refresh"))) reloadPageButton = b;
-					}
+					AutoWireButtons(updatePanelInstance);
 				}
 
 				// Ensure hidden at start
-				SetPanelVisible(false);
+				updatePanelCanvasGroup.alpha = 0f;
+				updatePanelCanvasGroup.blocksRaycasts = false;
+				updatePanelCanvasGroup.interactable = false;
+				updatePanelInstance.SetActive(false);
+			}
+		}
+
+		private void EnsureCanvasGroup()
+		{
+			if (updatePanelInstance == null) return;
+			if (updatePanelCanvasGroup == null)
+			{
+				updatePanelCanvasGroup = updatePanelInstance.GetComponentInChildren<CanvasGroup>(true);
+				if (updatePanelCanvasGroup == null)
+				{
+					updatePanelCanvasGroup = updatePanelInstance.AddComponent<CanvasGroup>();
+					LogVerbose("Added CanvasGroup to update panel instance.");
+				}
+			}
+		}
+
+		private TMP_Text TryAutoFindMessageText(GameObject root)
+		{
+			if (root == null) return null;
+			var texts = root.GetComponentsInChildren<TMP_Text>(true);
+			foreach (var t in texts)
+			{
+				var n = t.gameObject.name.ToLower();
+				if (n.Contains("message") || n.Contains("update")) return t;
+			}
+			return texts.Length > 0 ? texts[0] : null;
+		}
+
+		private void AutoWireButtons(GameObject root)
+		{
+			if (root == null) return;
+			var buttons = root.GetComponentsInChildren<Button>(true);
+			foreach (var b in buttons)
+			{
+				var n = b.name.ToLower();
+				if (openUpdateLinkButton == null && (n.Contains("update") || n.Contains("link") || n.Contains("store"))) openUpdateLinkButton = b;
+				if (dismissForMinutesButton == null && (n.Contains("dismiss") || n.Contains("later") || n.Contains("close"))) dismissForMinutesButton = b;
+				if (reloadPageButton == null && (n.Contains("reload") || n.Contains("refresh") || n.Contains("restart"))) reloadPageButton = b;
 			}
 		}
 
 		private void OpenUpdateLink()
 		{
 			var link = _lastPayload != null ? _lastPayload.updateLink : string.Empty;
-			if (string.IsNullOrEmpty(link)) return;
+			if (string.IsNullOrEmpty(link)) { LogWarn("OpenUpdateLink ignored: link is empty."); return; }
+			LogInfo($"Opening update link: {link}");
 			Application.OpenURL(link);
 		}
 
 		public void AttemptReloadPage()
 		{
 			#if UNITY_WEBGL && !UNITY_EDITOR
-			try { ReloadPage(); } catch { /* ignored */ }
+			try { LogInfo("Reloading WebGL page via JS"); ReloadPage(); } catch (Exception ex) { LogWarn($"ReloadPage JS call failed: {ex.Message}"); }
 			#else
 			// Non-WebGL fallback: reopen current URL if available
 			if (!string.IsNullOrEmpty(Application.absoluteURL))
 			{
+				LogInfo($"Reopening URL: {Application.absoluteURL}");
 				Application.OpenURL(Application.absoluteURL);
+			}
+			else
+			{
+				LogWarn("Cannot reload page: Application.absoluteURL is empty.");
 			}
 			#endif
 		}
@@ -495,8 +661,8 @@ namespace Game.Managers
 		{
 			if (toastText == null || toastCanvasGroup == null)
 			{
-				// No toast UI provided; silently ignore but keep console info
-				Debug.LogWarning(message);
+				// No toast UI provided; silently log
+				LogWarn($"Toast requested but toast UI not wired. Message: {message}");
 				return;
 			}
 
@@ -537,5 +703,10 @@ namespace Game.Managers
 		{
 			try { StopCoroutine(methodName); } catch { /* ignored */ }
 		}
+
+		private void LogInfo(string message) { if (enableLogging) Debug.Log($"[UpdateManager] {message}", this); }
+		private void LogWarn(string message) { if (enableLogging) Debug.LogWarning($"[UpdateManager] {message}", this); }
+		private void LogError(string message) { if (enableLogging) Debug.LogError($"[UpdateManager] {message}", this); }
+		private void LogVerbose(string message) { if (enableLogging && verboseLogging) Debug.Log($"[UpdateManager][Verbose] {message}", this); }
 	}
 }
