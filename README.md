@@ -7,7 +7,7 @@ A full chess project for Unity with adjustable AI (minimax + alpha-beta), comple
 - Complete chess rules and legal move validation
 - Undo/redo stack
 - Auto-save and resume
-- One-click Editor setup: downloads CBurnett SVGs, creates the scene and UI
+- One-click Editor setup: downloads CBurnett PNGs (offline-ready), creates the scene, camera canvas, and UI
 - Fallback UI if assets are missing (letters)
 - Events for win/loss hooks (virtual currency integration)
 
@@ -33,7 +33,7 @@ A full chess project for Unity with adjustable AI (minimax + alpha-beta), comple
 
 ## Assets: CBurnett SVG Chess Pieces
 - Source category: `https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces`
-- Files downloaded via `Special:FilePath` URLs, e.g. `https://commons.wikimedia.org/wiki/Special:FilePath/Chess_plt45.svg`
+- PNGs downloaded via `Special:FilePath` with resizing query (width=256), e.g. `https://commons.wikimedia.org/wiki/Special:FilePath/Chess_plt45.svg?width=256`
 - Stored under `Assets/Chess/Resources/CBurnett/`
 - License: CC BY-SA 3.0 (see `LICENSES/`), attribution below.
 

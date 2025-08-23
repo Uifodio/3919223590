@@ -18,6 +18,7 @@ namespace Chess.UI
 		private TextMeshProUGUI[] squareLabels = new TextMeshProUGUI[64];
 		private Image[] pieceImages = new Image[64];
 		private TextMeshProUGUI[] pieceFallbackLabels = new TextMeshProUGUI[64];
+		private Image[] highlightImages = new Image[64];
 		private RectTransform sidebar;
 		private Button undoButton;
 		private Button newGameButton;
@@ -55,17 +56,50 @@ namespace Chess.UI
 
 		private void BuildUI()
 		{
-			var canvasGo = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-			var canvas = canvasGo.GetComponent<Canvas>();
-			canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-			var scaler = canvasGo.GetComponent<CanvasScaler>();
-			scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-			scaler.referenceResolution = new Vector2(1920, 1080);
+			Canvas canvas;
+			var existingCanvas = FindObjectOfType<Canvas>();
+			GameObject canvasGo;
+			if (existingCanvas == null)
+			{
+				canvasGo = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+				canvas = canvasGo.GetComponent<Canvas>();
+				canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+				var scaler = canvasGo.GetComponent<CanvasScaler>();
+				scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+				scaler.referenceResolution = new Vector2(1920, 1080);
+			}
+			else
+			{
+				canvas = existingCanvas;
+				canvasGo = existingCanvas.gameObject;
+			}
 			root = new GameObject("Root", typeof(RectTransform)).GetComponent<RectTransform>();
 			root.SetParent(canvasGo.transform, false);
 			root.anchorMin = Vector2.zero; root.anchorMax = Vector2.one; root.offsetMin = Vector2.zero; root.offsetMax = Vector2.zero;
 
-			// Board area 1080x1080 on left
+			// Board background
+			var boardBgGo = new GameObject("BoardBackground", typeof(RectTransform), typeof(Image));
+			var boardBgRect = boardBgGo.GetComponent<RectTransform>();
+			boardBgRect.SetParent(root, false);
+			boardBgRect.anchorMin = new Vector2(0, 0);
+			boardBgRect.anchorMax = new Vector2(0, 1);
+			boardBgRect.pivot = new Vector2(0, 0.5f);
+			boardBgRect.sizeDelta = new Vector2(1080, 0);
+			boardBgRect.anchoredPosition = new Vector2(0, 0);
+			var boardBgImg = boardBgGo.GetComponent<Image>();
+			var boardSprite = Resources.Load<Sprite>("Board/Board_wood");
+			if (boardSprite != null)
+			{
+				boardBgImg.sprite = boardSprite;
+				boardBgImg.type = Image.Type.Sliced;
+				boardBgImg.color = Color.white;
+			}
+			else
+			{
+				boardBgImg.color = new Color(0.1f, 0.1f, 0.1f, 1f);
+			}
+
+			// Board area on top of background
 			var boardHolder = new GameObject("Board", typeof(RectTransform), typeof(GridLayoutGroup), typeof(Image));
 			gridRect = boardHolder.GetComponent<RectTransform>();
 			gridRect.SetParent(root, false);
@@ -80,7 +114,7 @@ namespace Chess.UI
 			grid.cellSize = new Vector2(128, 128);
 			grid.spacing = new Vector2(2, 2);
 			var boardBg = boardHolder.GetComponent<Image>();
-			boardBg.color = new Color(0.1f, 0.1f, 0.1f, 1f);
+			boardBg.color = new Color(1f, 1f, 1f, 0f);
 
 			// Sidebar
 			sidebar = new GameObject("Sidebar", typeof(RectTransform), typeof(VerticalLayoutGroup)).GetComponent<RectTransform>();
@@ -121,10 +155,18 @@ namespace Chess.UI
 				var fallbackTextGo = new GameObject("PieceText", typeof(RectTransform), typeof(TextMeshProUGUI));
 				fallbackTextGo.transform.SetParent(cell.transform, false);
 				var label = fallbackTextGo.GetComponent<TextMeshProUGUI>();
-				label.alignment = TextAlignmentOptions.Center;
-				label.fontSize = 72;
-				label.raycastTarget = false;
-				pieceFallbackLabels[i] = label;
+							label.alignment = TextAlignmentOptions.Center;
+			label.fontSize = 72;
+			label.raycastTarget = false;
+			label.color = new Color(0,0,0,0.85f);
+			pieceFallbackLabels[i] = label;
+
+				var highlightGo = new GameObject("Highlight", typeof(RectTransform), typeof(Image));
+				highlightGo.transform.SetParent(cell.transform, false);
+				var h = highlightGo.GetComponent<Image>();
+				h.raycastTarget = false;
+				h.color = new Color(0, 0.8f, 0, 0f);
+				highlightImages[i] = h;
 			}
 		}
 
@@ -184,6 +226,7 @@ namespace Chess.UI
 				if (!spriteCache.TryGetValue(key, out sprite))
 				{
 					sprite = Resources.Load<Sprite>("CBurnett/" + key);
+					if (sprite == null) sprite = Resources.Load<Sprite>("CBurnett/" + key.Replace(".png", ""));
 					if (sprite != null) spriteCache[key] = sprite;
 				}
 			}
@@ -199,17 +242,19 @@ namespace Chess.UI
 			{
 				var baseColor = ((i + (i / 8)) % 2 == 0) ? new Color(0.86f, 0.86f, 0.74f) : new Color(0.52f, 0.58f, 0.3f);
 				squareImages[i].color = baseColor;
+				highlightImages[i].color = new Color(0, 0.8f, 0, 0f);
 			}
 			if (!highlightLegal) return;
 			if (selectedSquare < 0) return;
 			foreach (var m in legalMoves)
 			{
 				if (m.from != selectedSquare) continue;
-				squareImages[m.to].color = new Color(0.35f, 0.7f, 0.35f);
+				var c = m.IsCapture ? new Color(0.9f, 0, 0, 0.35f) : new Color(0, 0.8f, 0, 0.35f);
+				highlightImages[m.to].color = c;
 			}
 			// highlight selected
 			if (selectedSquare >= 0)
-				squareImages[selectedSquare].color = new Color(0.9f, 0.85f, 0.2f);
+				highlightImages[selectedSquare].color = new Color(0.9f, 0.85f, 0.2f, 0.4f);
 		}
 
 		public void SetTurn(PieceColor color)
@@ -265,7 +310,6 @@ namespace Chess.UI
 		private string GetSpriteKey(Piece p)
 		{
 			if (p.IsEmpty) return string.Empty;
-			// CBurnett naming: Chess_plt45 (pawns white), k/q/r/b/n
 			char t = p.type switch
 			{
 				PieceType.Pawn => 'p',
@@ -277,7 +321,7 @@ namespace Chess.UI
 				_ => 'p'
 			};
 			string side = p.color == PieceColor.White ? "l" : "d"; // light/dark
-			return $"Chess_{t}{side}t45";
+			return $"Chess_{t}{side}t45.png";
 		}
 
 		private string SpriteFallbackText(Piece p)
