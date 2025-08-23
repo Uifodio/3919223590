@@ -107,6 +107,7 @@ namespace Chess
 			selectedSquare = -1;
 			GenerateLegalMoves();
 			SaveIfEnabled();
+			MaybeStartAi();
 		}
 
 		private void GenerateLegalMoves()
@@ -229,21 +230,43 @@ namespace Chess
 			isAiThinking = true;
 			ui.ShowThinking(true);
 			var boardCopy = board.Clone();
-			var task = Task.Run(() => ai.FindBestMove(boardCopy));
+			var task = System.Threading.Tasks.Task.Run(() => ai.FindBestMove(boardCopy));
 			while (!task.IsCompleted)
 			{
 				yield return null;
 			}
 			isAiThinking = false;
 			ui.ShowThinking(false);
+			Move? best = null;
 			if (task.IsCompletedSuccessfully)
 			{
-				var best = task.Result;
-				if (best.HasValue)
+				best = task.Result;
+			}
+			if (!best.HasValue)
+			{
+				// Fallback: ensure AI always plays a legal move
+				var moves = new List<Move>(128);
+				MoveGenerator.GenerateLegalMoves(board, moves);
+				if (moves.Count > 0)
 				{
-					ExecuteMove(best.Value);
+					// Prefer capture or promotion
+					moves.Sort((a, b) => (ScoreFallback(b)).CompareTo(ScoreFallback(a)));
+					best = moves[0];
 				}
 			}
+			if (best.HasValue)
+			{
+				ExecuteMove(best.Value);
+			}
+		}
+
+		private int ScoreFallback(Move m)
+		{
+			int score = 0;
+			if (m.IsCapture) score += 1000;
+			if (m.IsPromotion) score += 500;
+			if (m.IsCastleKing || m.IsCastleQueen) score += 100;
+			return score;
 		}
 
 		private void OnUndo()
