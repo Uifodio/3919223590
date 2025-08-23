@@ -85,3 +85,23 @@ If SVGs are missing, the board renders with text-based piece labels. You can sti
 ## Credits
 - CBurnett for the SVG chess piece set.
 - Unity Vector Graphics package team.
+
+## AI Styles
+- Configure in `ChessGameBootstrap`:
+  - AI Style: Balanced, Aggressive, Defensive, Positional
+- Styles bias evaluation (mobility, center control, material conservation, pawn structure) to shape play.
+
+## Opening Book
+- Built-in book covers Italian, Ruy Lopez, Sicilian (Najdorf/Scheveningen), French, Caro-Kann, Scandinavian, Queen's Gambit, King's Indian, Nimzo-Indian, English.
+- The AI follows book lines using SAN history, then switches to search.
+
+## Animations
+- Pieces animate smoothly on move (human and AI). You can tune duration in `ChessUI.AnimateMove` calls.
+
+## What was upgraded
+- Fixed en passant capture resolution.
+- Prevented illegal king captures.
+- Added opening book and SAN history integration.
+- Upgraded AI with iterative deepening, quiescence, move ordering (history/killer), and style-driven evaluation.
+- Added draw detection: threefold repetition and insufficient material; plus Offer Draw button.
+- Added smooth move animations.

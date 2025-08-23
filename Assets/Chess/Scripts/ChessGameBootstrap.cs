@@ -9,6 +9,7 @@ namespace Chess
 		public bool aiPlaysBlack = true;
 		[Range(1, 6)] public int aiSearchDepth = 3;
 		public int aiTimeBudgetMs = 0; // 0 = no time budget
+		public Chess.AI.AIStyle aiStyle = Chess.AI.AIStyle.Balanced;
 
 		[Header("Gameplay")]
 		public bool autoSaveEnabled = true;
@@ -30,7 +31,8 @@ namespace Chess
 				autoSaveEnabled = autoSaveEnabled,
 				loadAutoSaveOnStart = loadAutoSaveOnStart,
 				highlightLegalMoves = highlightLegalMoves,
-				allowUndo = allowUndo
+				allowUndo = allowUndo,
+				aiStyle = aiStyle
 			});
 		}
 	}

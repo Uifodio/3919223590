@@ -30,6 +30,7 @@ namespace Chess
 			public bool loadAutoSaveOnStart;
 			public bool highlightLegalMoves;
 			public bool allowUndo;
+			public AI.AIStyle aiStyle;
 		}
 
 		public event Action<GameResult, PieceColor> OnGameOver;
@@ -64,6 +65,7 @@ namespace Chess
 			ui.Initialize(this, config.highlightLegalMoves, OnSquareClicked, OnUndo, OnNewGame, OnDepthChanged, OnOfferDraw);
 			ai = new AI.ChessAI();
 			ai.SetLimits(config.aiSearchDepth, config.aiTimeBudgetMs);
+			ai.SetStyle(config.aiStyle);
 			NewGame();
 			if (config.autoSaveEnabled && config.loadAutoSaveOnStart && File.Exists(autosavePath))
 			{
@@ -85,6 +87,7 @@ namespace Chess
 		{
 			board = new Board();
 			board.SetupStartingPosition();
+			Chess.AI.SanUtil.Clear();
 			selectedSquare = -1;
 			GenerateLegalMoves();
 			SaveIfEnabled();
@@ -160,6 +163,8 @@ namespace Chess
 
 		private void ExecuteMove(Move move)
 		{
+			ui.AnimateMove(move.from, move.to, 0.15f);
+			Chess.AI.SanUtil.Append(board, move);
 			board.MakeMove(move);
 			selectedSquare = -1;
 			ui.RenderBoard(board);

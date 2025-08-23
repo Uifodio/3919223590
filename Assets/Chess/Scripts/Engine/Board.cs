@@ -276,9 +276,8 @@ namespace Chess.Engine
 			// En passant capture
 			if (move.IsEnPassant)
 			{
-				int dir = moving.color == PieceColor.White ? 1 : -1;
-				int capSq = move.to - (dir << 3);
-				state.captured = squares[capSq]; // update captured in state for accuracy
+				int capSq = move.to + ((moving.color == PieceColor.White) ? (1 << 3) : -(1 << 3));
+				state.captured = squares[capSq]; // captured pawn is behind target square
 				squares[capSq] = new Piece(PieceType.None, PieceColor.White);
 			}
 
@@ -325,8 +324,7 @@ namespace Chess.Engine
 			// Undo en passant capture
 			if (move.IsEnPassant)
 			{
-				int dir = moving.color == PieceColor.White ? 1 : -1;
-				int capSq = move.to - (dir << 3);
+				int capSq = move.to + ((moving.color == PieceColor.White) ? (1 << 3) : -(1 << 3));
 				squares[move.to] = new Piece(PieceType.None, PieceColor.White);
 				squares[capSq] = new Piece(PieceType.Pawn, sideToMove == PieceColor.White ? PieceColor.Black : PieceColor.White);
 			}

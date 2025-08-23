@@ -5,6 +5,14 @@ using Chess.Engine;
 
 namespace Chess.AI
 {
+	public enum AIStyle
+	{
+		Balanced,
+		Aggressive,
+		Defensive,
+		Positional
+	}
+
 	public class ChessAI
 	{
 		private int maxDepth = 3;
@@ -12,11 +20,17 @@ namespace Chess.AI
 		private readonly int[] pieceValues = { 0, 100, 320, 330, 500, 900, 20000 };
 		private readonly Dictionary<(int,int), int> historyHeuristic = new Dictionary<(int,int), int>();
 		private Move?[,] killerMoves = new Move?[64, 2];
+		private AIStyle style = AIStyle.Balanced;
 
 		public void SetLimits(int depth, int timeMs)
 		{
 			maxDepth = Math.Max(1, depth);
 			timeBudgetMs = Math.Max(0, timeMs);
+		}
+
+		public void SetStyle(AIStyle newStyle)
+		{
+			style = newStyle;
 		}
 
 		public Move? FindBestMove(Board position)
@@ -146,24 +160,73 @@ namespace Chess.AI
 
 		private int Evaluate(Board b)
 		{
-			int score = 0;
+			int material = 0;
+			int mobility = 0;
+			int center = 0;
+			int kingSafety = 0;
+			int pawnStructure = 0;
 			for (int i = 0; i < 64; i++)
 			{
 				var p = b.squares[i];
 				if (p.IsEmpty) continue;
 				int val = pieceValues[(int)p.type];
-				score += (p.color == Chess.Engine.PieceColor.White ? val : -val);
+				material += (p.color == PieceColor.White ? val : -val);
+				// Center control
+				int f = Move.FileOf(i), r = Move.RankOf(i);
+				bool inCenter = (f >= 2 && f <= 5 && r >= 2 && r <= 5);
+				if (inCenter) center += (p.color == PieceColor.White ? 2 : -2);
+				// Pawn structure bonus
+				if (p.type == PieceType.Pawn)
+				{
+					pawnStructure += (p.color == PieceColor.White ? (6 - r) : (r - 1));
+				}
 			}
-			return b.sideToMove == Chess.Engine.PieceColor.White ? score : -score;
+			// Mobility (legal move count difference)
+			var tmp = b.Clone();
+			var movesSide = new List<Move>(64);
+			MoveGenerator.GenerateLegalMoves(tmp, movesSide);
+			int sideMoves = movesSide.Count;
+			tmp.sideToMove = tmp.sideToMove == PieceColor.White ? PieceColor.Black : PieceColor.White;
+			movesSide.Clear(); MoveGenerator.GenerateLegalMoves(tmp, movesSide);
+			int oppMoves = movesSide.Count;
+			mobility = (sideMoves - oppMoves) * 2;
+
+			int score = material + mobility + center + pawnStructure;
+			// Style weighting
+			switch (style)
+			{
+				case AIStyle.Aggressive:
+					score += mobility + center;
+					break;
+				case AIStyle.Defensive:
+					score += (int)(material * 0.1);
+					break;
+				case AIStyle.Positional:
+					score += center + (pawnStructure / 2);
+					break;
+			}
+			return b.sideToMove == PieceColor.White ? score : -score;
 		}
 	}
 
 	public static class SanUtil
 	{
-		// Minimal SAN utilities for book matching
+		private static readonly System.Text.StringBuilder history = new System.Text.StringBuilder();
+		public static void Append(Board b, Move m)
+		{
+			string san = ToSimpleSan(b, m);
+			if (history.Length > 0) history.Append(' ');
+			history.Append(san);
+		}
+
+		public static void Clear()
+		{
+			history.Length = 0;
+		}
+
 		public static string BuildSanHistory(Board b)
 		{
-			return string.Empty; // placeholder: no persisted history implemented
+			return history.ToString();
 		}
 
 		public static bool TryMatchSan(Board b, List<Move> legal, string san, out Move move)

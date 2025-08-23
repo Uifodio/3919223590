@@ -347,5 +347,37 @@ namespace Chess.UI
 		{
 			if (drawButton != null) drawButton.interactable = enabled;
 		}
+
+		public void AnimateMove(int from, int to, float duration = 0.15f)
+		{
+			StartCoroutine(AnimatePieceCoroutine(from, to, duration));
+		}
+
+		private System.Collections.IEnumerator AnimatePieceCoroutine(int from, int to, float duration)
+		{
+			var fromCell = squareImages[from].transform as RectTransform;
+			var toCell = squareImages[to].transform as RectTransform;
+			var piece = pieceImages[from];
+			if (!piece.enabled) yield break;
+			var overlay = new GameObject("MovingPiece", typeof(RectTransform), typeof(Image));
+			overlay.transform.SetParent(gridRect, false);
+			var rt = overlay.GetComponent<RectTransform>();
+			var img = overlay.GetComponent<Image>();
+			img.sprite = piece.sprite;
+			rt.sizeDelta = piece.rectTransform.sizeDelta;
+			rt.position = fromCell.position;
+			piece.enabled = false;
+			float t = 0f;
+			while (t < 1f)
+			{
+				t += Time.deltaTime / duration;
+				rt.position = Vector3.Lerp(fromCell.position, toCell.position, Mathf.SmoothStep(0, 1, t));
+				yield return null;
+			}
+			destroyAfterFrame = overlay;
+			yield return null;
+			if (destroyAfterFrame != null) GameObject.Destroy(destroyAfterFrame);
+		}
+		private GameObject destroyAfterFrame;
 	}
 }
