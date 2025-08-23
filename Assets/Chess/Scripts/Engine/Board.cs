@@ -32,6 +32,7 @@ namespace Chess.Engine
 		private readonly Stack<UndoState> undoStack = new Stack<UndoState>(128);
 		private readonly Stack<Move> moveStack = new Stack<Move>(128);
 		private readonly Dictionary<ulong, int> repetitionTable = new Dictionary<ulong, int>();
+		private readonly Stack<ulong> positionHistory = new Stack<ulong>(256);
 
 		public IEnumerable<Move> MoveHistory => moveStack;
 
@@ -72,6 +73,7 @@ namespace Chess.Engine
 			undoStack.Clear();
 			moveStack.Clear();
 			repetitionTable.Clear();
+			positionHistory.Clear();
 			IncrementRepetition();
 		}
 
@@ -303,6 +305,8 @@ namespace Chess.Engine
 
 		public Move UnmakeMove()
 		{
+			// Remove current position from repetition before state changes
+			DecrementCurrentPosition();
 			var move = moveStack.Pop();
 			var state = undoStack.Pop();
 
@@ -380,6 +384,18 @@ namespace Chess.Engine
 			ulong h = ComputeHash();
 			if (!repetitionTable.ContainsKey(h)) repetitionTable[h] = 0;
 			repetitionTable[h]++;
+			positionHistory.Push(h);
+		}
+
+		private void DecrementCurrentPosition()
+		{
+			ulong h = ComputeHash();
+			if (repetitionTable.TryGetValue(h, out var c))
+			{
+				c--;
+				if (c <= 0) repetitionTable.Remove(h); else repetitionTable[h] = c;
+			}
+			if (positionHistory.Count > 0 && positionHistory.Peek() == h) positionHistory.Pop();
 		}
 
 		public bool IsThreefoldRepetition()

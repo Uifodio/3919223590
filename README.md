@@ -63,6 +63,13 @@ Hook into `GameEvents` on `ChessGameController`:
 - `OnGameOver(GameResult result, PieceColor winner)`
 - Add listeners to adjust your currency balances when matches end.
 
+## Economy
+- Automatically attached via `ChessGameBootstrap`.
+- Persistent across sessions in `Application.persistentDataPath/economy.json`.
+- Balance changes: +winReward on wins, -lossPenalty on losses, +drawReward on draws.
+- ELO-like ratings for Player and AI with configurable K-factor.
+- Sidebar shows current balance and ratings; updated after each game.
+
 ## Editor Tools
 - `Tools > Chess > Setup Project`: Installs packages, downloads assets, creates scene.
 - `Tools > Chess > Download CBurnett Assets`: Redownload/refresh SVGs.

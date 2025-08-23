@@ -34,6 +34,10 @@ namespace Chess
 				allowUndo = allowUndo,
 				aiStyle = aiStyle
 			});
+			if (GetComponent<Economy.GameEconomy>() == null)
+			{
+				gameObject.AddComponent<Economy.GameEconomy>();
+			}
 		}
 	}
 }

@@ -46,6 +46,7 @@ namespace Chess
 		private int selectedSquare = -1;
 		private string autosavePath;
 		private bool isAiThinking = false;
+		private Economy.GameEconomy economy;
 
 		[Serializable]
 		private struct SaveData
@@ -66,12 +67,14 @@ namespace Chess
 			ai = new AI.ChessAI();
 			ai.SetLimits(config.aiSearchDepth, config.aiTimeBudgetMs);
 			ai.SetStyle(config.aiStyle);
+			economy = GetComponent<Economy.GameEconomy>();
 			NewGame();
 			if (config.autoSaveEnabled && config.loadAutoSaveOnStart && File.Exists(autosavePath))
 			{
 				TryLoad();
 			}
 			UpdateUIFull();
+			ui.UpdateEconomy(economy);
 		}
 
 		private void UpdateUIFull()
@@ -175,6 +178,7 @@ namespace Chess
 			{
 				ui.SetGameOver(result, board.sideToMove == PieceColor.White ? PieceColor.Black : PieceColor.White);
 				OnGameOver?.Invoke(result, board.sideToMove == PieceColor.White ? PieceColor.Black : PieceColor.White);
+				ui.UpdateEconomy(economy);
 				return;
 			}
 			MaybeStartAi();

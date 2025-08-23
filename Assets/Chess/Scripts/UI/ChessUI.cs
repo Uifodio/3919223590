@@ -36,6 +36,7 @@ namespace Chess.UI
 		private Action<int> onDepthChanged;
 		private Action onOfferDraw;
 		private Button drawButton;
+		private TextMeshProUGUI economyLabel;
 
 		public void Initialize(MonoBehaviour host, bool highlightLegalMoves, Action<int> onSquareClicked, Action onUndo, Action onNewGame, Action<int> onDepthChanged, Action onOfferDraw = null)
 		{
@@ -136,6 +137,7 @@ namespace Chess.UI
 			newGameButton = CreateButton(sidebar, "New Game", () => onNewGame?.Invoke());
 			depthDropdown = CreateDropdown(sidebar, new[] { "Depth 1", "Depth 2", "Depth 3", "Depth 4", "Depth 5", "Depth 6" }, 2, (i) => onDepthChanged?.Invoke(i + 1));
 			drawButton = CreateButton(sidebar, "Offer Draw", () => onOfferDraw?.Invoke());
+			economyLabel = CreateLabel(sidebar, "Economy: $0 | Player ELO 1200 vs AI 1200", 24, FontStyles.Italic);
 
 			// Create 64 squares
 			for (int i = 0; i < 64; i++)
@@ -379,5 +381,11 @@ namespace Chess.UI
 			if (destroyAfterFrame != null) GameObject.Destroy(destroyAfterFrame);
 		}
 		private GameObject destroyAfterFrame;
+
+		public void UpdateEconomy(Chess.Economy.GameEconomy econ)
+		{
+			if (econ == null || economyLabel == null) return;
+			economyLabel.text = $"Economy: ${econ.PlayerBalance} | Player ELO {econ.PlayerRating} vs AI {econ.AIRating}";
+		}
 	}
 }
