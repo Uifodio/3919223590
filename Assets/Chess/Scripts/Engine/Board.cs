@@ -101,22 +101,36 @@ namespace Chess.Engine
 			int file = Move.FileOf(square);
 			if (attacker == PieceColor.White)
 			{
-				if (rank > 0)
+				// White pawns attack one rank forward (toward increasing rank index for our board mapping)
+				if (rank < 7)
 				{
-					int s1 = Move.FromFileRank(file - 1, rank - 1);
-					int s2 = Move.FromFileRank(file + 1, rank - 1);
-					if (file > 0 && squares[s1].type == PieceType.Pawn && squares[s1].color == PieceColor.White) return true;
-					if (file < 7 && squares[s2].type == PieceType.Pawn && squares[s2].color == PieceColor.White) return true;
+					if (file > 0)
+					{
+						int s1 = Move.FromFileRank(file - 1, rank + 1);
+						if (squares[s1].type == PieceType.Pawn && squares[s1].color == PieceColor.White) return true;
+					}
+					if (file < 7)
+					{
+						int s2 = Move.FromFileRank(file + 1, rank + 1);
+						if (squares[s2].type == PieceType.Pawn && squares[s2].color == PieceColor.White) return true;
+					}
 				}
 			}
 			else
 			{
-				if (rank < 7)
+				// Black pawns attack one rank forward (toward decreasing rank index for our board mapping)
+				if (rank > 0)
 				{
-					int s1 = Move.FromFileRank(file - 1, rank + 1);
-					int s2 = Move.FromFileRank(file + 1, rank + 1);
-					if (file > 0 && squares[s1].type == PieceType.Pawn && squares[s1].color == PieceColor.Black) return true;
-					if (file < 7 && squares[s2].type == PieceType.Pawn && squares[s2].color == PieceColor.Black) return true;
+					if (file > 0)
+					{
+						int s1 = Move.FromFileRank(file - 1, rank - 1);
+						if (squares[s1].type == PieceType.Pawn && squares[s1].color == PieceColor.Black) return true;
+					}
+					if (file < 7)
+					{
+						int s2 = Move.FromFileRank(file + 1, rank - 1);
+						if (squares[s2].type == PieceType.Pawn && squares[s2].color == PieceColor.Black) return true;
+					}
 				}
 			}
 			// Knights
