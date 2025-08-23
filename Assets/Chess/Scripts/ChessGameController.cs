@@ -184,6 +184,7 @@ namespace Chess
 			board.MakeMove(move);
 			selectedSquare = -1;
 			ui.RenderBoard(board);
+			ui.SetTurn(board.sideToMove);
 			GenerateLegalMoves();
 			SaveIfEnabled();
 			var result = EvaluateGameEnd();
@@ -253,6 +254,7 @@ namespace Chess
 			{
 				board.UnmakeMove();
 				ui.RenderBoard(board);
+				ui.SetTurn(board.sideToMove);
 				GenerateLegalMoves();
 				SaveIfEnabled();
 			}

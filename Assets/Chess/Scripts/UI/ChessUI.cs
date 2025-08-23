@@ -37,6 +37,7 @@ namespace Chess.UI
 		private Action onOfferDraw;
 		private Button drawButton;
 		private TextMeshProUGUI economyLabel;
+		private ChessUILayout externalLayout;
 
 		public void Initialize(MonoBehaviour host, bool highlightLegalMoves, Action<int> onSquareClicked, Action onUndo, Action onNewGame, Action<int> onDepthChanged, Action onOfferDraw = null, int boardWidth = 1080, int cellSize = 128, float spacing = 2f, bool flip = false)
 		{
@@ -51,6 +52,7 @@ namespace Chess.UI
 			this.paramCellSize = cellSize;
 			this.paramSpacing = spacing;
 			this.paramFlip = flip;
+			externalLayout = FindObjectOfType<ChessUILayout>();
 			BuildUI();
 		}
 
@@ -93,7 +95,7 @@ namespace Chess.UI
 			// Board background
 			var boardBgGo = new GameObject("BoardBackground", typeof(RectTransform), typeof(Image));
 			var boardBgRect = boardBgGo.GetComponent<RectTransform>();
-			boardBgRect.SetParent(root, false);
+			boardBgRect.SetParent(externalLayout?.boardRoot != null ? externalLayout.boardRoot : root, false);
 			boardBgRect.anchorMin = new Vector2(0, 0);
 			boardBgRect.anchorMax = new Vector2(0, 1);
 			boardBgRect.pivot = new Vector2(0, 0.5f);
@@ -115,11 +117,11 @@ namespace Chess.UI
 			// Board area on top of background
 			var boardHolder = new GameObject("Board", typeof(RectTransform), typeof(GridLayoutGroup), typeof(Image));
 			gridRect = boardHolder.GetComponent<RectTransform>();
-			gridRect.SetParent(root, false);
+			gridRect.SetParent(externalLayout?.boardRoot != null ? externalLayout.boardRoot : root, false);
 			gridRect.anchorMin = new Vector2(0, 0);
 			gridRect.anchorMax = new Vector2(0, 1);
 			gridRect.pivot = new Vector2(0, 0.5f);
-			gridRect.sizeDelta = new Vector2(1080, 0);
+			gridRect.sizeDelta = new Vector2(paramBoardWidth > 0 ? paramBoardWidth : 1080, 0);
 			gridRect.anchoredPosition = new Vector2(0, 0);
 			grid = boardHolder.GetComponent<GridLayoutGroup>();
 			grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
@@ -131,22 +133,22 @@ namespace Chess.UI
 
 			// Sidebar
 			sidebar = new GameObject("Sidebar", typeof(RectTransform), typeof(VerticalLayoutGroup)).GetComponent<RectTransform>();
-			sidebar.SetParent(root, false);
+			sidebar.SetParent(externalLayout?.sidebarRoot != null ? externalLayout.sidebarRoot : root, false);
 			sidebar.anchorMin = new Vector2(0, 0);
 			sidebar.anchorMax = new Vector2(1, 1);
-			sidebar.offsetMin = new Vector2(1100, 40);
+			sidebar.offsetMin = new Vector2(paramBoardWidth + 20, 40);
 			sidebar.offsetMax = new Vector2(-40, -40);
 			var v = sidebar.GetComponent<VerticalLayoutGroup>();
 			v.childForceExpandHeight = false; v.childForceExpandWidth = true; v.spacing = 16;
 
-			// Controls
-			turnLabel = CreateLabel(sidebar, "Turn: White", 36, FontStyles.Bold);
-			statusLabel = CreateLabel(sidebar, "Status: Playing", 28, FontStyles.Normal);
-			undoButton = CreateButton(sidebar, "Undo", () => onUndo?.Invoke());
-			newGameButton = CreateButton(sidebar, "New Game", () => onNewGame?.Invoke());
-			depthDropdown = CreateDropdown(sidebar, new[] { "Depth 1", "Depth 2", "Depth 3", "Depth 4", "Depth 5", "Depth 6" }, 2, (i) => onDepthChanged?.Invoke(i + 1));
-			drawButton = CreateButton(sidebar, "Offer Draw", () => onOfferDraw?.Invoke());
-			economyLabel = CreateLabel(sidebar, "Economy: $0 | Player ELO 1200 vs AI 1200", 24, FontStyles.Italic);
+			// Controls (attach to external slots if provided)
+			turnLabel = CreateLabel(externalLayout?.turnLabelRoot ?? sidebar, "Turn: White", 36, FontStyles.Bold);
+			statusLabel = CreateLabel(externalLayout?.statusLabelRoot ?? sidebar, "Status: Playing", 28, FontStyles.Normal);
+			undoButton = CreateButton(externalLayout?.undoButtonRoot ?? sidebar, "Undo", () => onUndo?.Invoke());
+			newGameButton = CreateButton(externalLayout?.newGameButtonRoot ?? sidebar, "New Game", () => onNewGame?.Invoke());
+			depthDropdown = CreateDropdown(externalLayout?.depthDropdownRoot ?? sidebar, new[] { "Depth 1", "Depth 2", "Depth 3", "Depth 4", "Depth 5", "Depth 6" }, 2, (i) => onDepthChanged?.Invoke(i + 1));
+			drawButton = CreateButton(externalLayout?.drawButtonRoot ?? sidebar, "Offer Draw", () => onOfferDraw?.Invoke());
+			economyLabel = CreateLabel(externalLayout?.economyLabelRoot ?? sidebar, "Economy: $0 | Player ELO 1200 vs AI 1200", 24, FontStyles.Italic);
 
 			// Create 64 squares
 			for (int i = 0; i < 64; i++)
@@ -158,8 +160,8 @@ namespace Chess.UI
 				img.color = ((i + (i / 8)) % 2 == 0) ? new Color(0.86f, 0.86f, 0.74f) : new Color(0.52f, 0.58f, 0.3f);
 				var btn = cell.GetComponent<Button>();
 				squareButtons[i] = btn;
-				int idx = i;
-				btn.onClick.AddListener(() => onSquareClicked?.Invoke(idx));
+				int dispIdx = i;
+				btn.onClick.AddListener(() => onSquareClicked?.Invoke(DisplayToBoardIndex(dispIdx)));
 
 				var pieceGo = new GameObject("Piece", typeof(RectTransform), typeof(Image));
 				pieceGo.transform.SetParent(cell.transform, false);
@@ -252,6 +254,16 @@ namespace Chess.UI
 			text.enabled = sprite == null && !p.IsEmpty;
 		}
 
+		private int DisplayToBoardIndex(int displayIndex)
+		{
+			return paramFlip ? (63 - displayIndex) : displayIndex;
+		}
+
+		private int BoardToDisplayIndex(int boardIndex)
+		{
+			return paramFlip ? (63 - boardIndex) : boardIndex;
+		}
+
 		public void ShowLegalMoves(int selectedSquare, List<Move> legalMoves)
 		{
 			for (int i = 0; i < 64; i++)
@@ -265,12 +277,13 @@ namespace Chess.UI
 			foreach (var m in legalMoves)
 			{
 				if (m.from != selectedSquare) continue;
+				int dispTo = BoardToDisplayIndex(m.to);
 				var c = m.IsCapture ? new Color(0.9f, 0, 0, 0.35f) : new Color(0, 0.8f, 0, 0.35f);
-				highlightImages[m.to].color = c;
+				highlightImages[dispTo].color = c;
 			}
 			// highlight selected
 			if (selectedSquare >= 0)
-				highlightImages[selectedSquare].color = new Color(0.9f, 0.85f, 0.2f, 0.4f);
+				highlightImages[BoardToDisplayIndex(selectedSquare)].color = new Color(0.9f, 0.85f, 0.2f, 0.4f);
 		}
 
 		public void SetTurn(PieceColor color)
