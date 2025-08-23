@@ -93,36 +93,42 @@ namespace Chess.UI
 			root.anchorMin = Vector2.zero; root.anchorMax = Vector2.one; root.offsetMin = Vector2.zero; root.offsetMax = Vector2.zero;
 
 			// Board background
-			var boardBgGo = new GameObject("BoardBackground", typeof(RectTransform), typeof(Image));
-			var boardBgRect = boardBgGo.GetComponent<RectTransform>();
-			boardBgRect.SetParent(externalLayout?.boardRoot != null ? externalLayout.boardRoot : root, false);
-			boardBgRect.anchorMin = new Vector2(0, 0);
-			boardBgRect.anchorMax = new Vector2(0, 1);
-			boardBgRect.pivot = new Vector2(0, 0.5f);
-			boardBgRect.sizeDelta = new Vector2(paramBoardWidth > 0 ? paramBoardWidth : 1080, 0);
-			boardBgRect.anchoredPosition = new Vector2(0, 0);
-			var boardBgImg = boardBgGo.GetComponent<Image>();
-			var boardSprite = Resources.Load<Sprite>("Board/Board_wood");
-			if (boardSprite != null)
+			if (externalLayout?.boardRoot == null)
 			{
-				boardBgImg.sprite = boardSprite;
-				boardBgImg.type = Image.Type.Sliced;
-				boardBgImg.color = Color.white;
-			}
-			else
-			{
-				boardBgImg.color = new Color(0.1f, 0.1f, 0.1f, 1f);
+				var boardBgGo = new GameObject("BoardBackground", typeof(RectTransform), typeof(Image));
+				var boardBgRect = boardBgGo.GetComponent<RectTransform>();
+				boardBgRect.SetParent(root, false);
+				boardBgRect.anchorMin = new Vector2(0, 0);
+				boardBgRect.anchorMax = new Vector2(0, 1);
+				boardBgRect.pivot = new Vector2(0, 0.5f);
+				boardBgRect.sizeDelta = new Vector2(paramBoardWidth > 0 ? paramBoardWidth : 1080, 0);
+				boardBgRect.anchoredPosition = new Vector2(0, 0);
+				var boardBgImg = boardBgGo.GetComponent<Image>();
+				var boardSprite = Resources.Load<Sprite>("Board/Board_wood");
+				if (boardSprite != null)
+				{
+					boardBgImg.sprite = boardSprite;
+					boardBgImg.type = Image.Type.Sliced;
+					boardBgImg.color = Color.white;
+				}
+				else
+				{
+					boardBgImg.color = new Color(0.1f, 0.1f, 0.1f, 1f);
+				}
 			}
 
 			// Board area on top of background
 			var boardHolder = new GameObject("Board", typeof(RectTransform), typeof(GridLayoutGroup), typeof(Image));
 			gridRect = boardHolder.GetComponent<RectTransform>();
 			gridRect.SetParent(externalLayout?.boardRoot != null ? externalLayout.boardRoot : root, false);
-			gridRect.anchorMin = new Vector2(0, 0);
-			gridRect.anchorMax = new Vector2(0, 1);
-			gridRect.pivot = new Vector2(0, 0.5f);
-			gridRect.sizeDelta = new Vector2(paramBoardWidth > 0 ? paramBoardWidth : 1080, 0);
-			gridRect.anchoredPosition = new Vector2(0, 0);
+			if (externalLayout?.boardRoot == null)
+			{
+				gridRect.anchorMin = new Vector2(0, 0);
+				gridRect.anchorMax = new Vector2(0, 1);
+				gridRect.pivot = new Vector2(0, 0.5f);
+				gridRect.sizeDelta = new Vector2(paramBoardWidth > 0 ? paramBoardWidth : 1080, 0);
+				gridRect.anchoredPosition = new Vector2(0, 0);
+			}
 			grid = boardHolder.GetComponent<GridLayoutGroup>();
 			grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
 			grid.constraintCount = 8;
@@ -134,10 +140,13 @@ namespace Chess.UI
 			// Sidebar
 			sidebar = new GameObject("Sidebar", typeof(RectTransform), typeof(VerticalLayoutGroup)).GetComponent<RectTransform>();
 			sidebar.SetParent(externalLayout?.sidebarRoot != null ? externalLayout.sidebarRoot : root, false);
-			sidebar.anchorMin = new Vector2(0, 0);
-			sidebar.anchorMax = new Vector2(1, 1);
-			sidebar.offsetMin = new Vector2(paramBoardWidth + 20, 40);
-			sidebar.offsetMax = new Vector2(-40, -40);
+			if (externalLayout?.sidebarRoot == null)
+			{
+				sidebar.anchorMin = new Vector2(0, 0);
+				sidebar.anchorMax = new Vector2(1, 1);
+				sidebar.offsetMin = new Vector2(paramBoardWidth + 20, 40);
+				sidebar.offsetMax = new Vector2(-40, -40);
+			}
 			var v = sidebar.GetComponent<VerticalLayoutGroup>();
 			v.childForceExpandHeight = false; v.childForceExpandWidth = true; v.spacing = 16;
 
