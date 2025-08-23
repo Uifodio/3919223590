@@ -21,6 +21,24 @@ namespace Chess.AI
 		private readonly Dictionary<(int,int), int> historyHeuristic = new Dictionary<(int,int), int>();
 		private Move?[,] killerMoves = new Move?[64, 2];
 		private AIStyle style = AIStyle.Balanced;
+		private readonly int[,] pstMid = new int[7,64];
+		private readonly System.Random rng = new System.Random(12345);
+
+		public ChessAI()
+		{
+			// Simple PSTs (center preference and development for knights/bishops)
+			for (int i = 0; i < 64; i++)
+			{
+				int f = Move.FileOf(i), r = Move.RankOf(i);
+				int center = (3 - System.Math.Abs(3 - f)) + (3 - System.Math.Abs(3 - r));
+				pstMid[(int)PieceType.Pawn, i] = center;
+				pstMid[(int)PieceType.Knight, i] = center * 2;
+				pstMid[(int)PieceType.Bishop, i] = center * 2;
+				pstMid[(int)PieceType.Rook, i] = 2;
+				pstMid[(int)PieceType.Queen, i] = center;
+				pstMid[(int)PieceType.King, i] = -(center * 2);
+			}
+		}
 
 		public void SetLimits(int depth, int timeMs)
 		{
@@ -151,6 +169,10 @@ namespace Chess.AI
 				score += 100000 + pieceValues[(int)captured.type] - pieceValues[(int)attacker.type];
 			}
 			if (m.IsPromotion) score += 90000;
+			// piece-square influence
+			var p = pos.squares[m.from];
+			int pstTo = pstMid[(int)p.type, m.to] - pstMid[(int)p.type, m.from];
+			score += pstTo * 10;
 			var key = (m.from, m.to);
 			if (historyHeuristic.TryGetValue(key, out var h)) score += h;
 			var k1 = killerMoves[ply, 0]; if (k1.HasValue && k1.Value.to == m.to && k1.Value.from == m.from) score += 50000;
@@ -175,28 +197,38 @@ namespace Chess.AI
 				int f = Move.FileOf(i), r = Move.RankOf(i);
 				bool inCenter = (f >= 2 && f <= 5 && r >= 2 && r <= 5);
 				if (inCenter) center += (p.color == PieceColor.White ? 2 : -2);
+				// PST
+				center += (p.color == PieceColor.White ? pstMid[(int)p.type, i] : -pstMid[(int)p.type, i]);
 				// Pawn structure bonus
 				if (p.type == PieceType.Pawn)
 				{
 					pawnStructure += (p.color == PieceColor.White ? (6 - r) : (r - 1));
+					// Shield: pawns in front of king files
+				}
+				// King safety: penalize if king is attacked
+				if (p.type == PieceType.King)
+				{
+					var opp = p.color == PieceColor.White ? PieceColor.Black : PieceColor.White;
+					if (b.IsSquareAttackedByColor(i, opp)) kingSafety += (p.color == PieceColor.White ? -50 : 50);
 				}
 			}
-			// Mobility (legal move count difference)
-			var tmp = b.Clone();
+			// Mobility difference
 			var movesSide = new List<Move>(64);
-			MoveGenerator.GenerateLegalMoves(tmp, movesSide);
+			MoveGenerator.GenerateLegalMoves(b, movesSide);
 			int sideMoves = movesSide.Count;
-			tmp.sideToMove = tmp.sideToMove == PieceColor.White ? PieceColor.Black : PieceColor.White;
-			movesSide.Clear(); MoveGenerator.GenerateLegalMoves(tmp, movesSide);
+			// Flip side and count opp moves using clone for safety
+			var bc = b.Clone();
+			bc.sideToMove = bc.sideToMove == PieceColor.White ? PieceColor.Black : PieceColor.White;
+			movesSide.Clear(); MoveGenerator.GenerateLegalMoves(bc, movesSide);
 			int oppMoves = movesSide.Count;
 			mobility = (sideMoves - oppMoves) * 2;
 
-			int score = material + mobility + center + pawnStructure;
+			int score = material + mobility + center + pawnStructure + kingSafety;
 			// Style weighting
 			switch (style)
 			{
 				case AIStyle.Aggressive:
-					score += mobility + center;
+					score += mobility + center + 10;
 					break;
 				case AIStyle.Defensive:
 					score += (int)(material * 0.1);
@@ -205,6 +237,8 @@ namespace Chess.AI
 					score += center + (pawnStructure / 2);
 					break;
 			}
+			// small jitter to break ties and avoid oscillation
+			score += rng.Next(0, 3);
 			return b.sideToMove == PieceColor.White ? score : -score;
 		}
 	}

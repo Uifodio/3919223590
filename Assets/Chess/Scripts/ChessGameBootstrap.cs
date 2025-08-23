@@ -18,11 +18,13 @@ namespace Chess
 		public bool allowUndo = true;
 		[TextArea] public string startingFEN = "";
 
-		[Header("Layout")]
-		public bool flipBoard = false;
+		[Header("Layout & Camera")]
+		public Camera uiCamera;
 		public int boardWidthPx = 1080;
 		public int cellSizePx = 128;
 		public float spacingPx = 2f;
+		[Header("Controls")]
+		public bool undoFullMove = false;
 
 		private ChessGameController controller;
 
@@ -41,7 +43,8 @@ namespace Chess
 				allowUndo = allowUndo,
 				aiStyle = aiStyle,
 				startingFEN = startingFEN,
-				flipBoard = flipBoard,
+				undoFullMove = undoFullMove,
+				uiCamera = uiCamera,
 				boardWidthPx = boardWidthPx,
 				cellSizePx = cellSizePx,
 				spacingPx = spacingPx

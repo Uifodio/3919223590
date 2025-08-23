@@ -38,8 +38,9 @@ namespace Chess.UI
 		private Button drawButton;
 		private TextMeshProUGUI economyLabel;
 		private ChessUILayout externalLayout;
+		private Camera providedCamera;
 
-		public void Initialize(MonoBehaviour host, bool highlightLegalMoves, Action<int> onSquareClicked, Action onUndo, Action onNewGame, Action<int> onDepthChanged, Action onOfferDraw = null, int boardWidth = 1080, int cellSize = 128, float spacing = 2f, bool flip = false)
+		public void Initialize(MonoBehaviour host, bool highlightLegalMoves, Action<int> onSquareClicked, Action onUndo, Action onNewGame, Action<int> onDepthChanged, Action onOfferDraw = null, int boardWidth = 1080, int cellSize = 128, float spacing = 2f, bool flip = false, Camera uiCam = null)
 		{
 			this.onSquareClicked = onSquareClicked;
 			this.onUndo = onUndo;
@@ -52,6 +53,7 @@ namespace Chess.UI
 			this.paramCellSize = cellSize;
 			this.paramSpacing = spacing;
 			this.paramFlip = flip;
+			providedCamera = uiCam;
 			externalLayout = FindObjectOfType<ChessUILayout>();
 			BuildUI();
 		}
@@ -78,7 +80,15 @@ namespace Chess.UI
 			{
 				canvasGo = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
 				canvas = canvasGo.GetComponent<Canvas>();
-				canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+				if (providedCamera != null)
+				{
+					canvas.renderMode = RenderMode.ScreenSpaceCamera;
+					canvas.worldCamera = providedCamera;
+				}
+				else
+				{
+					canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+				}
 				var scaler = canvasGo.GetComponent<CanvasScaler>();
 				scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
 				scaler.referenceResolution = new Vector2(1920, 1080);

@@ -32,7 +32,8 @@ namespace Chess
 			public bool allowUndo;
 			public AI.AIStyle aiStyle;
 			public string startingFEN;
-			public bool flipBoard;
+			public bool undoFullMove;
+			public Camera uiCamera;
 			public int boardWidthPx;
 			public int cellSizePx;
 			public float spacingPx;
@@ -68,7 +69,7 @@ namespace Chess
 		{
 			autosavePath = Path.Combine(Application.persistentDataPath, "chess_autosave.json");
 			ui = gameObject.AddComponent<UI.ChessUI>();
-			ui.Initialize(this, config.highlightLegalMoves, OnSquareClicked, OnUndo, OnNewGame, OnDepthChanged, OnOfferDraw, config.boardWidthPx > 0 ? config.boardWidthPx : 1080, config.cellSizePx > 0 ? config.cellSizePx : 128, config.spacingPx > 0 ? config.spacingPx : 2f, config.flipBoard);
+			ui.Initialize(this, config.highlightLegalMoves, OnSquareClicked, OnUndo, OnNewGame, OnDepthChanged, OnOfferDraw, config.boardWidthPx > 0 ? config.boardWidthPx : 1080, config.cellSizePx > 0 ? config.cellSizePx : 128, config.spacingPx > 0 ? config.spacingPx : 2f, false, config.uiCamera);
 			ai = new AI.ChessAI();
 			ai.SetLimits(config.aiSearchDepth, config.aiTimeBudgetMs);
 			ai.SetStyle(config.aiStyle);
@@ -276,6 +277,11 @@ namespace Chess
 			try
 			{
 				board.UnmakeMove();
+				if (config.undoFullMove)
+				{
+					// Undo one more move if available
+					board.UnmakeMove();
+				}
 				ui.RenderBoard(board);
 				ui.SetTurn(board.sideToMove);
 				GenerateLegalMoves();
