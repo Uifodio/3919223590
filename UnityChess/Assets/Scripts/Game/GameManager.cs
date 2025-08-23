@@ -12,6 +12,7 @@ namespace Chess
 		[SerializeField] private bool humanPlaysBlack = false;
 		[SerializeField] private bool autosaveEnabled = true;
 		[SerializeField] private TextAsset initialFen;
+		[SerializeField] private MoveListUI moveList;
 
 		public Board Board { get; private set; }
 		public ChessAI Ai { get; private set; }
@@ -19,6 +20,8 @@ namespace Chess
 
 		public event Action<GameResult> OnGameEnded;
 		public event Action OnBoardChanged;
+
+		public Move? LastMove { get; private set; }
 
 		private float autosaveInterval = 5f;
 		private float autosaveTimer = 0f;
@@ -52,6 +55,7 @@ namespace Chess
 			}
 
 			ResetHistory();
+			moveList?.Clear();
 		}
 
 		private void Update()
@@ -85,6 +89,8 @@ namespace Chess
 			if (!IsAITurn()) { isAiThinking = false; yield break; }
 			Move best = Ai.FindBestMove(Board);
 			Board.ApplyMove(best);
+			LastMove = best;
+			moveList?.AddMove(best);
 			RecordPositionKey();
 			OnBoardChanged?.Invoke();
 			CheckEndState();
@@ -104,6 +110,8 @@ namespace Chess
 						finalMove.Promotion = promotion;
 					}
 					Board.ApplyMove(finalMove);
+					LastMove = finalMove;
+					moveList?.AddMove(finalMove);
 					RecordPositionKey();
 					OnBoardChanged?.Invoke();
 					CheckEndState();
@@ -120,6 +128,7 @@ namespace Chess
 				UnrecordPositionKey();
 			}
 			Board.UndoLastMove();
+			LastMove = null;
 			OnBoardChanged?.Invoke();
 		}
 
@@ -128,6 +137,8 @@ namespace Chess
 			Board.Clear();
 			FenUtility.LoadPositionFromFen(Board, FenUtility.StandardStartPosition);
 			ResetHistory();
+			LastMove = null;
+			moveList?.Clear();
 			OnBoardChanged?.Invoke();
 		}
 

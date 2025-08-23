@@ -15,6 +15,7 @@ namespace Chess
 		[SerializeField] private Sprite blackSquareSprite;
 		[SerializeField] private Sprite highlightSprite;
 		[SerializeField] private Sprite[] pieceSprites; // 0..11 order: WP, WN, WB, WR, WQ, WK, BP, BN, BB, BR, BQ, BK
+		[SerializeField] private PromotionUI promotionUI;
 
 		private Button[] squareButtons = new Button[64];
 		private Image[] squareImages = new Image[64];
@@ -174,11 +175,33 @@ namespace Chess
 				}
 				if (legalTargets.Contains(to))
 				{
-					// naive promotion to queen for UI simplicity; can open a popup later
-					bool ok = gameManager.TryMakeHumanMove(from, to, PieceType.Queen);
-					selectedSquare = null;
-					legalTargets.Clear();
-					Refresh();
+					// If promotion required, show UI and wait for choice
+					bool needsPromotion = false;
+					foreach (var m in gameManager.Board.GenerateLegalMoves())
+					{
+						if (m.FromSquare == from && m.ToSquare == to && (m.Flags & MoveFlag.Promotion) != 0)
+						{
+							needsPromotion = true;
+							break;
+						}
+					}
+					if (needsPromotion && promotionUI != null)
+					{
+						promotionUI.Show(pt =>
+						{
+							gameManager.TryMakeHumanMove(from, to, pt);
+							selectedSquare = null;
+							legalTargets.Clear();
+							Refresh();
+						});
+					}
+					else
+					{
+						gameManager.TryMakeHumanMove(from, to, PieceType.Queen);
+						selectedSquare = null;
+						legalTargets.Clear();
+						Refresh();
+					}
 				}
 				else
 				{
