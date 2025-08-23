@@ -38,7 +38,7 @@ namespace Chess.UI
 		private Button drawButton;
 		private TextMeshProUGUI economyLabel;
 
-		public void Initialize(MonoBehaviour host, bool highlightLegalMoves, Action<int> onSquareClicked, Action onUndo, Action onNewGame, Action<int> onDepthChanged, Action onOfferDraw = null)
+		public void Initialize(MonoBehaviour host, bool highlightLegalMoves, Action<int> onSquareClicked, Action onUndo, Action onNewGame, Action<int> onDepthChanged, Action onOfferDraw = null, int boardWidth = 1080, int cellSize = 128, float spacing = 2f, bool flip = false)
 		{
 			this.onSquareClicked = onSquareClicked;
 			this.onUndo = onUndo;
@@ -47,6 +47,10 @@ namespace Chess.UI
 			this.onOfferDraw = onOfferDraw;
 			highlightLegal = highlightLegalMoves;
 			EnsureEventSystem();
+			this.paramBoardWidth = boardWidth;
+			this.paramCellSize = cellSize;
+			this.paramSpacing = spacing;
+			this.paramFlip = flip;
 			BuildUI();
 		}
 
@@ -57,6 +61,11 @@ namespace Chess.UI
 				var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
 			}
 		}
+
+		private int paramBoardWidth;
+		private int paramCellSize;
+		private float paramSpacing;
+		private bool paramFlip;
 
 		private void BuildUI()
 		{
@@ -88,7 +97,7 @@ namespace Chess.UI
 			boardBgRect.anchorMin = new Vector2(0, 0);
 			boardBgRect.anchorMax = new Vector2(0, 1);
 			boardBgRect.pivot = new Vector2(0, 0.5f);
-			boardBgRect.sizeDelta = new Vector2(1080, 0);
+			boardBgRect.sizeDelta = new Vector2(paramBoardWidth > 0 ? paramBoardWidth : 1080, 0);
 			boardBgRect.anchoredPosition = new Vector2(0, 0);
 			var boardBgImg = boardBgGo.GetComponent<Image>();
 			var boardSprite = Resources.Load<Sprite>("Board/Board_wood");
@@ -115,8 +124,8 @@ namespace Chess.UI
 			grid = boardHolder.GetComponent<GridLayoutGroup>();
 			grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
 			grid.constraintCount = 8;
-			grid.cellSize = new Vector2(128, 128);
-			grid.spacing = new Vector2(2, 2);
+			grid.cellSize = new Vector2(paramCellSize > 0 ? paramCellSize : 128, paramCellSize > 0 ? paramCellSize : 128);
+			grid.spacing = new Vector2(paramSpacing, paramSpacing);
 			var boardBg = boardHolder.GetComponent<Image>();
 			boardBg.color = new Color(1f, 1f, 1f, 0f);
 
@@ -216,7 +225,8 @@ namespace Chess.UI
 		{
 			for (int i = 0; i < 64; i++)
 			{
-				var p = board.squares[i];
+				int idx = paramFlip ? (63 - i) : i;
+				var p = board.squares[idx];
 				RenderPiece(i, p);
 			}
 		}

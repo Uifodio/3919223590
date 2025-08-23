@@ -31,6 +31,11 @@ namespace Chess
 			public bool highlightLegalMoves;
 			public bool allowUndo;
 			public AI.AIStyle aiStyle;
+			public string startingFEN;
+			public bool flipBoard;
+			public int boardWidthPx;
+			public int cellSizePx;
+			public float spacingPx;
 		}
 
 		public event Action<GameResult, PieceColor> OnGameOver;
@@ -63,7 +68,7 @@ namespace Chess
 		{
 			autosavePath = Path.Combine(Application.persistentDataPath, "chess_autosave.json");
 			ui = gameObject.AddComponent<UI.ChessUI>();
-			ui.Initialize(this, config.highlightLegalMoves, OnSquareClicked, OnUndo, OnNewGame, OnDepthChanged, OnOfferDraw);
+			ui.Initialize(this, config.highlightLegalMoves, OnSquareClicked, OnUndo, OnNewGame, OnDepthChanged, OnOfferDraw, config.boardWidthPx > 0 ? config.boardWidthPx : 1080, config.cellSizePx > 0 ? config.cellSizePx : 128, config.spacingPx > 0 ? config.spacingPx : 2f, config.flipBoard);
 			ai = new AI.ChessAI();
 			ai.SetLimits(config.aiSearchDepth, config.aiTimeBudgetMs);
 			ai.SetStyle(config.aiStyle);
@@ -89,8 +94,16 @@ namespace Chess
 		public void NewGame()
 		{
 			board = new Board();
-			board.SetupStartingPosition();
-			Chess.AI.SanUtil.Clear();
+			if (!string.IsNullOrEmpty(config.startingFEN))
+			{
+				try { FEN.LoadFromFen(board, config.startingFEN); }
+				catch { board.SetupStartingPosition(); }
+			}
+			else
+			{
+				board.SetupStartingPosition();
+			}
+			AI.SanUtil.Clear();
 			selectedSquare = -1;
 			GenerateLegalMoves();
 			SaveIfEnabled();
@@ -167,7 +180,7 @@ namespace Chess
 		private void ExecuteMove(Move move)
 		{
 			ui.AnimateMove(move.from, move.to, 0.15f);
-			Chess.AI.SanUtil.Append(board, move);
+			AI.SanUtil.Append(board, move);
 			board.MakeMove(move);
 			selectedSquare = -1;
 			ui.RenderBoard(board);
@@ -207,23 +220,29 @@ namespace Chess
 			var aiColor = config.aiPlaysBlack ? PieceColor.Black : PieceColor.White;
 			if (board.sideToMove != aiColor) return;
 			if (isAiThinking) return;
+			StartCoroutine(AiMoveCoroutine());
+		}
+
+		private System.Collections.IEnumerator AiMoveCoroutine()
+		{
 			isAiThinking = true;
 			ui.ShowThinking(true);
 			var boardCopy = board.Clone();
-			Task.Run(() => ai.FindBestMove(boardCopy))
-				.ContinueWith(t =>
+			var task = Task.Run(() => ai.FindBestMove(boardCopy));
+			while (!task.IsCompleted)
+			{
+				yield return null;
+			}
+			isAiThinking = false;
+			ui.ShowThinking(false);
+			if (task.IsCompletedSuccessfully)
+			{
+				var best = task.Result;
+				if (best.HasValue)
 				{
-					isAiThinking = false;
-					ui.ShowThinking(false);
-					if (t.IsCompletedSuccessfully)
-					{
-						var best = t.Result;
-						if (best.HasValue)
-						{
-							ExecuteMove(best.Value);
-						}
-					}
-				}, TaskScheduler.FromCurrentSynchronizationContext());
+					ExecuteMove(best.Value);
+				}
+			}
 		}
 
 		private void OnUndo()
@@ -255,12 +274,6 @@ namespace Chess
 			ai.SetLimits(depth, config.aiTimeBudgetMs);
 		}
 
-		private void OnOfferDraw()
-		{
-			ui.SetGameOver(GameResult.Draw50Move, board.sideToMove); // generic draw enum reuse
-			OnGameOver?.Invoke(GameResult.Draw50Move, PieceColor.White);
-		}
-
 		private void SaveIfEnabled()
 		{
 			if (!config.autoSaveEnabled) return;
@@ -283,6 +296,12 @@ namespace Chess
 				Debug.LogWarning($"Failed to load autosave: {ex.Message}");
 				board.SetupStartingPosition();
 			}
+		}
+
+		private void OnOfferDraw()
+		{
+			ui.SetGameOver(GameResult.Draw50Move, board.sideToMove); // generic draw enum reuse
+			OnGameOver?.Invoke(GameResult.Draw50Move, PieceColor.White);
 		}
 	}
 }

@@ -16,6 +16,13 @@ namespace Chess
 		public bool loadAutoSaveOnStart = true;
 		public bool highlightLegalMoves = true;
 		public bool allowUndo = true;
+		[TextArea] public string startingFEN = "";
+
+		[Header("Layout")]
+		public bool flipBoard = false;
+		public int boardWidthPx = 1080;
+		public int cellSizePx = 128;
+		public float spacingPx = 2f;
 
 		private ChessGameController controller;
 
@@ -32,7 +39,12 @@ namespace Chess
 				loadAutoSaveOnStart = loadAutoSaveOnStart,
 				highlightLegalMoves = highlightLegalMoves,
 				allowUndo = allowUndo,
-				aiStyle = aiStyle
+				aiStyle = aiStyle,
+				startingFEN = startingFEN,
+				flipBoard = flipBoard,
+				boardWidthPx = boardWidthPx,
+				cellSizePx = cellSizePx,
+				spacingPx = spacingPx
 			});
 			if (GetComponent<Economy.GameEconomy>() == null)
 			{
