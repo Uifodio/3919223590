@@ -1,15 +1,17 @@
 # Unity Chess (Professional)
 
-A full chess project for Unity with adjustable AI (minimax + alpha-beta), complete rules (castling, en passant, promotion, check/checkmate/stalemate), undo, and auto-save. Uses CBurnett SVG piece set (CC BY-SA 3.0) via Unity Vector Graphics.
+A full chess project for Unity with adjustable AI (iterative deepening + alpha-beta + quiescence), complete rules (castling, en passant, promotion, check/checkmate/stalemate), undo, auto-save, opening book, and draw detection. Uses CBurnett piece set rendered to PNG (CC BY-SA 3.0).
 
 ## Features
 - Adjustable AI difficulty (depth, time budget)
-- Complete chess rules and legal move validation
-- Undo/redo stack
+- Opening book (common lines) + smarter AI (iterative deepening, quiescence, move ordering)
+- Complete chess rules and legal move validation (no king captures)
+- Draw rules: stalemate, 50-move, threefold repetition, insufficient material
+- Undo/redo stack and Offer Draw button
 - Auto-save and resume
 - One-click Editor setup: downloads CBurnett PNGs (offline-ready), creates the scene, camera canvas, and UI
 - Fallback UI if assets are missing (letters)
-- Events for win/loss hooks (virtual currency integration)
+- Events for win/loss hooks (virtual economy integration)
 
 ## Quick Start
 1. Open this project in Unity 2021.3+ or 2022.3+.
@@ -20,16 +22,25 @@ A full chess project for Unity with adjustable AI (minimax + alpha-beta), comple
    - Creates `Assets/Chess/Scenes/Chess.unity` and opens it
 4. Enter Play Mode. Click a piece then a destination square to move.
 
-## Adjustable AI
+## Adjustable AI and Openings
 - Open the `ChessGameBootstrap` component in the scene.
 - Configure:
   - AI Enabled, AI Plays Black/White
-  - AI Search Depth, Iterative Deepening, Time Budget (ms)
+  - AI Search Depth and Time Budget (ms)
+- The AI uses a built-in opening book for early moves, then switches to search.
 
 ## Undo and Auto-save
 - Use the `Undo` button to revert the last move (player or AI).
 - The game auto-saves after each move to `Application.persistentDataPath/chess_autosave.json`.
 - On startup, the game will resume from the last auto-save if present.
+
+## Draws
+- The game will automatically declare a draw in these cases:
+  - Stalemate (no legal moves, not in check)
+  - 50-move rule (100 half-moves without pawn move or capture)
+  - Threefold repetition (same position at least 3 times)
+  - Insufficient material (e.g., K vs K, K+B vs K, K+N vs K)
+- You can also click the `Offer Draw` button in the sidebar to agree to a draw.
 
 ## Assets: CBurnett SVG Chess Pieces
 - Source category: `https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces`

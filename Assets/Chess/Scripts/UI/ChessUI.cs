@@ -34,13 +34,16 @@ namespace Chess.UI
 		private Action onUndo;
 		private Action onNewGame;
 		private Action<int> onDepthChanged;
+		private Action onOfferDraw;
+		private Button drawButton;
 
-		public void Initialize(MonoBehaviour host, bool highlightLegalMoves, Action<int> onSquareClicked, Action onUndo, Action onNewGame, Action<int> onDepthChanged)
+		public void Initialize(MonoBehaviour host, bool highlightLegalMoves, Action<int> onSquareClicked, Action onUndo, Action onNewGame, Action<int> onDepthChanged, Action onOfferDraw = null)
 		{
 			this.onSquareClicked = onSquareClicked;
 			this.onUndo = onUndo;
 			this.onNewGame = onNewGame;
 			this.onDepthChanged = onDepthChanged;
+			this.onOfferDraw = onOfferDraw;
 			highlightLegal = highlightLegalMoves;
 			EnsureEventSystem();
 			BuildUI();
@@ -132,6 +135,7 @@ namespace Chess.UI
 			undoButton = CreateButton(sidebar, "Undo", () => onUndo?.Invoke());
 			newGameButton = CreateButton(sidebar, "New Game", () => onNewGame?.Invoke());
 			depthDropdown = CreateDropdown(sidebar, new[] { "Depth 1", "Depth 2", "Depth 3", "Depth 4", "Depth 5", "Depth 6" }, 2, (i) => onDepthChanged?.Invoke(i + 1));
+			drawButton = CreateButton(sidebar, "Offer Draw", () => onOfferDraw?.Invoke());
 
 			// Create 64 squares
 			for (int i = 0; i < 64; i++)
@@ -337,6 +341,11 @@ namespace Chess.UI
 				case PieceType.King: return p.color == PieceColor.White ? "K" : "k";
 			}
 			return string.Empty;
+		}
+
+		public void SetDrawEnabled(bool enabled)
+		{
+			if (drawButton != null) drawButton.interactable = enabled;
 		}
 	}
 }

@@ -31,6 +31,7 @@ namespace Chess.Engine
 
 		private readonly Stack<UndoState> undoStack = new Stack<UndoState>(128);
 		private readonly Stack<Move> moveStack = new Stack<Move>(128);
+		private readonly Dictionary<ulong, int> repetitionTable = new Dictionary<ulong, int>();
 
 		public IEnumerable<Move> MoveHistory => moveStack;
 
@@ -70,6 +71,8 @@ namespace Chess.Engine
 			fullmoveNumber = 1;
 			undoStack.Clear();
 			moveStack.Clear();
+			repetitionTable.Clear();
+			IncrementRepetition();
 		}
 
 		public Board Clone()
@@ -295,6 +298,8 @@ namespace Chess.Engine
 			// Switch side
 			sideToMove = sideToMove == PieceColor.White ? PieceColor.Black : PieceColor.White;
 			if (sideToMove == PieceColor.White) fullmoveNumber++;
+
+			IncrementRepetition();
 		}
 
 		public Move UnmakeMove()
@@ -370,6 +375,65 @@ namespace Chess.Engine
 			blackKingSquare = state.blackKingSquare;
 
 			return move;
+		}
+
+		private void IncrementRepetition()
+		{
+			ulong h = ComputeHash();
+			if (!repetitionTable.ContainsKey(h)) repetitionTable[h] = 0;
+			repetitionTable[h]++;
+		}
+
+		public bool IsThreefoldRepetition()
+		{
+			ulong h = ComputeHash();
+			return repetitionTable.TryGetValue(h, out var c) && c >= 3;
+		}
+
+		public bool IsInsufficientMaterial()
+		{
+			bool anyPawnsOrQueensOrRooks = false;
+			int whiteBishops = 0, whiteKnights = 0, blackBishops = 0, blackKnights = 0;
+			for (int i = 0; i < 64; i++)
+			{
+				var p = squares[i];
+				if (p.IsEmpty) continue;
+				if (p.type == PieceType.Pawn || p.type == PieceType.Queen || p.type == PieceType.Rook) anyPawnsOrQueensOrRooks = true;
+				if (p.type == PieceType.Bishop)
+				{
+					if (p.color == PieceColor.White) whiteBishops++; else blackBishops++;
+				}
+				if (p.type == PieceType.Knight)
+				{
+					if (p.color == PieceColor.White) whiteKnights++; else blackKnights++;
+				}
+			}
+			if (anyPawnsOrQueensOrRooks) return false;
+			// King vs King, King+Bishop vs King, King+Knight vs King, King+B vs King+B (same color bishops case ignored for simplicity)
+			int totalPieces = whiteBishops + whiteKnights + blackBishops + blackKnights;
+			return totalPieces <= 1;
+		}
+
+		private ulong ComputeHash()
+		{
+			// Simple Zobrist-like hash substitute: combine piece, square, side, castling, ep
+			unchecked
+			{
+				ulong h = 1469598103934665603UL; // FNV offset basis
+				for (int i = 0; i < 64; i++)
+				{
+					var p = squares[i];
+					ulong v = ((ulong)p.type * 1315423911UL) ^ ((ulong)p.color * 2654435761UL) ^ (ulong)i;
+					h ^= v + 0x9e3779b97f4a7c15UL + (h << 6) + (h >> 2);
+				}
+				h ^= (ulong)(sideToMove == PieceColor.White ? 1 : 2);
+				if (whiteCastleKingSide) h ^= 0xA4A4A4A4A4A4A4A4UL;
+				if (whiteCastleQueenSide) h ^= 0xB5B5B5B5B5B5B5B5UL;
+				if (blackCastleKingSide) h ^= 0xC6C6C6C6C6C6C6C6UL;
+				if (blackCastleQueenSide) h ^= 0xD7D7D7D7D7D7D7D7UL;
+				h ^= (ulong)(enPassantSquare + 1) * 0x123456789ABCDEFUL;
+				return h;
+			}
 		}
 	}
 }

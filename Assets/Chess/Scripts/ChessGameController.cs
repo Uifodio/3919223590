@@ -61,7 +61,7 @@ namespace Chess
 		{
 			autosavePath = Path.Combine(Application.persistentDataPath, "chess_autosave.json");
 			ui = gameObject.AddComponent<UI.ChessUI>();
-			ui.Initialize(this, config.highlightLegalMoves, OnSquareClicked, OnUndo, OnNewGame, OnDepthChanged);
+			ui.Initialize(this, config.highlightLegalMoves, OnSquareClicked, OnUndo, OnNewGame, OnDepthChanged, OnOfferDraw);
 			ai = new AI.ChessAI();
 			ai.SetLimits(config.aiSearchDepth, config.aiTimeBudgetMs);
 			NewGame();
@@ -78,6 +78,7 @@ namespace Chess
 			ui.SetTurn(board.sideToMove);
 			ui.SetCanUndo(config.allowUndo && CanUndo());
 			ui.SetGameOver(GameResult.InProgress, PieceColor.White); // reset indicator
+			ui.SetDrawEnabled(true);
 		}
 
 		public void NewGame()
@@ -176,7 +177,6 @@ namespace Chess
 
 		private GameResult EvaluateGameEnd()
 		{
-			// No legal moves
 			MoveGenerator.GenerateLegalMoves(board, scratch);
 			if (scratch.Count == 0)
 			{
@@ -186,7 +186,9 @@ namespace Chess
 				}
 				return GameResult.Stalemate;
 			}
-			if (board.halfmoveClock >= 100) return GameResult.Draw50Move; // 50 moves each = 100 ply
+			if (board.halfmoveClock >= 100) return GameResult.Draw50Move;
+			if (board.IsThreefoldRepetition()) return GameResult.Draw50Move; // using existing enum for draw
+			if (board.IsInsufficientMaterial()) return GameResult.Draw50Move;
 			return GameResult.InProgress;
 		}
 
@@ -242,6 +244,12 @@ namespace Chess
 		{
 			config.aiSearchDepth = depth;
 			ai.SetLimits(depth, config.aiTimeBudgetMs);
+		}
+
+		private void OnOfferDraw()
+		{
+			ui.SetGameOver(GameResult.Draw50Move, board.sideToMove); // generic draw enum reuse
+			OnGameOver?.Invoke(GameResult.Draw50Move, PieceColor.White);
 		}
 
 		private void SaveIfEnabled()

@@ -63,7 +63,7 @@ namespace Chess.Engine
 				int nr = rank + dir;
 				if (nf < 0 || nf > 7 || nr < 0 || nr > 7) continue;
 				int to = Move.FromFileRank(nf, nr);
-				if (!b.squares[to].IsEmpty && b.squares[to].color != p.color)
+				if (!b.squares[to].IsEmpty && b.squares[to].color != p.color && b.squares[to].type != PieceType.King)
 				{
 					AddPawnMoveOrPromotion(p.color, from, to, true, outMoves);
 				}
@@ -104,7 +104,7 @@ namespace Chess.Engine
 				int nf = f + dx[i]; int nr = r + dy[i];
 				if (nf < 0 || nf > 7 || nr < 0 || nr > 7) continue;
 				int to = Move.FromFileRank(nf, nr);
-				if (b.squares[to].IsEmpty || b.squares[to].color != b.squares[from].color)
+				if (b.squares[to].IsEmpty || (b.squares[to].color != b.squares[from].color && b.squares[to].type != PieceType.King))
 				{
 					var flags = b.squares[to].IsEmpty ? MoveFlags.None : MoveFlags.Capture;
 					outMoves.Add(new Move(from, to, flags));
@@ -129,7 +129,7 @@ namespace Chess.Engine
 					}
 					else
 					{
-						if (b.squares[to].color != b.squares[from].color) outMoves.Add(new Move(from, to, MoveFlags.Capture));
+						if (b.squares[to].color != b.squares[from].color && b.squares[to].type != PieceType.King) outMoves.Add(new Move(from, to, MoveFlags.Capture));
 						break;
 					}
 					nf += dfx[d]; nr += dfy[d];
@@ -148,7 +148,7 @@ namespace Chess.Engine
 					int nf = f + df; int nr = r + dr;
 					if (nf < 0 || nf > 7 || nr < 0 || nr > 7) continue;
 					int to = Move.FromFileRank(nf, nr);
-					if (b.squares[to].IsEmpty || b.squares[to].color != b.squares[from].color)
+					if (b.squares[to].IsEmpty || (b.squares[to].color != b.squares[from].color && b.squares[to].type != PieceType.King))
 					{
 						var flags = b.squares[to].IsEmpty ? MoveFlags.None : MoveFlags.Capture;
 						outMoves.Add(new Move(from, to, flags));
