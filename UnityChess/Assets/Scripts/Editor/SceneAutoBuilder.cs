@@ -58,6 +58,27 @@ namespace Chess.Editor
 			boardView.GetType().GetField("grid", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(boardView, grid);
 			boardView.GetType().GetField("squarePrefab", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(boardView, squarePrefabAsset);
 
+			// Assign piece sprites if available (Cburnett SVGs)
+			var ps = new Sprite[12];
+			ps[0] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/white_pawn.svg");
+			ps[1] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/white_knight.svg");
+			ps[2] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/white_bishop.svg");
+			ps[3] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/white_rook.svg");
+			ps[4] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/white_queen.svg");
+			ps[5] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/white_king.svg");
+			ps[6] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/black_pawn.svg");
+			ps[7] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/black_knight.svg");
+			ps[8] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/black_bishop.svg");
+			ps[9] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/black_rook.svg");
+			ps[10] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/black_queen.svg");
+			ps[11] = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Chess/Pieces/black_king.svg");
+			bool anySprite = false;
+			for (int i = 0; i < ps.Length; i++) if (ps[i] != null) { anySprite = true; break; }
+			if (anySprite)
+			{
+				boardView.GetType().GetField("pieceSprites", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(boardView, ps);
+			}
+
 			// Promotion UI panel
 			var promoPanel = new GameObject("PromotionPanel", typeof(RectTransform), typeof(Image));
 			promoPanel.transform.SetParent(canvasGo.transform, false);
