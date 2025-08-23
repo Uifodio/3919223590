@@ -1,0 +1,298 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
+using TMPro;
+using Chess.Engine;
+
+namespace Chess.UI
+{
+	public class ChessUI : MonoBehaviour
+	{
+		private RectTransform root;
+		private GridLayoutGroup grid;
+		private RectTransform gridRect;
+		private Button[] squareButtons = new Button[64];
+		private Image[] squareImages = new Image[64];
+		private TextMeshProUGUI[] squareLabels = new TextMeshProUGUI[64];
+		private Image[] pieceImages = new Image[64];
+		private TextMeshProUGUI[] pieceFallbackLabels = new TextMeshProUGUI[64];
+		private RectTransform sidebar;
+		private Button undoButton;
+		private Button newGameButton;
+		private TMP_Dropdown depthDropdown;
+		private TextMeshProUGUI turnLabel;
+		private TextMeshProUGUI statusLabel;
+		private GameObject promotionPanel;
+		private Action<PieceType> onPromotionChosen;
+		private bool highlightLegal = true;
+		private Func<int, bool> isLegalDestCached;
+		private Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
+		private Action<int> onSquareClicked;
+		private Action onUndo;
+		private Action onNewGame;
+		private Action<int> onDepthChanged;
+
+		public void Initialize(MonoBehaviour host, bool highlightLegalMoves, Action<int> onSquareClicked, Action onUndo, Action onNewGame, Action<int> onDepthChanged)
+		{
+			this.onSquareClicked = onSquareClicked;
+			this.onUndo = onUndo;
+			this.onNewGame = onNewGame;
+			this.onDepthChanged = onDepthChanged;
+			highlightLegal = highlightLegalMoves;
+			EnsureEventSystem();
+			BuildUI();
+		}
+
+		private void EnsureEventSystem()
+		{
+			if (FindObjectOfType<EventSystem>() == null)
+			{
+				var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+			}
+		}
+
+		private void BuildUI()
+		{
+			var canvasGo = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+			var canvas = canvasGo.GetComponent<Canvas>();
+			canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+			var scaler = canvasGo.GetComponent<CanvasScaler>();
+			scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+			scaler.referenceResolution = new Vector2(1920, 1080);
+			root = new GameObject("Root", typeof(RectTransform)).GetComponent<RectTransform>();
+			root.SetParent(canvasGo.transform, false);
+			root.anchorMin = Vector2.zero; root.anchorMax = Vector2.one; root.offsetMin = Vector2.zero; root.offsetMax = Vector2.zero;
+
+			// Board area 1080x1080 on left
+			var boardHolder = new GameObject("Board", typeof(RectTransform), typeof(GridLayoutGroup), typeof(Image));
+			gridRect = boardHolder.GetComponent<RectTransform>();
+			gridRect.SetParent(root, false);
+			gridRect.anchorMin = new Vector2(0, 0);
+			gridRect.anchorMax = new Vector2(0, 1);
+			gridRect.pivot = new Vector2(0, 0.5f);
+			gridRect.sizeDelta = new Vector2(1080, 0);
+			gridRect.anchoredPosition = new Vector2(0, 0);
+			grid = boardHolder.GetComponent<GridLayoutGroup>();
+			grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+			grid.constraintCount = 8;
+			grid.cellSize = new Vector2(128, 128);
+			grid.spacing = new Vector2(2, 2);
+			var boardBg = boardHolder.GetComponent<Image>();
+			boardBg.color = new Color(0.1f, 0.1f, 0.1f, 1f);
+
+			// Sidebar
+			sidebar = new GameObject("Sidebar", typeof(RectTransform), typeof(VerticalLayoutGroup)).GetComponent<RectTransform>();
+			sidebar.SetParent(root, false);
+			sidebar.anchorMin = new Vector2(0, 0);
+			sidebar.anchorMax = new Vector2(1, 1);
+			sidebar.offsetMin = new Vector2(1100, 40);
+			sidebar.offsetMax = new Vector2(-40, -40);
+			var v = sidebar.GetComponent<VerticalLayoutGroup>();
+			v.childForceExpandHeight = false; v.childForceExpandWidth = true; v.spacing = 16;
+
+			// Controls
+			turnLabel = CreateLabel(sidebar, "Turn: White", 36, FontStyles.Bold);
+			statusLabel = CreateLabel(sidebar, "Status: Playing", 28, FontStyles.Normal);
+			undoButton = CreateButton(sidebar, "Undo", () => onUndo?.Invoke());
+			newGameButton = CreateButton(sidebar, "New Game", () => onNewGame?.Invoke());
+			depthDropdown = CreateDropdown(sidebar, new[] { "Depth 1", "Depth 2", "Depth 3", "Depth 4", "Depth 5", "Depth 6" }, 2, (i) => onDepthChanged?.Invoke(i + 1));
+
+			// Create 64 squares
+			for (int i = 0; i < 64; i++)
+			{
+				var cell = new GameObject($"Cell_{i}", typeof(RectTransform), typeof(Image), typeof(Button));
+				cell.transform.SetParent(gridRect, false);
+				var img = cell.GetComponent<Image>();
+				squareImages[i] = img;
+				img.color = ((i + (i / 8)) % 2 == 0) ? new Color(0.86f, 0.86f, 0.74f) : new Color(0.52f, 0.58f, 0.3f);
+				var btn = cell.GetComponent<Button>();
+				squareButtons[i] = btn;
+				int idx = i;
+				btn.onClick.AddListener(() => onSquareClicked?.Invoke(idx));
+
+				var pieceGo = new GameObject("Piece", typeof(RectTransform), typeof(Image));
+				pieceGo.transform.SetParent(cell.transform, false);
+				var pimg = pieceGo.GetComponent<Image>();
+				pimg.raycastTarget = false;
+				pieceImages[i] = pimg;
+
+				var fallbackTextGo = new GameObject("PieceText", typeof(RectTransform), typeof(TextMeshProUGUI));
+				fallbackTextGo.transform.SetParent(cell.transform, false);
+				var label = fallbackTextGo.GetComponent<TextMeshProUGUI>();
+				label.alignment = TextAlignmentOptions.Center;
+				label.fontSize = 72;
+				label.raycastTarget = false;
+				pieceFallbackLabels[i] = label;
+			}
+		}
+
+		private TextMeshProUGUI CreateLabel(RectTransform parent, string text, int size, FontStyles style)
+		{
+			var go = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+			go.transform.SetParent(parent, false);
+			var l = go.GetComponent<TextMeshProUGUI>();
+			l.text = text;
+			l.fontSize = size;
+			l.fontStyle = style;
+			return l;
+		}
+
+		private Button CreateButton(RectTransform parent, string text, Action onClick)
+		{
+			var go = new GameObject(text + "Button", typeof(RectTransform), typeof(Image), typeof(Button));
+			go.transform.SetParent(parent, false);
+			var img = go.GetComponent<Image>(); img.color = new Color(0.2f,0.2f,0.2f,1);
+			var btn = go.GetComponent<Button>();
+			btn.onClick.AddListener(() => onClick?.Invoke());
+			var lbl = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+			lbl.transform.SetParent(go.transform, false);
+			var t = lbl.GetComponent<TextMeshProUGUI>(); t.text = text; t.alignment = TextAlignmentOptions.Center; t.fontSize = 28;
+			return btn;
+		}
+
+		private TMP_Dropdown CreateDropdown(RectTransform parent, IEnumerable<string> options, int defaultIndex, Action<int> onChanged)
+		{
+			var go = new GameObject("Dropdown", typeof(RectTransform), typeof(TMP_Dropdown));
+			go.transform.SetParent(parent, false);
+			var dd = go.GetComponent<TMP_Dropdown>();
+			dd.options = new List<TMP_Dropdown.OptionData>();
+			foreach (var opt in options) dd.options.Add(new TMP_Dropdown.OptionData(opt));
+			dd.value = defaultIndex;
+			dd.onValueChanged.AddListener(i => onChanged?.Invoke(i));
+			return dd;
+		}
+
+		public void RenderBoard(Board board)
+		{
+			for (int i = 0; i < 64; i++)
+			{
+				var p = board.squares[i];
+				RenderPiece(i, p);
+			}
+		}
+
+		private void RenderPiece(int square, Piece p)
+		{
+			var img = pieceImages[square];
+			var text = pieceFallbackLabels[square];
+			Sprite sprite = null;
+			if (!p.IsEmpty)
+			{
+				string key = GetSpriteKey(p);
+				if (!spriteCache.TryGetValue(key, out sprite))
+				{
+					sprite = Resources.Load<Sprite>("CBurnett/" + key);
+					if (sprite != null) spriteCache[key] = sprite;
+				}
+			}
+			img.sprite = sprite;
+			img.enabled = sprite != null;
+			text.text = SpriteFallbackText(p);
+			text.enabled = sprite == null && !p.IsEmpty;
+		}
+
+		public void ShowLegalMoves(int selectedSquare, List<Move> legalMoves)
+		{
+			for (int i = 0; i < 64; i++)
+			{
+				var baseColor = ((i + (i / 8)) % 2 == 0) ? new Color(0.86f, 0.86f, 0.74f) : new Color(0.52f, 0.58f, 0.3f);
+				squareImages[i].color = baseColor;
+			}
+			if (!highlightLegal) return;
+			if (selectedSquare < 0) return;
+			foreach (var m in legalMoves)
+			{
+				if (m.from != selectedSquare) continue;
+				squareImages[m.to].color = new Color(0.35f, 0.7f, 0.35f);
+			}
+			// highlight selected
+			if (selectedSquare >= 0)
+				squareImages[selectedSquare].color = new Color(0.9f, 0.85f, 0.2f);
+		}
+
+		public void SetTurn(PieceColor color)
+		{
+			turnLabel.text = "Turn: " + (color == PieceColor.White ? "White" : "Black");
+		}
+
+		public void SetCanUndo(bool canUndo)
+		{
+			undoButton.interactable = canUndo;
+		}
+
+		public void SetGameOver(GameResult result, PieceColor winner)
+		{
+			if (result == GameResult.InProgress) { statusLabel.text = "Status: Playing"; return; }
+			switch (result)
+			{
+				case GameResult.WhiteWin: statusLabel.text = "Status: Checkmate — White wins"; break;
+				case GameResult.BlackWin: statusLabel.text = "Status: Checkmate — Black wins"; break;
+				case GameResult.Stalemate: statusLabel.text = "Status: Stalemate"; break;
+				case GameResult.Draw50Move: statusLabel.text = "Status: Draw — 50-move rule"; break;
+			}
+		}
+
+		public void ShowThinking(bool thinking)
+		{
+			statusLabel.text = thinking ? "Status: AI thinking..." : "Status: Playing";
+		}
+
+		public void ShowPromotionDialog(PieceColor color, Action<PieceType> onChosen)
+		{
+			onPromotionChosen = onChosen;
+			if (promotionPanel != null) Destroy(promotionPanel);
+			promotionPanel = new GameObject("PromotionDialog", typeof(RectTransform), typeof(Image));
+			promotionPanel.transform.SetParent(root, false);
+			var r = promotionPanel.GetComponent<RectTransform>();
+			r.sizeDelta = new Vector2(360, 120);
+			r.anchoredPosition = Vector2.zero;
+			promotionPanel.GetComponent<Image>().color = new Color(0,0,0,0.8f);
+			var row = new GameObject("Row", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+			row.transform.SetParent(promotionPanel.transform, false);
+			var hl = row.GetComponent<HorizontalLayoutGroup>(); hl.childForceExpandWidth = true; hl.spacing = 8; hl.padding.left = 8; hl.padding.right = 8;
+			void AddChoice(string label, PieceType t)
+			{
+				var btn = CreateButton(row.GetComponent<RectTransform>(), label, () => { onPromotionChosen?.Invoke(t); Destroy(promotionPanel); promotionPanel = null; });
+			}
+			AddChoice("Queen", PieceType.Queen);
+			AddChoice("Rook", PieceType.Rook);
+			AddChoice("Bishop", PieceType.Bishop);
+			AddChoice("Knight", PieceType.Knight);
+		}
+
+		private string GetSpriteKey(Piece p)
+		{
+			if (p.IsEmpty) return string.Empty;
+			// CBurnett naming: Chess_plt45 (pawns white), k/q/r/b/n
+			char t = p.type switch
+			{
+				PieceType.Pawn => 'p',
+				PieceType.Knight => 'n',
+				PieceType.Bishop => 'b',
+				PieceType.Rook => 'r',
+				PieceType.Queen => 'q',
+				PieceType.King => 'k',
+				_ => 'p'
+			};
+			string side = p.color == PieceColor.White ? "l" : "d"; // light/dark
+			return $"Chess_{t}{side}t45";
+		}
+
+		private string SpriteFallbackText(Piece p)
+		{
+			if (p.IsEmpty) return string.Empty;
+			switch (p.type)
+			{
+				case PieceType.Pawn: return p.color == PieceColor.White ? "P" : "p";
+				case PieceType.Knight: return p.color == PieceColor.White ? "N" : "n";
+				case PieceType.Bishop: return p.color == PieceColor.White ? "B" : "b";
+				case PieceType.Rook: return p.color == PieceColor.White ? "R" : "r";
+				case PieceType.Queen: return p.color == PieceColor.White ? "Q" : "q";
+				case PieceType.King: return p.color == PieceColor.White ? "K" : "k";
+			}
+			return string.Empty;
+		}
+	}
+}
