@@ -17,8 +17,12 @@ public class MinimapSystem : MonoBehaviour
     public bool rotateMapWithPlayer = true;
     public bool northUp = false;
 
-    [Header("Tracked Objects")]
+    [Header("Map Objects (static markers)")]
     public List<TrackedObject> trackedObjects = new List<TrackedObject>();
+    [Tooltip("If true, static markers outside the minimap are hidden. If false and clamp enabled, they clamp to edge.")]
+    public bool hideStaticMarkersOffscreen = true;
+    [Tooltip("Clamp static markers to edge when off-screen (if not hidden).")]
+    public bool clampStaticMarkersToEdge = false;
 
     [Header("Waypoints")]
     public List<Waypoint> waypoints = new List<Waypoint>();
@@ -43,6 +47,12 @@ public class MinimapSystem : MonoBehaviour
     public float mapUISize = 256f;
     public float uiScale = 1f;
     public float uiScaleFine = 1f;
+    [Tooltip("Use fully custom anchors/pivot/position instead of corner presets.")]
+    public bool useCustomPosition = false;
+    public Vector2 customAnchorMin = new Vector2(1f, 1f);
+    public Vector2 customAnchorMax = new Vector2(1f, 1f);
+    public Vector2 customPivot = new Vector2(1f, 1f);
+    public Vector2 customAnchoredPosition = new Vector2(-20f, -20f);
 
     [Header("Camera & Alignment")]
     public float coverageWorldSize = 100f;
@@ -53,6 +63,18 @@ public class MinimapSystem : MonoBehaviour
     public LayerMask minimapCullingMask = ~0;
     public Vector2Int renderTextureSize = new Vector2Int(512, 512);
 
+    [Header("Expanded Map")]
+    [Tooltip("Enable a larger overlay map that can be toggled.")]
+    public bool enableExpandedMap = true;
+    [Tooltip("Key to toggle the expanded map overlay.")]
+    public KeyCode expandedToggleKey = KeyCode.M;
+    [Tooltip("Expanded map size in UI pixels.")]
+    public float expandedMapSize = 512f;
+    [Tooltip("Allow waypoint creation by clicking on the expanded map.")]
+    public bool clickToCreateOnExpanded = true;
+    [Tooltip("Allow waypoint creation by clicking on the small minimap.")]
+    public bool clickToCreateOnMinimap = false;
+
     [Header("Performance & UX")]
     public float markerSmoothing = 12f;
     public int initialPoolSize = 32;
@@ -61,6 +83,10 @@ public class MinimapSystem : MonoBehaviour
     public bool enablePopups = false;
     public GameObject customPopupPrefab;
     public float popupDuration = 3f;
+
+    [Header("Fonts")]
+    [Tooltip("Default UI Font for labels and popups. Assign a project font asset here.")]
+    public Font defaultUIFont;
 
     // Runtime
     private Camera minimapCamera;
@@ -76,6 +102,16 @@ public class MinimapSystem : MonoBehaviour
     private RectTransform playerArrowRect;
     private Image playerArrowImage;
     private MinimapClickCatcher clickCatcher;
+
+    // Expanded overlay
+    private RectTransform expandedRoot;
+    private Image expandedFrameImage;
+    private RectTransform expandedClipRect;
+    private Image expandedClipMaskImage;
+    private RawImage expandedMapImage;
+    private MinimapClickCatcher expandedClickCatcher;
+    private bool expandedVisible;
+    private RectTransform expandedMarkersContainer;
 
     private RectTransform popupRoot;
     private Text popupText;
@@ -150,17 +186,23 @@ public class MinimapSystem : MonoBehaviour
         if (!Application.isPlaying)
         {
             EnsureSprites();
-            EnsureCanvasAndUI();
-            EnsureCamera();
-            ApplyStyleRuntime();
-            RebuildAllMarkers();
-            UpdateCameraImmediate();
-            UpdateAllMarkersImmediate();
+            // Only update style if UI already exists to avoid editor SendMessage warnings
+            if (minimapCanvas != null || minimapRoot != null)
+            {
+                ApplyStyleRuntime();
+                UpdateCameraImmediate();
+                UpdateAllMarkersImmediate();
+            }
         }
     }
 
     private void LateUpdate()
     {
+        // Toggle expanded map
+        if (enableExpandedMap && Input.GetKeyDown(expandedToggleKey))
+        {
+            SetExpandedVisible(!expandedVisible);
+        }
         UpdateCameraRuntime();
         UpdateMarkersRuntime(Time.deltaTime);
         UpdatePopupRuntime();
@@ -197,8 +239,14 @@ public class MinimapSystem : MonoBehaviour
 
     public void HandleMinimapPointer(Vector2 localPoint, PointerEventData eventData)
     {
-        if (!clickToCreateWaypoints) return;
-        if (clipRect == null) return;
+        // Use separate toggles for minimap vs expanded
+        bool isFromExpanded = eventData != null && eventData.pointerPressRaycast.module != null && expandedVisible;
+        bool allow = (isFromExpanded && clickToCreateOnExpanded) || (!isFromExpanded && clickToCreateOnMinimap);
+        if (!allow) return;
+
+        // Choose which clip to test against
+        RectTransform clip = isFromExpanded && expandedVisible ? expandedClipRect : clipRect;
+        if (clip == null) return;
         if (!IsInsideMask(localPoint, out _)) return;
         Vector3 world = LocalToWorld(localPoint);
         CreateWaypoint(world, null, null);
@@ -300,8 +348,8 @@ public class MinimapSystem : MonoBehaviour
             var rootGo = rootTf != null ? rootTf.gameObject : new GameObject(RootName, typeof(RectTransform));
             if (rootGo.transform.parent != minimapCanvas.transform) rootGo.transform.SetParent(minimapCanvas.transform, false);
             minimapRoot = rootGo.GetComponent<RectTransform>();
-            ConfigureAnchors(minimapRoot, corner, anchoredOffset, mapUISize);
         }
+        ApplyRootPositioning(minimapRoot, mapUISize);
 
         if (frameImage == null)
         {
@@ -309,8 +357,8 @@ public class MinimapSystem : MonoBehaviour
             frameImage = GetOrAdd<Image>(frameGo);
         }
         frameImage.color = borderColor;
-        frameImage.sprite = cachedSquareSprite;
-        frameImage.type = Image.Type.Sliced;
+        frameImage.sprite = GetFrameSpriteForShape();
+        frameImage.type = Image.Type.Simple;
         frameImage.raycastTarget = false;
         frameImage.rectTransform.sizeDelta = new Vector2(mapUISize, mapUISize);
 
@@ -326,7 +374,7 @@ public class MinimapSystem : MonoBehaviour
         float innerSize = Mathf.Max(0f, mapUISize - 2f * borderThickness);
         clipRect.sizeDelta = new Vector2(innerSize, innerSize);
         clipRect.anchoredPosition = Vector2.zero;
-        ApplyMaskSprite();
+        ApplyMaskSprite(clipMaskImage);
 
         var bgGo = FindOrCreateChild(clipRect, "BackgroundFill");
         var bgImg = GetOrAdd<Image>(bgGo);
@@ -373,12 +421,16 @@ public class MinimapSystem : MonoBehaviour
         }
 
         EnsurePopupUI();
+        if (enableExpandedMap)
+        {
+            EnsureExpandedUI();
+        }
     }
 
     private void ApplyStyleRuntime()
     {
         if (minimapCanvasScaler != null) minimapCanvasScaler.scaleFactor = Mathf.Max(0.1f, uiScale * uiScaleFine);
-        if (minimapRoot != null) ConfigureAnchors(minimapRoot, corner, anchoredOffset, mapUISize);
+        if (minimapRoot != null) ApplyRootPositioning(minimapRoot, mapUISize);
         if (frameImage != null)
         {
             frameImage.color = borderColor;
@@ -390,7 +442,7 @@ public class MinimapSystem : MonoBehaviour
             clipRect.sizeDelta = new Vector2(innerSize, innerSize);
             clipRect.anchoredPosition = Vector2.zero;
         }
-        ApplyMaskSprite();
+        ApplyMaskSprite(clipMaskImage);
         if (mapImage != null) mapImage.texture = minimapRenderTexture;
         if (playerArrowImage != null)
         {
@@ -400,27 +452,142 @@ public class MinimapSystem : MonoBehaviour
         }
     }
 
-    private void ApplyMaskSprite()
+    private void ApplyMaskSprite(Image targetMaskImage)
     {
-        if (clipMaskImage == null) return;
+        if (targetMaskImage == null) return;
         switch (mapShape)
         {
             case MapShape.Circle:
-                clipMaskImage.sprite = cachedCircleSprite;
-                clipMaskImage.type = Image.Type.Simple;
+                targetMaskImage.sprite = cachedCircleSprite;
+                targetMaskImage.type = Image.Type.Simple;
                 break;
             case MapShape.Square:
-                clipMaskImage.sprite = cachedSquareSprite;
-                clipMaskImage.type = Image.Type.Sliced;
+                targetMaskImage.sprite = cachedSquareSprite;
+                targetMaskImage.type = Image.Type.Sliced;
                 break;
             case MapShape.Star:
-                clipMaskImage.sprite = cachedStarSprite;
-                clipMaskImage.type = Image.Type.Simple;
+                targetMaskImage.sprite = cachedStarSprite;
+                targetMaskImage.type = Image.Type.Simple;
                 break;
             case MapShape.Custom:
-                clipMaskImage.sprite = customMaskSprite != null ? customMaskSprite : cachedSquareSprite;
-                clipMaskImage.type = Image.Type.Simple;
+                targetMaskImage.sprite = customMaskSprite != null ? customMaskSprite : cachedSquareSprite;
+                targetMaskImage.type = Image.Type.Simple;
                 break;
+        }
+    }
+
+    private Sprite GetFrameSpriteForShape()
+    {
+        switch (mapShape)
+        {
+            case MapShape.Circle: return cachedCircleSprite;
+            case MapShape.Square: return cachedSquareSprite;
+            case MapShape.Star: return cachedStarSprite;
+            case MapShape.Custom: return customMaskSprite != null ? customMaskSprite : cachedSquareSprite;
+        }
+        return cachedSquareSprite;
+    }
+
+    private void ApplyRootPositioning(RectTransform root, float size)
+    {
+        if (root == null) return;
+        if (useCustomPosition)
+        {
+            root.anchorMin = customAnchorMin;
+            root.anchorMax = customAnchorMax;
+            root.pivot = customPivot;
+            root.anchoredPosition = customAnchoredPosition;
+            root.sizeDelta = new Vector2(size, size);
+        }
+        else
+        {
+            ConfigureAnchors(root, corner, anchoredOffset, size);
+        }
+    }
+
+    private void EnsureExpandedUI()
+    {
+        if (expandedRoot == null)
+        {
+            var rootGo = new GameObject("Minimap_Expanded", typeof(RectTransform));
+            rootGo.transform.SetParent(minimapCanvas.transform, false);
+            expandedRoot = rootGo.GetComponent<RectTransform>();
+            expandedRoot.anchorMin = new Vector2(0.5f, 0.5f);
+            expandedRoot.anchorMax = new Vector2(0.5f, 0.5f);
+            expandedRoot.pivot = new Vector2(0.5f, 0.5f);
+            expandedRoot.sizeDelta = new Vector2(expandedMapSize, expandedMapSize);
+            expandedRoot.anchoredPosition = Vector2.zero;
+
+            var frameGo = FindOrCreateChild(expandedRoot, FrameName);
+            expandedFrameImage = GetOrAdd<Image>(frameGo);
+            expandedFrameImage.color = borderColor;
+            expandedFrameImage.sprite = GetFrameSpriteForShape();
+            expandedFrameImage.type = Image.Type.Simple;
+            expandedFrameImage.rectTransform.sizeDelta = new Vector2(expandedMapSize, expandedMapSize);
+
+            var clipGo = FindOrCreateChild(expandedFrameImage.rectTransform, ClipName);
+            expandedClipRect = clipGo.GetComponent<RectTransform>();
+            expandedClipMaskImage = GetOrAdd<Image>(clipGo);
+            var mask = clipGo.GetComponent<Mask>();
+            if (mask == null) mask = clipGo.AddComponent<Mask>();
+            mask.showMaskGraphic = false;
+            float innerSize = Mathf.Max(0f, expandedMapSize - 2f * borderThickness);
+            expandedClipRect.sizeDelta = new Vector2(innerSize, innerSize);
+            expandedClipRect.anchoredPosition = Vector2.zero;
+            ApplyMaskSprite(expandedClipMaskImage);
+
+            var bgGo = FindOrCreateChild(expandedClipRect, "BackgroundFill");
+            var bgImg = GetOrAdd<Image>(bgGo);
+            StretchToFill(bgImg.rectTransform);
+            bgImg.color = backgroundColor;
+            bgImg.sprite = cachedSquareSprite;
+            bgImg.type = Image.Type.Sliced;
+            bgImg.raycastTarget = false;
+
+            var renderGo = FindOrCreateChild(expandedClipRect, RenderName);
+            expandedMapImage = GetOrAdd<RawImage>(renderGo);
+            StretchToFill(expandedMapImage.rectTransform);
+            expandedMapImage.texture = minimapRenderTexture;
+
+            var markersGo = FindOrCreateChild(expandedClipRect, MarkersName);
+            expandedMarkersContainer = markersGo.GetComponent<RectTransform>();
+            StretchToFill(expandedMarkersContainer);
+
+            var clickGo = FindOrCreateChild(expandedClipRect, ClickName);
+            expandedClickCatcher = GetOrAdd<MinimapClickCatcher>(clickGo);
+            var rt = expandedClickCatcher.GetComponent<RectTransform>();
+            StretchToFill(rt);
+            expandedClickCatcher.minimapSystem = this;
+            expandedClickCatcher.forExpanded = true;
+
+            rootGo.SetActive(false);
+        }
+    }
+
+    private void SetExpandedVisible(bool visible)
+    {
+        if (!enableExpandedMap) return;
+        EnsureExpandedUI();
+        expandedVisible = visible;
+        expandedRoot.gameObject.SetActive(visible);
+
+        // Reparent arrow and markers to active container
+        var targetContainer = visible ? expandedMarkersContainer : markerContainer;
+        if (playerArrowRect != null)
+        {
+            playerArrowRect.SetParent(visible ? expandedClipRect : clipRect, false);
+        }
+        foreach (var kv in trackedToMarker)
+        {
+            if (kv.Value != null) kv.Value.rect.SetParent(targetContainer, false);
+        }
+        foreach (var kv in waypointToMarker)
+        {
+            if (kv.Value != null) kv.Value.rect.SetParent(targetContainer, false);
+        }
+        foreach (var kv in waypointToArrow)
+        {
+            if (kv.Value != null) kv.Value.rect.SetParent(targetContainer, false);
         }
     }
 
@@ -459,7 +626,7 @@ public class MinimapSystem : MonoBehaviour
                 popupText.text = "";
                 popupText.alignment = TextAnchor.MiddleCenter;
                 popupText.color = Color.white;
-                popupText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+                if (defaultUIFont != null) popupText.font = defaultUIFont;
                 popupText.resizeTextForBestFit = true;
                 popupText.resizeTextMinSize = 12;
                 popupText.resizeTextMaxSize = 32;
@@ -600,7 +767,16 @@ public class MinimapSystem : MonoBehaviour
             if (tracked.target == null) { marker.gameObject.SetActive(false); continue; }
             Vector2 local = WorldToLocalUI(tracked.target.position);
             bool inside = IsInsideMask(local, out var limit);
-            if (!inside) local = ClampToEdge(local, limit);
+            if (!inside)
+            {
+                if (hideStaticMarkersOffscreen)
+                {
+                    marker.gameObject.SetActive(false);
+                    continue;
+                }
+                if (clampStaticMarkersToEdge) local = ClampToEdge(local, limit);
+            }
+            marker.gameObject.SetActive(true);
             MoveMarker(marker, local, deltaTime, immediate);
         }
 
@@ -769,7 +945,7 @@ public class MinimapSystem : MonoBehaviour
         labelRect.anchoredPosition = new Vector2(0, -2f);
         labelRect.sizeDelta = new Vector2(80f, 18f);
         var text = labelGo.AddComponent<Text>();
-        text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        if (defaultUIFont != null) text.font = defaultUIFont;
         text.color = Color.white;
         text.alignment = TextAnchor.UpperCenter;
         text.raycastTarget = false;

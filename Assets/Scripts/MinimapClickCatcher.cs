@@ -10,6 +10,8 @@ public class MinimapClickCatcher : MonoBehaviour, IPointerClickHandler, IPointer
 {
     [Tooltip("Reference to the MinimapSystem that owns this click catcher. If null, it will search in parents.")]
     public MinimapSystem minimapSystem;
+    [Tooltip("If true, this catcher belongs to the expanded map overlay.")]
+    public bool forExpanded = false;
 
     private RectTransform rectTransform;
     private Image raycastImage;
