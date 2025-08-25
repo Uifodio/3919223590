@@ -7,6 +7,7 @@ using UnityEngine.UI;
 
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(100)]
+[ExecuteAlways]
 public class MinimapSystem : MonoBehaviour
 {
     [Header("Player Arrow")]
@@ -161,6 +162,14 @@ public class MinimapSystem : MonoBehaviour
         PrewarmPool(initialPoolSize);
     }
 
+    private void OnEnable()
+    {
+        // Ensure auto-creation when attaching in editor as well
+        EnsureSprites();
+        EnsureCamera();
+        EnsureCanvasAndUI();
+    }
+
     private void Start()
     {
         if (autoFitToTerrain)
@@ -198,7 +207,13 @@ public class MinimapSystem : MonoBehaviour
 
     private void LateUpdate()
     {
-        // Toggle expanded map
+        if (!Application.isPlaying)
+        {
+            // In editor, keep preview updated without processing input
+            UpdateCameraImmediate();
+            UpdateAllMarkersImmediate();
+            return;
+        }
         if (enableExpandedMap && Input.GetKeyDown(expandedToggleKey))
         {
             SetExpandedVisible(!expandedVisible);
