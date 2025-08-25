@@ -45,7 +45,7 @@ public class MinimapClickCatcher : MonoBehaviour, IPointerClickHandler, IPointer
         if (minimapSystem == null || rectTransform == null) return;
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform, eventData.position, eventData.pressEventCamera, out var local))
         {
-            minimapSystem.HandleMinimapPointer(local, eventData);
+            minimapSystem.HandleMinimapPointerLocal(local, forExpanded);
         }
     }
 

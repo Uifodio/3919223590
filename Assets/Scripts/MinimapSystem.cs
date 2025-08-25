@@ -168,6 +168,9 @@ public class MinimapSystem : MonoBehaviour
         EnsureSprites();
         EnsureCamera();
         EnsureCanvasAndUI();
+        RebuildAllMarkers();
+        UpdateCameraImmediate();
+        UpdateAllMarkersImmediate();
     }
 
     private void Start()
@@ -219,6 +222,11 @@ public class MinimapSystem : MonoBehaviour
             SetExpandedVisible(!expandedVisible);
         }
         UpdateCameraRuntime();
+        // Ensure textures stay bound (prevents white mask when texture lost)
+        if (mapImage != null && mapImage.texture != minimapRenderTexture)
+            mapImage.texture = minimapRenderTexture;
+        if (expandedMapImage != null && expandedMapImage.texture != minimapRenderTexture)
+            expandedMapImage.texture = minimapRenderTexture;
         UpdateMarkersRuntime(Time.deltaTime);
         UpdatePopupRuntime();
     }
@@ -254,16 +262,19 @@ public class MinimapSystem : MonoBehaviour
 
     public void HandleMinimapPointer(Vector2 localPoint, PointerEventData eventData)
     {
-        // Use separate toggles for minimap vs expanded
-        bool isFromExpanded = eventData != null && eventData.pointerPressRaycast.module != null && expandedVisible;
-        bool allow = (isFromExpanded && clickToCreateOnExpanded) || (!isFromExpanded && clickToCreateOnMinimap);
-        if (!allow) return;
+        // Backward-compat path (try to infer expanded based on visibility)
+        bool isExpanded = expandedVisible && expandedClipRect != null;
+        HandleMinimapPointerLocal(localPoint, isExpanded);
+    }
 
-        // Choose which clip to test against
-        RectTransform clip = isFromExpanded && expandedVisible ? expandedClipRect : clipRect;
+    public void HandleMinimapPointerLocal(Vector2 localPoint, bool isExpanded)
+    {
+        bool allow = isExpanded ? clickToCreateOnExpanded : clickToCreateOnMinimap;
+        if (!allow) return;
+        RectTransform clip = isExpanded ? expandedClipRect : clipRect;
         if (clip == null) return;
-        if (!IsInsideMask(localPoint, out _)) return;
-        Vector3 world = LocalToWorld(localPoint);
+        if (!IsInsideMaskForClip(localPoint, isExpanded, out _)) return;
+        Vector3 world = LocalToWorldFromClip(localPoint, isExpanded);
         CreateWaypoint(world, null, null);
     }
 
@@ -307,7 +318,9 @@ public class MinimapSystem : MonoBehaviour
         minimapCamera.allowMSAA = false;
         minimapCamera.useOcclusionCulling = false;
 
-        minimapCamera.transform.position = new Vector3(0, cameraHeight, 0);
+        // Place camera above player start if available; fallback to world origin
+        Vector3 center = player != null ? player.position : Vector3.zero;
+        minimapCamera.transform.position = new Vector3(center.x, cameraHeight, center.z);
         minimapCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
 
         EnsureRenderTexture();
@@ -717,9 +730,47 @@ public class MinimapSystem : MonoBehaviour
         return new Vector3(center.x + worldX, 0f, center.z + worldZ);
     }
 
+    private Vector3 LocalToWorldFromClip(Vector2 local, bool isExpanded)
+    {
+        if (minimapCamera == null) return Vector3.zero;
+        float innerSize = Mathf.Max(0f, (isExpanded ? expandedMapSize : mapUISize) - 2f * borderThickness);
+        float halfUI = innerSize * 0.5f;
+        float yaw = minimapCamera.transform.eulerAngles.y * Mathf.Deg2Rad;
+        float cos = Mathf.Cos(yaw);
+        float sin = Mathf.Sin(yaw);
+        float halfWorldW = minimapCamera.orthographicSize * minimapCamera.aspect;
+        float halfWorldH = minimapCamera.orthographicSize;
+        float localX = (local.x / halfUI) * halfWorldW;
+        float localY = (local.y / halfUI) * halfWorldH;
+        float worldX = localX * cos - localY * sin;
+        float worldZ = localX * sin + localY * cos;
+        Vector3 center = minimapCamera.transform.position;
+        return new Vector3(center.x + worldX, 0f, center.z + worldZ);
+    }
+
     private bool IsInsideMask(Vector2 local, out float limitRadius)
     {
         float innerSize = Mathf.Max(0f, mapUISize - 2f * borderThickness);
+        float half = innerSize * 0.5f;
+        switch (mapShape)
+        {
+            case MapShape.Square:
+            case MapShape.Custom:
+                limitRadius = half;
+                return (Mathf.Abs(local.x) <= half && Mathf.Abs(local.y) <= half);
+            case MapShape.Circle:
+            case MapShape.Star:
+                limitRadius = half;
+                return (local.sqrMagnitude <= (half * half));
+            default:
+                limitRadius = half;
+                return true;
+        }
+    }
+
+    private bool IsInsideMaskForClip(Vector2 local, bool isExpanded, out float limitRadius)
+    {
+        float innerSize = Mathf.Max(0f, (isExpanded ? expandedMapSize : mapUISize) - 2f * borderThickness);
         float half = innerSize * 0.5f;
         switch (mapShape)
         {
