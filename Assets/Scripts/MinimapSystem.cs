@@ -256,8 +256,8 @@ public class MinimapSystem : MonoBehaviour
         if (minimapRenderTexture != null)
         {
             if (minimapRenderTexture.width == renderTextureSize.x && minimapRenderTexture.height == renderTextureSize.y) return;
-            minimapRenderTexture.Release();
-            DestroyImmediate(minimapRenderTexture);
+            if (minimapRenderTexture.IsCreated()) minimapRenderTexture.Release();
+            if (Application.isPlaying) Destroy(minimapRenderTexture); else DestroyImmediate(minimapRenderTexture);
             minimapRenderTexture = null;
         }
         minimapRenderTexture = new RenderTexture(renderTextureSize.x, renderTextureSize.y, 16, RenderTextureFormat.ARGB32)
@@ -268,6 +268,14 @@ public class MinimapSystem : MonoBehaviour
             autoGenerateMips = false
         };
         minimapRenderTexture.Create();
+    }
+
+    private void AutoFitCoverageToTerrain()
+    {
+        var t = terrainOverride != null ? terrainOverride : Terrain.activeTerrain;
+        if (t == null || t.terrainData == null) return;
+        var size = t.terrainData.size;
+        coverageWorldSize = Mathf.Max(1f, Mathf.Max(size.x, size.z));
     }
 
     private void EnsureCanvasAndUI()
