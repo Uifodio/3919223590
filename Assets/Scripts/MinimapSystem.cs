@@ -7,7 +7,6 @@ using UnityEngine.UI;
 
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(100)]
-[ExecuteAlways]
 public class MinimapSystem : MonoBehaviour
 {
     [Header("Player Arrow")]
@@ -153,28 +152,44 @@ public class MinimapSystem : MonoBehaviour
         popupDuration = 3f;
     }
 
+    private bool _initialized;
+    private bool _editorInitScheduled;
+
     private void Awake()
     {
+        // Defer heavy creation to Start/coroutine to avoid SendMessage warnings
+    }
+
+    private void OnEnable()
+    {
+        #if UNITY_EDITOR
+        if (!Application.isPlaying && !_editorInitScheduled)
+        {
+            _editorInitScheduled = true;
+            UnityEditor.EditorApplication.delayCall += () =>
+            {
+                if (this == null) return;
+                if (Application.isPlaying) return;
+                EnsureSprites();
+                EnsureCamera();
+                EnsureCanvasAndUI();
+                RebuildAllMarkers();
+                UpdateCameraImmediate();
+                UpdateAllMarkersImmediate();
+                _editorInitScheduled = false;
+            };
+        }
+        #endif
+    }
+
+    private void Start()
+    {
+        if (!Application.isPlaying) return;
         EnsureEventSystem();
         EnsureSprites();
         EnsureCamera();
         EnsureCanvasAndUI();
         PrewarmPool(initialPoolSize);
-    }
-
-    private void OnEnable()
-    {
-        // Ensure auto-creation when attaching in editor as well
-        EnsureSprites();
-        EnsureCamera();
-        EnsureCanvasAndUI();
-        RebuildAllMarkers();
-        UpdateCameraImmediate();
-        UpdateAllMarkersImmediate();
-    }
-
-    private void Start()
-    {
         if (autoFitToTerrain)
         {
             AutoFitCoverageToTerrain();
@@ -182,6 +197,7 @@ public class MinimapSystem : MonoBehaviour
         RebuildAllMarkers();
         UpdateCameraImmediate();
         UpdateAllMarkersImmediate();
+        _initialized = true;
     }
 
     private void OnValidate()
@@ -212,9 +228,11 @@ public class MinimapSystem : MonoBehaviour
     {
         if (!Application.isPlaying)
         {
-            // In editor, keep preview updated without processing input
-            UpdateCameraImmediate();
-            UpdateAllMarkersImmediate();
+            if (minimapCanvas != null)
+            {
+                UpdateCameraImmediate();
+                UpdateAllMarkersImmediate();
+            }
             return;
         }
         if (enableExpandedMap && Input.GetKeyDown(expandedToggleKey))
@@ -325,6 +343,8 @@ public class MinimapSystem : MonoBehaviour
 
         EnsureRenderTexture();
         minimapCamera.targetTexture = minimapRenderTexture;
+        if (mapImage != null) mapImage.texture = minimapRenderTexture;
+        if (expandedMapImage != null) expandedMapImage.texture = minimapRenderTexture;
     }
 
     private void EnsureRenderTexture()
