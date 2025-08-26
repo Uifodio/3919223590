@@ -1,8 +1,0 @@
-kivy==2.3.1
-kivymd==1.1.1
-pillow==10.1.0
-pywin32==306
-psutil==5.9.6
-pyperclip==1.8.2
-send2trash==1.8.3
-pyinstaller==6.2.0
