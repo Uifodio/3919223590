@@ -50,7 +50,7 @@ echo [INFO] This may take a few minutes...
 echo.
 
 :: Build the executable
-python -m PyInstaller --onefile --windowed --name "NovaExplorer" --icon=NONE main.py
+python -m PyInstaller --onefile --windowed --name "NovaExplorer" --icon=NONE main_stable.py
 
 if %errorlevel% neq 0 (
     echo [ERROR] Build failed!

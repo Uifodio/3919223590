@@ -52,7 +52,7 @@ echo [LAUNCH] Starting Nova Explorer...
 echo.
 
 :: Launch the application
-python main.py
+python main_stable.py
 
 echo.
 echo [INFO] Nova Explorer has closed.
