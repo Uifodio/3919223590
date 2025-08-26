@@ -2,7 +2,7 @@
   "name": "windows-file-manager-pro",
   "version": "1.0.0",
   "description": "Professional file manager for Windows with built-in editor and advanced features",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/main/index.js",
   "homepage": "./",
   "scripts": {
     "dev": "vite",
@@ -71,12 +71,13 @@
     "appId": "com.windowsfilemanagerpro.app",
     "productName": "Windows File Manager Pro",
     "directories": {
-      "output": "dist-electron"
+      "output": "release"
     },
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "node_modules/**/*"
+      "electron/**/*",
+      "package.json"
     ],
     "win": {
       "target": [
@@ -84,8 +85,7 @@
           "target": "nsis",
           "arch": ["x64"]
         }
-      ],
-      "icon": "assets/icon.ico"
+      ]
     },
     "nsis": {
       "oneClick": false,

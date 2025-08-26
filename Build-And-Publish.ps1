@@ -92,14 +92,19 @@ try {
 	npm run electron:build
 } catch { Fail "Electron packaging failed." }
 
-# Locate output and launch
-$dist = Join-Path $root "dist-electron"
-if (-not (Test-Path $dist)) { Fail "Build output folder not found: $dist" }
+# Locate output and launch (prefer 'release', fallback to 'dist-electron')
+$releaseDir = Join-Path $root "release"
+$distElectronDir = Join-Path $root "dist-electron"
 
-try { Start-Process explorer.exe $dist } catch {}
+$outDir = $null
+if (Test-Path $releaseDir) { $outDir = $releaseDir }
+elseif (Test-Path $distElectronDir) { $outDir = $distElectronDir }
+else { Fail "Build output folder not found: $releaseDir or $distElectronDir" }
 
-$latestExe = Get-ChildItem -Path $dist -Filter *.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if ($null -eq $latestExe) { Fail "No .exe found in $dist" }
+try { Start-Process explorer.exe $outDir } catch {}
+
+$latestExe = Get-ChildItem -Path $outDir -Filter *.exe -Recurse -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($null -eq $latestExe) { Fail "No .exe found in $outDir" }
 
 Write-Host "`nLaunching installer: $($latestExe.FullName)" -ForegroundColor Green
 try { Start-Process -FilePath $latestExe.FullName } catch { Fail "Failed to launch EXE: $($_.Exception.Message)" }
