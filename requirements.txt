@@ -1,0 +1,8 @@
+PySide6==6.6.1
+Pillow==10.1.0
+pywin32==306
+psutil==5.9.6
+watchdog==3.0.0
+pyperclip==1.8.2
+pyinstaller==6.2.0
+send2trash==1.8.3
