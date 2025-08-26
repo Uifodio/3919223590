@@ -1,17 +1,21 @@
 @echo off
-echo Building Windows File Manager Pro...
+echo ========================================
+echo Windows File Manager Pro - Build Script
+echo ========================================
 echo.
 
-REM Check if .NET 6.0 is installed
-dotnet --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ERROR: .NET 6.0 is not installed or not in PATH
-    echo Please install .NET 6.0 Desktop Runtime from: https://dotnet.microsoft.com/download/dotnet/6.0
+REM Check if .NET 9.0 is installed
+echo Checking .NET 9.0 installation...
+dotnet --version 2>nul
+if errorlevel 1 (
+    echo ERROR: .NET 9.0 is not installed or not in PATH
+    echo Please install .NET 9.0 Desktop Runtime from:
+    echo https://dotnet.microsoft.com/download/dotnet/9.0
     pause
     exit /b 1
 )
 
-echo .NET version:
+echo .NET version found: 
 dotnet --version
 echo.
 
@@ -19,53 +23,57 @@ REM Clean previous builds
 echo Cleaning previous builds...
 if exist "bin" rmdir /s /q "bin"
 if exist "obj" rmdir /s /q "obj"
+echo Cleaned.
 echo.
 
 REM Restore packages
 echo Restoring NuGet packages...
 dotnet restore
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo ERROR: Failed to restore packages
     pause
     exit /b 1
 )
+echo Packages restored successfully.
 echo.
 
-REM Build project
-echo Building project...
-dotnet build --configuration Release --no-restore
-if %errorlevel% neq 0 (
+REM Build in Release mode
+echo Building in Release mode...
+dotnet build -c Release --no-restore
+if errorlevel 1 (
     echo ERROR: Build failed
     pause
     exit /b 1
 )
+echo Build completed successfully.
 echo.
 
-REM Publish application
-echo Publishing application...
-dotnet publish --configuration Release --output "bin\Release\publish" --self-contained false --runtime win-x64
-if %errorlevel% neq 0 (
+REM Publish single file
+echo Publishing single file executable...
+dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:PublishTrimmed=false --no-restore
+if errorlevel 1 (
     echo ERROR: Publish failed
     pause
     exit /b 1
 )
+echo Publish completed successfully.
 echo.
 
-echo Build completed successfully!
+REM Show results
 echo.
-echo Output location: bin\Release\publish\
-echo Executable: bin\Release\publish\WindowsFileManagerPro.exe
+echo ========================================
+echo BUILD COMPLETED SUCCESSFULLY!
+echo ========================================
 echo.
-
-REM Create ZIP archive
-echo Creating ZIP archive...
-powershell -command "Compress-Archive -Path 'bin\Release\publish\*' -DestinationPath 'WindowsFileManagerPro-Release.zip' -Force"
-if %errorlevel% equ 0 (
-    echo ZIP archive created: WindowsFileManagerPro-Release.zip
-) else (
-    echo Warning: Failed to create ZIP archive
-)
+echo Output location: bin\Release\net9.0-windows\win-x64\publish\
+echo Executable: WindowsFileManagerPro.exe
+echo.
+echo You can now run the application from the publish folder.
 echo.
 
-echo Build process completed!
+REM Open output folder
+echo Opening output folder...
+start "" "bin\Release\net9.0-windows\win-x64\publish\"
+echo.
+
 pause

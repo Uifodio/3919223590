@@ -2,8 +2,6 @@ using System;
 using System.IO;
 using Newtonsoft.Json;
 using WindowsFileManagerPro.Models;
-using System.Collections.Generic; // Added missing import for List
-using System.Collections.Generic; // Added missing import for Dictionary
 
 namespace WindowsFileManagerPro.Services
 {

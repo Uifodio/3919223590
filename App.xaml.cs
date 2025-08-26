@@ -12,6 +12,8 @@ namespace WindowsFileManagerPro
     public partial class App : Application
     {
         private IHost? _host;
+        
+        public IServiceProvider Services => _host?.Services ?? throw new InvalidOperationException("Services not initialized");
 
         protected override async void OnStartup(StartupEventArgs e)
         {

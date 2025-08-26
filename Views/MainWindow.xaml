@@ -9,8 +9,7 @@
         Height="800" Width="1200"
         MinHeight="600" MinWidth="800"
         Background="{DynamicResource WindowBackgroundBrush}"
-        WindowStartupLocation="CenterScreen"
-        Icon="Assets/icon.ico">
+        WindowStartupLocation="CenterScreen">
     
     <Window.Resources>
         <Style x:Key="MenuStyle" TargetType="Menu">

@@ -1,16 +1,24 @@
-# Windows File Manager Pro Build Script
-# Run this script in PowerShell with execution policy: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+# ========================================
+# Windows File Manager Pro - Build Script
+# ========================================
 
-Write-Host "Building Windows File Manager Pro..." -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Windows File Manager Pro - Build Script" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Check if .NET 6.0 is installed
+# Check if .NET 9.0 is installed
+Write-Host "Checking .NET 9.0 installation..." -ForegroundColor Yellow
 try {
     $dotnetVersion = dotnet --version
-    Write-Host ".NET version: $dotnetVersion" -ForegroundColor Cyan
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet command failed"
+    }
+    Write-Host ".NET version found: $dotnetVersion" -ForegroundColor Green
 } catch {
-    Write-Host "ERROR: .NET 6.0 is not installed or not in PATH" -ForegroundColor Red
-    Write-Host "Please install .NET 6.0 Desktop Runtime from: https://dotnet.microsoft.com/download/dotnet/6.0" -ForegroundColor Yellow
+    Write-Host "ERROR: .NET 9.0 is not installed or not in PATH" -ForegroundColor Red
+    Write-Host "Please install .NET 9.0 Desktop Runtime from:" -ForegroundColor Yellow
+    Write-Host "https://dotnet.microsoft.com/download/dotnet/9.0" -ForegroundColor Yellow
     Read-Host "Press Enter to exit"
     exit 1
 }
@@ -19,8 +27,9 @@ Write-Host ""
 
 # Clean previous builds
 Write-Host "Cleaning previous builds..." -ForegroundColor Yellow
-if (Test-Path "bin") { Remove-Item -Path "bin" -Recurse -Force }
-if (Test-Path "obj") { Remove-Item -Path "obj" -Recurse -Force }
+if (Test-Path "bin") { Remove-Item "bin" -Recurse -Force }
+if (Test-Path "obj") { Remove-Item "obj" -Recurse -Force }
+Write-Host "Cleaned." -ForegroundColor Green
 Write-Host ""
 
 # Restore packages
@@ -31,50 +40,52 @@ if ($LASTEXITCODE -ne 0) {
     Read-Host "Press Enter to exit"
     exit 1
 }
+Write-Host "Packages restored successfully." -ForegroundColor Green
 Write-Host ""
 
-# Build project
-Write-Host "Building project..." -ForegroundColor Yellow
-dotnet build --configuration Release --no-restore
+# Build in Release mode
+Write-Host "Building in Release mode..." -ForegroundColor Yellow
+dotnet build -c Release --no-restore
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Build failed" -ForegroundColor Red
     Read-Host "Press Enter to exit"
     exit 1
 }
+Write-Host "Build completed successfully." -ForegroundColor Green
 Write-Host ""
 
-# Publish application
-Write-Host "Publishing application..." -ForegroundColor Yellow
-dotnet publish --configuration Release --output "bin\Release\publish" --self-contained false --runtime win-x64
+# Publish single file
+Write-Host "Publishing single file executable..." -ForegroundColor Yellow
+dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:PublishTrimmed=false --no-restore
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Publish failed" -ForegroundColor Red
     Read-Host "Press Enter to exit"
     exit 1
 }
+Write-Host "Publish completed successfully." -ForegroundColor Green
 Write-Host ""
 
-Write-Host "Build completed successfully!" -ForegroundColor Green
+# Show results
 Write-Host ""
-Write-Host "Output location: bin\Release\publish\" -ForegroundColor Cyan
-Write-Host "Executable: bin\Release\publish\WindowsFileManagerPro.exe" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Green
+Write-Host "BUILD COMPLETED SUCCESSFULLY!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Output location: bin\Release\net9.0-windows\win-x64\publish\" -ForegroundColor White
+Write-Host "Executable: WindowsFileManagerPro.exe" -ForegroundColor White
+Write-Host ""
+Write-Host "You can now run the application from the publish folder." -ForegroundColor White
 Write-Host ""
 
-# Create ZIP archive
-Write-Host "Creating ZIP archive..." -ForegroundColor Yellow
-try {
-    $publishPath = "bin\Release\publish"
-    $zipPath = "WindowsFileManagerPro-Release.zip"
-    
-    if (Test-Path $zipPath) {
-        Remove-Item $zipPath -Force
-    }
-    
-    Compress-Archive -Path "$publishPath\*" -DestinationPath $zipPath -Force
-    Write-Host "ZIP archive created: $zipPath" -ForegroundColor Green
-} catch {
-    Write-Host "Warning: Failed to create ZIP archive" -ForegroundColor Yellow
+# Open output folder
+Write-Host "Opening output folder..." -ForegroundColor Yellow
+$outputPath = "bin\Release\net9.0-windows\win-x64\publish\"
+if (Test-Path $outputPath) {
+    Start-Process "explorer.exe" -ArgumentList $outputPath
+    Write-Host "Output folder opened." -ForegroundColor Green
+} else {
+    Write-Host "Warning: Output folder not found" -ForegroundColor Yellow
 }
-Write-Host ""
 
-Write-Host "Build process completed!" -ForegroundColor Green
+Write-Host ""
 Read-Host "Press Enter to exit"
