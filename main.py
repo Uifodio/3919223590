@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Nova Explorer - Advanced File Manager with Built-in Editor
-Built with Kivy for maximum reliability and simplicity
+Nova Explorer - Professional File Manager with Built-in Editor
+The Ultimate Combination of Windows Explorer + Visual Studio Code
+Perfect for Unity Development and Professional File Management
 """
 
 import os
@@ -9,6 +10,7 @@ import sys
 import json
 import shutil
 import threading
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -16,54 +18,80 @@ from typing import List, Dict, Optional
 # Kivy imports
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.scrollview import ScrollView
-from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.uix.popup import Popup
-from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.spinner import Spinner
 from kivy.uix.checkbox import CheckBox
 from kivy.uix.slider import Slider
-# Separator widget - create our own simple separator
 from kivy.uix.progressbar import ProgressBar
 from kivy.uix.modalview import ModalView
 from kivy.core.window import Window
 from kivy.metrics import dp
 from kivy.clock import Clock
 from kivy.properties import StringProperty, BooleanProperty, NumericProperty, ListProperty
-from kivy.lang import Builder
 from kivy.graphics import Color, Rectangle
-
-# File operations
-import fs_operations
-import editor_widget
-import settings_manager
+from kivy.core.text import LabelBase
+from kivy.resources import resource_add_path
 
 # Set window size and title
-Window.size = (1200, 800)
-Window.minimum_width = 800
-Window.minimum_height = 600
+Window.size = (1400, 900)
+Window.minimum_width = 1000
+Window.minimum_height = 700
 
-# Load KV language file
-try:
-    Builder.load_file('nova_explorer.kv')
-except:
-    print("Warning: Could not load KV file, using default styling")
+# Professional color scheme
+COLORS = {
+    'dark_bg': (0.12, 0.12, 0.14, 1),
+    'darker_bg': (0.08, 0.08, 0.10, 1),
+    'panel_bg': (0.16, 0.16, 0.18, 1),
+    'accent': (0.00, 0.47, 0.84, 1),
+    'accent_hover': (0.00, 0.55, 0.95, 1),
+    'success': (0.13, 0.59, 0.13, 1),
+    'warning': (0.85, 0.65, 0.13, 1),
+    'error': (0.80, 0.20, 0.20, 1),
+    'text_primary': (0.90, 0.90, 0.90, 1),
+    'text_secondary': (0.70, 0.70, 0.70, 1),
+    'text_muted': (0.50, 0.50, 0.50, 1),
+    'border': (0.25, 0.25, 0.27, 1),
+    'selection': (0.26, 0.47, 0.78, 1),
+    'editor_bg': (0.10, 0.10, 0.12, 1),
+    'editor_line': (0.15, 0.15, 0.17, 1)
+}
 
-# Simple separator widget
-class Separator(BoxLayout):
+class ProfessionalButton(Button):
+    """Professional styled button"""
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.background_color = COLORS['accent']
+        self.color = COLORS['text_primary']
+        self.font_size = dp(12)
+        self.bold = True
         self.size_hint_y = None
-        self.height = dp(1)
-        self.canvas.add(Color(0.5, 0.5, 0.5, 1))
-        self.canvas.add(Rectangle(pos=self.pos, size=self.size))
+        self.height = dp(32)
+        self.padding = dp(10)
+
+class ProfessionalLabel(Label):
+    """Professional styled label"""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.color = COLORS['text_primary']
+        self.font_size = dp(12)
+
+class ProfessionalTextInput(TextInput):
+    """Professional styled text input"""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.background_color = COLORS['panel_bg']
+        self.foreground_color = COLORS['text_primary']
+        self.cursor_color = COLORS['accent']
+        self.selection_color = COLORS['selection']
+        self.font_size = dp(12)
+        self.padding = dp(8)
 
 class FileItem(BoxLayout):
-    """Individual file/folder item in the file list"""
+    """Professional file/folder item"""
     name = StringProperty('')
     size = StringProperty('')
     modified = StringProperty('')
@@ -73,7 +101,95 @@ class FileItem(BoxLayout):
     def __init__(self, file_path: str, **kwargs):
         super().__init__(**kwargs)
         self.file_path = file_path
+        self.orientation = 'horizontal'
+        self.size_hint_y = None
+        self.height = dp(36)
+        self.padding = dp(8)
+        self.spacing = dp(12)
+        self.background_color = COLORS['panel_bg']
+        
+        # Selection indicator
+        with self.canvas.before:
+            Color(*COLORS['selection'])
+            self.selection_rect = Rectangle(pos=self.pos, size=self.size)
+        self.selection_rect.opacity = 0
+        
+        self.bind(pos=self._update_rect, size=self._update_rect, is_selected=self._update_selection)
+        
         self.update_info()
+        self._create_widgets()
+    
+    def _update_rect(self, instance, value):
+        self.selection_rect.pos = instance.pos
+        self.selection_rect.size = instance.size
+    
+    def _update_selection(self, instance, value):
+        self.selection_rect.opacity = 1 if self.is_selected else 0
+    
+    def _create_widgets(self):
+        """Create professional widget layout"""
+        # Icon (folder or file)
+        icon_text = "📁" if self.is_folder else "📄"
+        self.icon_label = ProfessionalLabel(
+            text=icon_text,
+            size_hint_x=0.05,
+            halign='center',
+            valign='middle'
+        )
+        
+        # Name label
+        self.name_label = ProfessionalLabel(
+            text=self.name,
+            size_hint_x=0.45,
+            halign='left',
+            valign='middle'
+        )
+        self.name_label.bind(size=self.name_label.setter('text_size'))
+        
+        # Size label
+        self.size_label = ProfessionalLabel(
+            text=self.size,
+            size_hint_x=0.15,
+            halign='center',
+            valign='middle',
+            color=COLORS['text_secondary']
+        )
+        self.size_label.bind(size=self.size_label.setter('text_size'))
+        
+        # Type label
+        self.type_label = ProfessionalLabel(
+            text=self.get_file_type(),
+            size_hint_x=0.15,
+            halign='center',
+            valign='middle',
+            color=COLORS['text_secondary']
+        )
+        self.type_label.bind(size=self.type_label.setter('text_size'))
+        
+        # Modified label
+        self.modified_label = ProfessionalLabel(
+            text=self.modified,
+            size_hint_x=0.20,
+            halign='center',
+            valign='middle',
+            color=COLORS['text_secondary']
+        )
+        self.modified_label.bind(size=self.modified_label.setter('text_size'))
+        
+        self.add_widget(self.icon_label)
+        self.add_widget(self.name_label)
+        self.add_widget(self.size_label)
+        self.add_widget(self.type_label)
+        self.add_widget(self.modified_label)
+    
+    def get_file_type(self):
+        """Get file type extension"""
+        if self.is_folder:
+            return "Folder"
+        ext = Path(self.file_path).suffix.lower()
+        if ext:
+            return ext[1:].upper() + " File"
+        return "File"
     
     def update_info(self):
         """Update file information"""
@@ -83,30 +199,50 @@ class FileItem(BoxLayout):
             self.is_folder = os.path.isdir(self.file_path)
             
             if self.is_folder:
-                self.size = '<DIR>'
+                self.size = "<DIR>"
             else:
                 size_bytes = stat.st_size
                 if size_bytes < 1024:
                     self.size = f"{size_bytes} B"
                 elif size_bytes < 1024 * 1024:
                     self.size = f"{size_bytes // 1024} KB"
-                else:
+                elif size_bytes < 1024 * 1024 * 1024:
                     self.size = f"{size_bytes // (1024 * 1024)} MB"
+                else:
+                    self.size = f"{size_bytes // (1024 * 1024 * 1024)} GB"
             
             self.modified = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+            
+            # Update labels
+            if hasattr(self, 'name_label'):
+                self.name_label.text = self.name
+            if hasattr(self, 'size_label'):
+                self.size_label.text = self.size
+            if hasattr(self, 'modified_label'):
+                self.modified_label.text = self.modified
+            if hasattr(self, 'type_label'):
+                self.type_label.text = self.get_file_type()
+                
         except Exception as e:
             print(f"Error updating file info: {e}")
 
 class FileList(ScrollView):
-    """Scrollable file list with selection support"""
+    """Professional file list with selection support"""
     selected_files = ListProperty([])
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.layout = GridLayout(cols=1, spacing=dp(2), size_hint_y=None)
+        self.layout = BoxLayout(orientation='vertical', spacing=dp(1), size_hint_y=None)
         self.layout.bind(minimum_height=self.layout.setter('height'))
         self.add_widget(self.layout)
         self.current_path = os.path.expanduser('~')
+        
+        # Professional styling
+        self.background_color = COLORS['dark_bg']
+        self.bar_color = COLORS['accent']
+        self.bar_inactive_color = COLORS['border']
+        self.effect_cls = 'ScrollEffect'
+        
         self.refresh_files()
     
     def refresh_files(self):
@@ -115,16 +251,32 @@ class FileList(ScrollView):
         self.selected_files.clear()
         
         try:
+            # Add header
+            header = BoxLayout(
+                orientation='horizontal',
+                size_hint_y=None,
+                height=dp(32),
+                padding=dp(8),
+                spacing=dp(12)
+            )
+            header.background_color = COLORS['darker_bg']
+            
+            header.add_widget(ProfessionalLabel(text="Name", size_hint_x=0.50, halign='left'))
+            header.add_widget(ProfessionalLabel(text="Size", size_hint_x=0.15, halign='center'))
+            header.add_widget(ProfessionalLabel(text="Type", size_hint_x=0.15, halign='center'))
+            header.add_widget(ProfessionalLabel(text="Modified", size_hint_x=0.20, halign='center'))
+            
+            self.layout.add_widget(header)
+            
             # Add parent directory option
             if self.current_path != os.path.dirname(self.current_path):
-                parent_btn = Button(
-                    text='..',
-                    size_hint_y=None,
-                    height=dp(40),
-                    background_color=(0.3, 0.3, 0.3, 1)
-                )
-                parent_btn.bind(on_press=self.go_up)
-                self.layout.add_widget(parent_btn)
+                parent_item = FileItem(self.current_path)
+                parent_item.name = ".."
+                parent_item.size = "<DIR>"
+                parent_item.modified = ""
+                parent_item.icon_label.text = "📂"
+                parent_item.bind(on_touch_down=self.on_file_touch)
+                self.layout.add_widget(parent_item)
             
             # Get files and folders
             items = []
@@ -143,7 +295,7 @@ class FileList(ScrollView):
                 self.layout.add_widget(file_item)
                 
         except Exception as e:
-            error_label = Label(text=f"Error loading directory: {e}")
+            error_label = ProfessionalLabel(text=f"Error loading directory: {e}")
             self.layout.add_widget(error_label)
     
     def on_file_touch(self, instance, touch):
@@ -182,33 +334,44 @@ class FileList(ScrollView):
             self.refresh_files()
 
 class AddressBar(BoxLayout):
-    """Address bar for navigation"""
-    current_path = StringProperty('')
+    """Professional address bar"""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.orientation = 'horizontal'
         self.size_hint_y = None
         self.height = dp(40)
+        self.padding = dp(8)
+        self.spacing = dp(8)
+        self.background_color = COLORS['panel_bg']
         
         # Path input
-        self.path_input = TextInput(
+        self.path_input = ProfessionalTextInput(
             multiline=False,
             size_hint_x=0.8,
-            font_size=dp(14)
+            hint_text="Enter path or search..."
         )
         self.path_input.bind(on_text_validate=self.navigate)
         
         # Go button
-        self.go_button = Button(
+        self.go_button = ProfessionalButton(
             text='Go',
-            size_hint_x=0.2,
-            background_color=(0.2, 0.6, 1, 1)
+            size_hint_x=0.1,
+            background_color=COLORS['accent']
         )
         self.go_button.bind(on_press=self.navigate)
         
+        # Refresh button
+        self.refresh_button = ProfessionalButton(
+            text='⟳',
+            size_hint_x=0.1,
+            background_color=COLORS['success']
+        )
+        self.refresh_button.bind(on_press=self.refresh)
+        
         self.add_widget(self.path_input)
         self.add_widget(self.go_button)
+        self.add_widget(self.refresh_button)
     
     def navigate(self, instance):
         """Navigate to the entered path"""
@@ -217,80 +380,99 @@ class AddressBar(BoxLayout):
             app = App.get_running_app()
             app.navigate_to(path)
     
+    def refresh(self, instance):
+        """Refresh current directory"""
+        app = App.get_running_app()
+        app.refresh_current_directory()
+    
     def update_path(self, path):
         """Update the displayed path"""
-        self.current_path = path
         self.path_input.text = path
 
 class ToolBar(BoxLayout):
-    """Toolbar with navigation and action buttons"""
+    """Professional toolbar"""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.orientation = 'horizontal'
         self.size_hint_y = None
-        self.height = dp(50)
-        self.padding = dp(5)
-        self.spacing = dp(5)
+        self.height = dp(48)
+        self.padding = dp(8)
+        self.spacing = dp(8)
+        self.background_color = COLORS['panel_bg']
         
         # Navigation buttons
-        self.back_btn = Button(
-            text='←',
+        self.back_btn = ProfessionalButton(
+            text='← Back',
             size_hint_x=None,
-            width=dp(40),
-            background_color=(0.3, 0.3, 0.3, 1)
+            width=dp(80),
+            background_color=COLORS['accent']
         )
         self.back_btn.bind(on_press=self.go_back)
         
-        self.forward_btn = Button(
-            text='→',
+        self.forward_btn = ProfessionalButton(
+            text='Forward →',
             size_hint_x=None,
-            width=dp(40),
-            background_color=(0.3, 0.3, 0.3, 1)
+            width=dp(80),
+            background_color=COLORS['accent']
         )
         self.forward_btn.bind(on_press=self.go_forward)
         
-        self.up_btn = Button(
-            text='↑',
+        self.up_btn = ProfessionalButton(
+            text='↑ Up',
             size_hint_x=None,
-            width=dp(40),
-            background_color=(0.3, 0.3, 0.3, 1)
+            width=dp(60),
+            background_color=COLORS['accent']
         )
         self.up_btn.bind(on_press=self.go_up)
         
-        self.refresh_btn = Button(
-            text='⟳',
-            size_hint_x=None,
-            width=dp(40),
-            background_color=(0.3, 0.3, 0.3, 1)
-        )
-        self.refresh_btn.bind(on_press=self.refresh)
+        # Separator
+        separator = BoxLayout(size_hint_x=None, width=dp(1))
+        separator.background_color = COLORS['border']
         
         # Action buttons
-        self.new_folder_btn = Button(
-            text='New Folder',
+        self.new_folder_btn = ProfessionalButton(
+            text='📁 New Folder',
             size_hint_x=None,
-            width=dp(100),
-            background_color=(0.2, 0.8, 0.2, 1)
+            width=dp(120),
+            background_color=COLORS['success']
         )
         self.new_folder_btn.bind(on_press=self.new_folder)
         
-        self.new_file_btn = Button(
-            text='New File',
+        self.new_file_btn = ProfessionalButton(
+            text='📄 New File',
             size_hint_x=None,
-            width=dp(100),
-            background_color=(0.2, 0.8, 0.2, 1)
+            width=dp(120),
+            background_color=COLORS['success']
         )
         self.new_file_btn.bind(on_press=self.new_file)
+        
+        self.copy_btn = ProfessionalButton(
+            text='📋 Copy',
+            size_hint_x=None,
+            width=dp(80),
+            background_color=COLORS['warning']
+        )
+        self.copy_btn.bind(on_press=self.copy_files)
+        
+        self.delete_btn = ProfessionalButton(
+            text='🗑️ Delete',
+            size_hint_x=None,
+            width=dp(80),
+            background_color=COLORS['error']
+        )
+        self.delete_btn.bind(on_press=self.delete_files)
         
         # Add widgets
         self.add_widget(self.back_btn)
         self.add_widget(self.forward_btn)
         self.add_widget(self.up_btn)
-        self.add_widget(self.refresh_btn)
-        self.add_widget(Separator())
+        self.add_widget(separator)
         self.add_widget(self.new_folder_btn)
         self.add_widget(self.new_file_btn)
+        self.add_widget(separator)
+        self.add_widget(self.copy_btn)
+        self.add_widget(self.delete_btn)
         self.add_widget(Label())  # Spacer
     
     def go_back(self, instance):
@@ -308,11 +490,6 @@ class ToolBar(BoxLayout):
         app = App.get_running_app()
         app.go_up()
     
-    def refresh(self, instance):
-        """Refresh current directory"""
-        app = App.get_running_app()
-        app.refresh_current_directory()
-    
     def new_folder(self, instance):
         """Create new folder"""
         app = App.get_running_app()
@@ -322,56 +499,275 @@ class ToolBar(BoxLayout):
         """Create new file"""
         app = App.get_running_app()
         app.create_new_file()
+    
+    def copy_files(self, instance):
+        """Copy selected files"""
+        app = App.get_running_app()
+        app.copy_selected_files()
+    
+    def delete_files(self, instance):
+        """Delete selected files"""
+        app = App.get_running_app()
+        app.delete_selected_files()
 
 class StatusBar(BoxLayout):
-    """Status bar showing current information"""
+    """Professional status bar"""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.orientation = 'horizontal'
         self.size_hint_y = None
-        self.height = dp(30)
-        self.padding = dp(5)
+        self.height = dp(32)
+        self.padding = dp(8)
+        self.spacing = dp(16)
+        self.background_color = COLORS['darker_bg']
         
-        self.status_label = Label(
+        self.status_label = ProfessionalLabel(
             text='Ready',
-            size_hint_x=0.7,
+            size_hint_x=0.4,
             halign='left'
         )
         
-        self.info_label = Label(
+        self.path_label = ProfessionalLabel(
+            text='',
+            size_hint_x=0.4,
+            halign='center',
+            color=COLORS['text_secondary']
+        )
+        
+        self.info_label = ProfessionalLabel(
             text='0 items selected',
-            size_hint_x=0.3,
-            halign='right'
+            size_hint_x=0.2,
+            halign='right',
+            color=COLORS['text_secondary']
         )
         
         self.add_widget(self.status_label)
+        self.add_widget(self.path_label)
         self.add_widget(self.info_label)
     
     def update_status(self, text: str):
         """Update status text"""
         self.status_label.text = text
     
+    def update_path(self, text: str):
+        """Update path text"""
+        self.path_label.text = text
+    
     def update_info(self, text: str):
         """Update info text"""
         self.info_label.text = text
 
-class NovaExplorerApp(App):
-    """Main application class"""
+class ProfessionalEditor(BoxLayout):
+    """Professional text editor"""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.title = 'Nova Explorer'
+        self.orientation = 'vertical'
+        self.padding = dp(8)
+        self.spacing = dp(8)
+        self.background_color = COLORS['editor_bg']
+        
+        # Editor toolbar
+        toolbar = BoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(40),
+            spacing=dp(8),
+            padding=dp(4)
+        )
+        toolbar.background_color = COLORS['panel_bg']
+        
+        # File info label
+        self.file_label = ProfessionalLabel(
+            text='No file open',
+            size_hint_x=0.5,
+            halign='left'
+        )
+        
+        # Save button
+        self.save_btn = ProfessionalButton(
+            text='💾 Save',
+            size_hint_x=0.15,
+            background_color=COLORS['success']
+        )
+        self.save_btn.bind(on_press=self.save_file)
+        
+        # Save As button
+        self.save_as_btn = ProfessionalButton(
+            text='💾 Save As',
+            size_hint_x=0.15,
+            background_color=COLORS['accent']
+        )
+        self.save_as_btn.bind(on_press=self.save_file_as)
+        
+        # Close button
+        self.close_btn = ProfessionalButton(
+            text='✕ Close',
+            size_hint_x=0.15,
+            background_color=COLORS['error']
+        )
+        self.close_btn.bind(on_press=self.close_editor)
+        
+        toolbar.add_widget(self.file_label)
+        toolbar.add_widget(self.save_btn)
+        toolbar.add_widget(self.save_as_btn)
+        toolbar.add_widget(self.close_btn)
+        
+        # Text editor
+        self.text_input = ProfessionalTextInput(
+            multiline=True,
+            font_size=dp(14),
+            background_color=COLORS['editor_bg'],
+            foreground_color=COLORS['text_primary'],
+            cursor_color=COLORS['accent'],
+            selection_color=COLORS['selection'],
+            write_tab=False,
+            tab_width=4
+        )
+        
+        # Scroll view for text editor
+        scroll_view = ScrollView()
+        scroll_view.add_widget(self.text_input)
+        scroll_view.background_color = COLORS['editor_bg']
+        
+        self.add_widget(toolbar)
+        self.add_widget(scroll_view)
+        
+        self.current_file = ''
+        self.is_modified = False
+    
+    def load_file(self, file_path: str, content: str = None):
+        """Load a file into the editor"""
+        try:
+            self.current_file = file_path
+            self.file_label.text = f'📝 {os.path.basename(file_path)}'
+            
+            if content is None:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            
+            self.text_input.text = content
+            self.is_modified = False
+            
+        except Exception as e:
+            print(f"Error loading file: {e}")
+    
+    def save_file(self, instance=None):
+        """Save the current file"""
+        if not self.current_file:
+            return
+        
+        try:
+            # Create backup
+            if os.path.exists(self.current_file):
+                backup_path = self.current_file + '.bak'
+                shutil.copy2(self.current_file, backup_path)
+            
+            # Save the file
+            with open(self.current_file, 'w', encoding='utf-8') as f:
+                f.write(self.text_input.text)
+            
+            self.is_modified = False
+            self.file_label.text = f'📝 {os.path.basename(self.current_file)} (Saved)'
+            
+            # Schedule status reset
+            Clock.schedule_once(self.reset_save_status, 2)
+            
+        except Exception as e:
+            print(f"Error saving file: {e}")
+    
+    def save_file_as(self, instance=None):
+        """Save file as"""
+        # This would open a save dialog in a full implementation
+        self.save_file()
+    
+    def reset_save_status(self, dt):
+        """Reset the save status display"""
+        if self.current_file:
+            self.file_label.text = f'📝 {os.path.basename(self.current_file)}'
+    
+    def close_editor(self, instance=None):
+        """Close the editor"""
+        if self.is_modified:
+            # Ask user if they want to save
+            self.show_save_prompt()
+        else:
+            self.hide_editor()
+    
+    def hide_editor(self):
+        """Hide the editor area"""
+        self.size_hint_x = 0
+        self.current_file = ''
+        self.text_input.text = ''
+        self.is_modified = False
+    
+    def show_save_prompt(self):
+        """Show save prompt dialog"""
+        content = BoxLayout(orientation='vertical', padding=dp(20))
+        content.add_widget(ProfessionalLabel(
+            text='Do you want to save changes before closing?',
+            size_hint_y=None,
+            height=dp(40)
+        ))
+        
+        button_layout = BoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(40),
+            spacing=dp(10)
+        )
+        
+        save_btn = ProfessionalButton(text='Save', background_color=COLORS['success'])
+        save_btn.bind(on_press=lambda x: self.save_and_close(popup))
+        
+        dont_save_btn = ProfessionalButton(text="Don't Save", background_color=COLORS['warning'])
+        dont_save_btn.bind(on_press=lambda x: self.close_without_save(popup))
+        
+        cancel_btn = ProfessionalButton(text='Cancel', background_color=COLORS['error'])
+        cancel_btn.bind(on_press=lambda x: popup.dismiss())
+        
+        button_layout.add_widget(save_btn)
+        button_layout.add_widget(dont_save_btn)
+        button_layout.add_widget(cancel_btn)
+        
+        content.add_widget(button_layout)
+        
+        popup = Popup(
+            title='Save Changes?',
+            content=content,
+            size_hint=(0.8, 0.4),
+            background=COLORS['panel_bg']
+        )
+        popup.open()
+    
+    def save_and_close(self, popup):
+        """Save file and close editor"""
+        popup.dismiss()
+        self.save_file()
+        self.hide_editor()
+    
+    def close_without_save(self, popup):
+        """Close editor without saving"""
+        popup.dismiss()
+        self.hide_editor()
+
+class NovaExplorerApp(App):
+    """Professional Nova Explorer Application"""
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.title = 'Nova Explorer - Professional File Manager'
         self.current_path = os.path.expanduser('~')
         self.history = []
         self.history_index = -1
-        self.settings = settings_manager.SettingsManager()
-        self.editor = None
+        self.clipboard = []
         
     def build(self):
-        """Build the main UI"""
+        """Build the professional UI"""
         # Main layout
         main_layout = BoxLayout(orientation='vertical')
+        main_layout.background_color = COLORS['dark_bg']
         
         # Toolbar
         self.toolbar = ToolBar()
@@ -383,6 +779,8 @@ class NovaExplorerApp(App):
         
         # Main content area
         content_layout = BoxLayout(orientation='horizontal')
+        content_layout.spacing = dp(8)
+        content_layout.padding = dp(8)
         
         # File list
         self.file_list = FileList()
@@ -390,7 +788,7 @@ class NovaExplorerApp(App):
         
         # Editor area (initially hidden)
         self.editor_area = BoxLayout(orientation='vertical', size_hint_x=0)
-        self.editor = editor_widget.EditorWidget()
+        self.editor = ProfessionalEditor()
         self.editor_area.add_widget(self.editor)
         content_layout.add_widget(self.editor_area)
         
@@ -420,7 +818,8 @@ class NovaExplorerApp(App):
             self.file_list.current_path = path
             self.file_list.refresh_files()
             self.address_bar.update_path(path)
-            self.status_bar.update_status(f'Navigated to: {path}')
+            self.status_bar.update_status(f'📁 Navigated to: {path}')
+            self.status_bar.update_path(path)
     
     def go_back(self):
         """Go back in history"""
@@ -431,7 +830,7 @@ class NovaExplorerApp(App):
             self.file_list.current_path = path
             self.file_list.refresh_files()
             self.address_bar.update_path(path)
-            self.status_bar.update_status(f'Back to: {path}')
+            self.status_bar.update_status(f'⬅️ Back to: {path}')
     
     def go_forward(self):
         """Go forward in history"""
@@ -442,7 +841,7 @@ class NovaExplorerApp(App):
             self.file_list.current_path = path
             self.file_list.refresh_files()
             self.address_bar.update_path(path)
-            self.status_bar.update_status(f'Forward to: {path}')
+            self.status_bar.update_status(f'➡️ Forward to: {path}')
     
     def go_up(self):
         """Go to parent directory"""
@@ -453,7 +852,7 @@ class NovaExplorerApp(App):
     def refresh_current_directory(self):
         """Refresh the current directory"""
         self.file_list.refresh_files()
-        self.status_bar.update_status('Directory refreshed')
+        self.status_bar.update_status('🔄 Directory refreshed')
     
     def create_new_folder(self):
         """Create a new folder"""
@@ -464,20 +863,26 @@ class NovaExplorerApp(App):
                     os.makedirs(folder_path, exist_ok=True)
                     self.refresh_current_directory()
                     popup.dismiss()
+                    self.status_bar.update_status(f'✅ Created folder: {name}')
                 except Exception as e:
                     self.show_error(f"Error creating folder: {e}")
         
         content = BoxLayout(orientation='vertical', padding=dp(20))
-        content.add_widget(Label(text='Enter folder name:'))
+        content.add_widget(ProfessionalLabel(text='Enter folder name:'))
         
-        name_input = TextInput(multiline=False)
+        name_input = ProfessionalTextInput(multiline=False)
         content.add_widget(name_input)
         
-        button = Button(text='Create', size_hint_y=None, height=dp(40))
+        button = ProfessionalButton(text='Create', background_color=COLORS['success'])
         button.bind(on_press=lambda x: create_folder(name_input.text))
         content.add_widget(button)
         
-        popup = Popup(title='New Folder', content=content, size_hint=(0.8, 0.4))
+        popup = Popup(
+            title='New Folder',
+            content=content,
+            size_hint=(0.8, 0.4),
+            background=COLORS['panel_bg']
+        )
         popup.open()
     
     def create_new_file(self):
@@ -490,49 +895,143 @@ class NovaExplorerApp(App):
                         f.write('')
                     self.refresh_current_directory()
                     popup.dismiss()
+                    self.status_bar.update_status(f'✅ Created file: {name}')
                 except Exception as e:
                     self.show_error(f"Error creating file: {e}")
         
         content = BoxLayout(orientation='vertical', padding=dp(20))
-        content.add_widget(Label(text='Enter file name:'))
+        content.add_widget(ProfessionalLabel(text='Enter file name:'))
         
-        name_input = TextInput(multiline=False)
+        name_input = ProfessionalTextInput(multiline=False)
         content.add_widget(name_input)
         
-        button = Button(text='Create', size_hint_y=None, height=dp(40))
+        button = ProfessionalButton(text='Create', background_color=COLORS['success'])
         button.bind(on_press=lambda x: create_file(name_input.text))
         content.add_widget(button)
         
-        popup = Popup(title='New File', content=content, size_hint=(0.8, 0.4))
+        popup = Popup(
+            title='New File',
+            content=content,
+            size_hint=(0.8, 0.4),
+            background=COLORS['panel_bg']
+        )
+        popup.open()
+    
+    def copy_selected_files(self):
+        """Copy selected files to clipboard"""
+        if self.file_list.selected_files:
+            self.clipboard = self.file_list.selected_files.copy()
+            self.status_bar.update_status(f'📋 Copied {len(self.clipboard)} items to clipboard')
+        else:
+            self.status_bar.update_status('⚠️ No files selected')
+    
+    def delete_selected_files(self):
+        """Delete selected files"""
+        if not self.file_list.selected_files:
+            self.status_bar.update_status('⚠️ No files selected')
+            return
+        
+        def confirm_delete(instance):
+            try:
+                for file_path in self.file_list.selected_files:
+                    if os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                    else:
+                        os.remove(file_path)
+                
+                self.refresh_current_directory()
+                popup.dismiss()
+                self.status_bar.update_status(f'🗑️ Deleted {len(self.file_list.selected_files)} items')
+            except Exception as e:
+                self.show_error(f"Error deleting files: {e}")
+        
+        content = BoxLayout(orientation='vertical', padding=dp(20))
+        content.add_widget(ProfessionalLabel(
+            text=f'Are you sure you want to delete {len(self.file_list.selected_files)} items?',
+            size_hint_y=None,
+            height=dp(40)
+        ))
+        
+        button_layout = BoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(40),
+            spacing=dp(10)
+        )
+        
+        delete_btn = ProfessionalButton(text='Delete', background_color=COLORS['error'])
+        delete_btn.bind(on_press=confirm_delete)
+        
+        cancel_btn = ProfessionalButton(text='Cancel', background_color=COLORS['accent'])
+        cancel_btn.bind(on_press=lambda x: popup.dismiss())
+        
+        button_layout.add_widget(delete_btn)
+        button_layout.add_widget(cancel_btn)
+        
+        content.add_widget(button_layout)
+        
+        popup = Popup(
+            title='Confirm Delete',
+            content=content,
+            size_hint=(0.8, 0.4),
+            background=COLORS['panel_bg']
+        )
         popup.open()
     
     def open_file_in_editor(self, file_path: str):
         """Open a file in the editor"""
         try:
-            # Show editor
-            self.editor_area.size_hint_x = 0.6
-            self.file_list.size_hint_x = 0.4
+            # Check if it's a text file
+            text_extensions = {'.txt', '.py', '.js', '.html', '.css', '.json', '.xml', '.md', '.c', '.cpp', '.h', '.java', '.cs', '.php', '.rb', '.pl', '.sh', '.bat', '.ps1', '.sql', '.log', '.ini', '.cfg', '.conf'}
+            ext = Path(file_path).suffix.lower()
             
-            # Load file content
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            self.editor.load_file(file_path, content)
-            self.status_bar.update_status(f'Opened: {os.path.basename(file_path)}')
+            if ext in text_extensions or self.is_text_file(file_path):
+                # Show editor
+                self.editor_area.size_hint_x = 0.6
+                self.file_list.size_hint_x = 0.4
+                
+                # Load file content
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                self.editor.load_file(file_path, content)
+                self.status_bar.update_status(f'📝 Opened: {os.path.basename(file_path)}')
+            else:
+                # Try to open with default application
+                os.startfile(file_path)
+                self.status_bar.update_status(f'🚀 Opened with default app: {os.path.basename(file_path)}')
             
         except Exception as e:
             self.show_error(f"Error opening file: {e}")
     
+    def is_text_file(self, file_path: str) -> bool:
+        """Check if file is a text file"""
+        try:
+            with open(file_path, 'rb') as f:
+                chunk = f.read(1024)
+                try:
+                    chunk.decode('utf-8')
+                    return True
+                except UnicodeDecodeError:
+                    return False
+        except Exception:
+            return False
+    
     def show_error(self, message: str):
         """Show error popup"""
         content = BoxLayout(orientation='vertical', padding=dp(20))
-        content.add_widget(Label(text=message))
+        content.add_widget(ProfessionalLabel(text=message))
         
-        button = Button(text='OK', size_hint_y=None, height=dp(40))
+        button = ProfessionalButton(text='OK', background_color=COLORS['error'])
         button.bind(on_press=lambda x: popup.dismiss())
         content.add_widget(button)
         
-        popup = Popup(title='Error', content=content, size_hint=(0.8, 0.4))
+        popup = Popup(
+            title='Error',
+            content=content,
+            size_hint=(0.8, 0.4),
+            background=COLORS['panel_bg']
+        )
         popup.open()
 
 if __name__ == '__main__':
