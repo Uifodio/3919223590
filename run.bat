@@ -6,7 +6,7 @@ cd /d "%SCRIPT_DIR%"
 
 if not exist .venv (
   echo Creating virtual environment...
-  py -3 -m venv .venv 2>nul
+  py -3.12 -m venv .venv 2>nul
   if errorlevel 1 (
     echo Python launcher not found. Trying python directly...
     python -m venv .venv

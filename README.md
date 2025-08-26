@@ -17,12 +17,12 @@ A modern, lightweight file manager for Windows 11 with a built-in editor, ZIP br
 
 ## Quick Start (Windows 11)
 1. Download this repository as a ZIP and extract it anywhere.
-2. Double-click `run.bat` to launch the app (first run will auto-setup a local Python env and install dependencies).
+2. Double-click `run.bat` to launch the app (first run will auto-setup a local Python 3.12 env and install dependencies).
 3. Optional: Use `build_windows.bat` to produce a standalone EXE in `dist/` with PyInstaller.
 
 ## Scripts
-- `run.bat`: Sets up a local venv if missing, installs requirements if needed, and runs the app.
-- `build_windows.bat`: Ensures Python is available (installs via `winget` if missing), builds a Windows EXE using PyInstaller.
+- `run.bat`: Sets up a local venv (Python 3.12) if missing, installs requirements if needed, and runs the app.
+- `build_windows.bat`: Ensures Python 3.12 is available (installs via `winget` if missing), builds a Windows EXE using PyInstaller.
 
 ## Notes
 - Drag-and-drop to external apps uses standard Windows shell file URLs; it should work in Unity, Visual Studio, and browsers that accept dropped files.
@@ -31,7 +31,8 @@ A modern, lightweight file manager for Windows 11 with a built-in editor, ZIP br
 - Settings are stored in `%APPDATA%/AuroraFileManager/settings.json`.
 
 ## Troubleshooting
-- If `winget` is missing, install it from the Microsoft Store or install Python 3.11+ from `https://www.python.org/downloads/windows/` and re-run the scripts.
+- The scripts use Python 3.12 to match PySide6 compatibility. If you have a different default `py` launcher, the script forces `-3.12`.
+- If `winget` is missing, install it from the Microsoft Store or install Python 3.12 from `https://www.python.org/downloads/windows/` and re-run the scripts.
 - If antivirus blocks the EXE, add the `dist/` folder to your allow-list or run via `run.bat`.
 
 ## License

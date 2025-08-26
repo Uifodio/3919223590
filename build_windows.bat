@@ -16,14 +16,14 @@ if errorlevel 1 (
       pause
       exit /b 1
     ) else (
-      winget install -e --id Python.Python.3.11 --source winget --silent
+      winget install -e --id Python.Python.3.12 --source winget --silent
     )
   )
 )
 
 if not exist .venv (
   echo Creating virtual environment...
-  py -3 -m venv .venv 2>nul
+  py -3.12 -m venv .venv 2>nul
   if errorlevel 1 (
     python -m venv .venv
   )
