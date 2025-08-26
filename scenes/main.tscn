@@ -54,6 +54,36 @@ text = "📋 Copy"
 layout_mode = 2
 text = "🗑️ Delete"
 
+[node name="HSeparator3" type="HSeparator" parent="MainLayout/Toolbar"]
+layout_mode = 2
+
+[node name="CutButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "✂️ Cut"
+
+[node name="PasteButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "📋 Paste"
+
+[node name="RenameButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "✏️ Rename"
+
+[node name="DuplicateButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "📄 Duplicate"
+
+[node name="HSeparator4" type="HSeparator" parent="MainLayout/Toolbar"]
+layout_mode = 2
+
+[node name="NewWindowButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "🪟 New Window"
+
+[node name="SettingsButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "⚙️ Settings"
+
 [node name="AddressBar" type="HBoxContainer" parent="MainLayout"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -72,10 +102,40 @@ text = "Go"
 layout_mode = 2
 text = "🔄"
 
+[node name="SearchBar" type="HBoxContainer" parent="MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+
+[node name="SearchInput" type="LineEdit" parent="MainLayout/SearchBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Search files and content..."
+
+[node name="SearchButton" type="Button" parent="MainLayout/SearchBar"]
+layout_mode = 2
+text = "🔍"
+
+[node name="ShowHiddenButton" type="Button" parent="MainLayout/SearchBar"]
+layout_mode = 2
+text = "👁️"
+
+[node name="ProgressBar" type="ProgressBar" parent="MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+visible = false
+
 [node name="ContentArea" type="HSplitContainer" parent="MainLayout"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+
+[node name="FileTree" type="Tree" parent="MainLayout/ContentArea"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 3
+size_flags_stretch_ratio = 0.3
 
 [node name="FileList" type="ItemList" parent="MainLayout/ContentArea"]
 layout_mode = 2
