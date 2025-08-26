@@ -900,6 +900,136 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addr.setText(str(path))
         self.breadcrumbs.set_path(path)
 
+    # ------------------- Actions -------------------
+    def _new_window(self):
+        w = MainWindow()
+        w.show()
+
+    def _open_folder(self):
+        d = QtWidgets.QFileDialog.getExistingDirectory(self, "Open Folder", str(Path.home()))
+        if d:
+            self._set_directory(Path(d))
+            self._add_recent(Path(d))
+
+    def _open_zip(self):
+        f, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Open ZIP", str(Path.home()), "ZIP Files (*.zip)")
+        if f:
+            self._browse_zip(Path(f))
+            self._add_recent(Path(f))
+
+    def _clipboard_op(self, mode: str):
+        paths = self.files_icons.selected_paths() or self.files_details.selected_paths()
+        if not paths:
+            return
+        mime = QtCore.QMimeData()
+        urls = [QtCore.QUrl.fromLocalFile(str(p)) for p in paths]
+        mime.setUrls(urls)
+        mime.setText("\n".join(str(p) for p in paths))
+        cb = QtWidgets.QApplication.clipboard()
+        cb.setMimeData(mime, cb.Clipboard)
+        cb.setText("\n".join(str(p) for p in paths))
+        cb.setProperty("aurora_cut", mode == "cut")
+
+    def _paste_into_current(self):
+        def handler():
+            idx = self.files_icons.rootIndex() if self.files_stack.currentWidget() is self.files_icons else self.files_details.rootIndex()
+            model = self.files_icons.model_fs if self.files_stack.currentWidget() is self.files_icons else self.files_details.model_fs
+            target_dir = Path(model.filePath(idx))
+            if not target_dir.exists() or target_dir.is_file():
+                target_dir = target_dir.parent if target_dir.exists() else Path.home()
+            cb = QtWidgets.QApplication.clipboard()
+            mime = cb.mimeData()
+            urls = mime.urls()
+            if not urls:
+                return
+            src_paths = [Path(u.toLocalFile()) for u in urls]
+            cut = bool(cb.property("aurora_cut"))
+            if cut:
+                move_with_progress(src_paths, target_dir, self)
+                cb.setProperty("aurora_cut", False)
+            else:
+                copy_with_progress(src_paths, target_dir, self)
+        return handler
+
+    def _rename_selected(self):
+        paths = self.files_icons.selected_paths() or self.files_details.selected_paths()
+        if len(paths) != 1:
+            return
+        path = paths[0]
+        new_name, ok = QtWidgets.QInputDialog.getText(self, "Rename", "New name:", text=path.name)
+        if ok and new_name:
+            target = path.with_name(new_name)
+            try:
+                path.rename(target)
+            except Exception as ex:
+                QtWidgets.QMessageBox.warning(self, "Rename Error", str(ex))
+
+    def _delete_selected(self):
+        paths = self.files_icons.selected_paths() or self.files_details.selected_paths()
+        if not paths:
+            return
+        if QtWidgets.QMessageBox.question(self, "Delete", f"Send {len(paths)} item(s) to Recycle Bin?") != QtWidgets.QMessageBox.Yes:
+            return
+        for p in paths:
+            try:
+                send2trash(str(p))
+            except Exception as ex:
+                QtWidgets.QMessageBox.warning(self, "Delete Error", f"{p}: {ex}")
+
+    def _duplicate_selected(self):
+        paths = self.files_icons.selected_paths() or self.files_details.selected_paths()
+        for p in paths:
+            dst = p.with_name(f"{p.stem} copy{p.suffix}")
+            try:
+                if p.is_dir():
+                    shutil.copytree(p, dst)
+                else:
+                    shutil.copy2(p, dst)
+            except Exception as ex:
+                QtWidgets.QMessageBox.warning(self, "Duplicate Error", f"{p}: {ex}")
+
+    def _toggle_theme(self):
+        if SETTINGS.get("theme", "dark") == "dark":
+            SETTINGS["theme"] = "light"
+            QtWidgets.QApplication.instance().setPalette(QtWidgets.QApplication.style().standardPalette())
+        else:
+            SETTINGS["theme"] = "dark"
+            apply_dark_theme(QtWidgets.QApplication.instance())
+        save_json(SETTINGS_PATH, SETTINGS)
+
+    def _monitor_folder(self):
+        d = QtWidgets.QFileDialog.getExistingDirectory(self, "Monitor Folder", str(Path.home()))
+        if not d:
+            return
+        watcher = QtCore.QFileSystemWatcher(self)
+        watcher.addPath(d)
+        def on_changed(_):
+            QtWidgets.QMessageBox.information(self, "Folder Changed", f"New or updated files in: {d}")
+        watcher.directoryChanged.connect(on_changed)
+        QtWidgets.QMessageBox.information(self, "Monitoring", f"Now watching: {d}")
+
+    def _open_recent(self):
+        items = [str(p) for p in RECENTS.get("folders", [])]
+        if not items:
+            QtWidgets.QMessageBox.information(self, "Recent", "No recent items")
+            return
+        item, ok = QtWidgets.QInputDialog.getItem(self, "Open Recent", "Select:", items, 0, False)
+        if ok and item:
+            p = Path(item)
+            if p.suffix.lower() == ".zip":
+                self._browse_zip(p)
+            elif p.is_dir():
+                self._set_directory(p)
+
+    def _add_recent(self, path: Path):
+        items = RECENTS.get("folders", [])
+        s = str(path)
+        if s in items:
+            items.remove(s)
+        items.insert(0, s)
+        RECENTS["folders"] = items[:12]
+        save_json(RECENTS_PATH, RECENTS)
+
     # ------------------- Open Paths -------------------
     def on_file_activated(self, path: Path):
         if path.suffix.lower() == ".zip":
@@ -922,30 +1052,6 @@ class MainWindow(QtWidgets.QMainWindow):
             ed.show()
         except Exception as ex:
             QtWidgets.QMessageBox.warning(self, "Open Error", str(ex))
-
-    # ------------------- Find/Replace -------------------
-    def _find_next(self):
-        text = self.find_bar.find_edit.text()
-        if not text:
-            return
-        flags = QtGui.QTextDocument.FindFlags()
-        if self.find_bar.case_cb.isChecked():
-            flags |= QtGui.QTextDocument.FindCaseSensitively
-        if not self.editor.find(text, flags):
-            cursor = self.editor.textCursor()
-            cursor.movePosition(QtGui.QTextCursor.Start)
-            self.editor.setTextCursor(cursor)
-            self.editor.find(text, flags)
-
-    def _replace_once(self):
-        text = self.find_bar.find_edit.text()
-        repl = self.find_bar.replace_edit.text()
-        if not text:
-            return
-        cursor = self.editor.textCursor()
-        if cursor.hasSelection() and cursor.selectedText() == text:
-            cursor.insertText(repl)
-        self._find_next()
 
     # ------------------- Global Search -------------------
     def _open_search_dialog(self):
