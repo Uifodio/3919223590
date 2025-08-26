@@ -6,6 +6,8 @@ import zipfile
 import tempfile
 from pathlib import Path
 from typing import List, Optional
+import traceback
+import logging
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from send2trash import send2trash
@@ -46,6 +48,14 @@ def save_json(path: Path, data: dict) -> None:
 
 SETTINGS = load_json(SETTINGS_PATH, DEFAULT_SETTINGS)
 RECENTS = load_json(RECENTS_PATH, {"folders": []})
+
+# Logging setup
+LOG_PATH = APPDATA_DIR / "aurora.log"
+try:
+    logging.basicConfig(filename=str(LOG_PATH), level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    logging.info("Aurora starting up")
+except Exception:
+    pass
 
 
 # --------------------------- Theming ---------------------------
@@ -760,23 +770,26 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._temp_zip: Optional[tuple[Path, str]] = None  # (zip_path, internal_path)
 
-        self._build_menu()
-
-        if start_path and start_path.exists():
-            self._open_initial_path(start_path)
-        else:
-            # Default to showing home in files view
-            self._set_directory(Path.home())
-            self.addr.setText(str(Path.home()))
-            self.breadcrumbs.set_path(Path.home())
-
-        self.history = NavigationHistory(Path.home())
-        self.history.changed.connect(self._on_history_changed)
+        # Initialize history BEFORE any directory set calls
+        self.history: Optional[NavigationHistory] = None
+        # Wire navigation buttons
         self.back_btn.clicked.connect(self._go_back)
         self.forward_btn.clicked.connect(self._go_forward)
         self.up_btn.clicked.connect(self._go_up)
         self.addr.returnPressed.connect(self._go_address)
         self.breadcrumbs.pathClicked.connect(self._go_breadcrumb)
+
+        try:
+            if start_path and start_path.exists():
+                self._open_initial_path(start_path)
+            else:
+                # Default to showing home in files view
+                self._set_directory(Path.home(), add_history=True)
+        except Exception as ex:
+            logging.exception("Failed during initial directory setup")
+            QtWidgets.QMessageBox.warning(self, "Startup Error", str(ex))
+
+        self._build_menu()
 
     # ------------------- Menu & Actions -------------------
     def _build_menu(self):
@@ -884,15 +897,36 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_history_changed(self, path: Path):
         # Do not push again into history here; just reflect
         self._apply_directory(path)
-        self.back_btn.setEnabled(self.history.can_back())
-        self.forward_btn.setEnabled(self.history.can_forward())
+        try:
+            self.back_btn.setEnabled(self.history.can_back())
+            self.forward_btn.setEnabled(self.history.can_forward())
+        except Exception:
+            pass
 
     def _set_directory(self, path: Path, add_history: bool = True):
+        # Lazy init of history on first set
+        if self.history is None:
+            try:
+                self.history = NavigationHistory(path)
+                self.history.changed.connect(self._on_history_changed)
+            except Exception:
+                logging.exception("Failed to initialize navigation history")
+            # First apply without pushing back
+            self._apply_directory(path)
+            self.back_btn.setEnabled(False)
+            self.forward_btn.setEnabled(False)
+            return
         if add_history:
-            self.history.push(path)
+            try:
+                self.history.push(path)
+            except Exception:
+                logging.exception("History push failed")
         self._apply_directory(path)
-        self.back_btn.setEnabled(self.history.can_back())
-        self.forward_btn.setEnabled(self.history.can_forward())
+        try:
+            self.back_btn.setEnabled(self.history.can_back())
+            self.forward_btn.setEnabled(self.history.can_forward())
+        except Exception:
+            pass
 
     def _apply_directory(self, path: Path):
         self.files_icons.set_directory(path)
@@ -1272,6 +1306,16 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     if SETTINGS.get("theme", "dark") == "dark":
         apply_dark_theme(app)
+
+    # Global exception hook to log and show errors
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        try:
+            traceback_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            logging.error("Unhandled exception:\n%s", traceback_str)
+            QtWidgets.QMessageBox.critical(None, "Unhandled Error", traceback_str[:2000])
+        except Exception:
+            pass
+    sys.excepthook = handle_exception
 
     w = MainWindow()
     w.show()
