@@ -523,13 +523,9 @@ namespace WindowsFileManagerPro.Services
             });
         }
 
-        public async Task<IProgress<int>> GetCopyProgressAsync()
+        public Task<IProgress<int>> GetCopyProgressAsync()
         {
-            return await Task.Run(() =>
-            {
-                _progress = new Progress<int>(value => { });
-                return _progress;
-            });
+            return Task.FromResult<IProgress<int>>(new Progress<int>(value => { }));
         }
 
         public async Task CancelOperationAsync()

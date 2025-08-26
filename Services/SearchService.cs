@@ -215,13 +215,9 @@ namespace WindowsFileManagerPro.Services
             });
         }
 
-        public async Task<IProgress<int>> GetSearchProgressAsync()
+        public Task<IProgress<int>> GetSearchProgressAsync()
         {
-            return await Task.Run(() =>
-            {
-                var progress = new Progress<int>(value => { });
-                return progress;
-            });
+            return Task.FromResult<IProgress<int>>(new Progress<int>(value => { }));
         }
 
         public async Task CancelSearchAsync()
