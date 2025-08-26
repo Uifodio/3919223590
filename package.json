@@ -1,0 +1,81 @@
+{
+  "name": "super-file-manager",
+  "version": "1.0.0",
+  "description": "Professional file manager with built-in code editor and multi-window support",
+  "main": "electron.main.js",
+  "homepage": "./",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "wait-on tcp:5173 && electron .",
+    "build": "vite build",
+    "build:electron": "npm run build && electron-builder",
+    "preview": "vite preview",
+    "dist": "npm run build && electron-builder --publish=never",
+    "dist:win": "npm run build && electron-builder --win --publish=never",
+    "dist:linux": "npm run build && electron-builder --linux --publish=never",
+    "dist:mac": "npm run build && electron-builder --mac --publish=never"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.1",
+    "@monaco-editor/react": "^4.5.1",
+    "monaco-editor": "^0.40.0",
+    "lucide-react": "^0.263.1",
+    "clsx": "^1.2.1",
+    "tailwind-merge": "^1.14.0",
+    "jszip": "^3.10.1",
+    "chokidar": "^3.5.3",
+    "fs-extra": "^11.1.1",
+    "path": "^0.12.7",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
+    "@vitejs/plugin-react": "^3.1.0",
+    "autoprefixer": "^10.4.14",
+    "concurrently": "^7.6.0",
+    "electron": "^24.0.0",
+    "electron-builder": "^24.4.0",
+    "postcss": "^8.4.24",
+    "tailwindcss": "^3.3.2",
+    "vite": "^4.2.0",
+    "wait-on": "^7.0.1"
+  },
+  "build": {
+    "appId": "com.superfilemanager.app",
+    "productName": "Super File Manager",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron.main.js",
+      "preload.js",
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/favicon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/favicon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/favicon.ico"
+    }
+  },
+  "keywords": [
+    "file-manager",
+    "code-editor",
+    "electron",
+    "react",
+    "monaco-editor"
+  ],
+  "author": "Super File Manager Team",
+  "license": "MIT"
+}

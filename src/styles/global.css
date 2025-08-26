@@ -1,0 +1,274 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ffffff;
+  --card: #1a1a1a;
+  --card-foreground: #ffffff;
+  --popover: #1a1a1a;
+  --popover-foreground: #ffffff;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #374151;
+  --secondary-foreground: #ffffff;
+  --muted: #374151;
+  --muted-foreground: #9ca3af;
+  --accent: #374151;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #374151;
+  --input: #374151;
+  --ring: #3b82f6;
+  --radius: 0.5rem;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--secondary));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--accent));
+}
+
+/* File manager specific styles */
+.file-item {
+  @apply flex items-center px-3 py-2 hover:bg-secondary/50 cursor-pointer rounded-md transition-colors;
+}
+
+.file-item.selected {
+  @apply bg-primary/20 border border-primary/30;
+}
+
+.file-item.dragging {
+  @apply opacity-50;
+}
+
+.folder-tree-item {
+  @apply flex items-center px-2 py-1 hover:bg-secondary/50 cursor-pointer rounded-md transition-colors text-sm;
+}
+
+.folder-tree-item.selected {
+  @apply bg-primary/20 border border-primary/30;
+}
+
+/* Editor styles */
+.monaco-editor {
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* Progress bar */
+.progress-bar {
+  @apply w-full bg-secondary rounded-full h-2;
+}
+
+.progress-bar-fill {
+  @apply bg-primary h-2 rounded-full transition-all duration-300;
+}
+
+/* Context menu */
+.context-menu {
+  @apply absolute bg-popover border border-border rounded-md shadow-lg py-1 z-50 min-w-[160px];
+}
+
+.context-menu-item {
+  @apply flex items-center px-3 py-2 text-sm hover:bg-accent cursor-pointer transition-colors;
+}
+
+/* Toolbar */
+.toolbar {
+  @apply flex items-center gap-2 p-2 border-b border-border bg-card;
+}
+
+.toolbar-button {
+  @apply p-2 hover:bg-accent rounded-md transition-colors;
+}
+
+/* Status bar */
+.status-bar {
+  @apply flex items-center justify-between px-3 py-1 bg-card border-t border-border text-sm text-muted-foreground;
+}
+
+/* Search bar */
+.search-bar {
+  @apply flex items-center gap-2 p-2 border-b border-border bg-card;
+}
+
+.search-input {
+  @apply flex-1 px-3 py-1 bg-background border border-border rounded-md text-foreground placeholder-muted-foreground;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  @apply flex items-center gap-1 text-sm text-muted-foreground;
+}
+
+.breadcrumb-item {
+  @apply hover:text-foreground cursor-pointer transition-colors;
+}
+
+.breadcrumb-separator {
+  @apply text-muted-foreground;
+}
+
+/* File grid */
+.file-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 p-4;
+}
+
+.file-grid-item {
+  @apply flex flex-col items-center p-2 hover:bg-secondary/50 rounded-md cursor-pointer transition-colors;
+}
+
+.file-grid-item.selected {
+  @apply bg-primary/20 border border-primary/30;
+}
+
+/* File list */
+.file-list {
+  @apply flex flex-col;
+}
+
+.file-list-item {
+  @apply flex items-center px-3 py-2 hover:bg-secondary/50 cursor-pointer transition-colors border-b border-border/50;
+}
+
+.file-list-item.selected {
+  @apply bg-primary/20 border-primary/30;
+}
+
+/* Split pane */
+.split-pane {
+  @apply flex h-full;
+}
+
+.split-pane-left {
+  @apply w-64 border-r border-border bg-card;
+}
+
+.split-pane-right {
+  @apply flex-1 bg-background;
+}
+
+/* Modal */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply bg-card border border-border rounded-lg shadow-lg max-w-md w-full mx-4;
+}
+
+.modal-header {
+  @apply flex items-center justify-between p-4 border-b border-border;
+}
+
+.modal-body {
+  @apply p-4;
+}
+
+.modal-footer {
+  @apply flex items-center justify-end gap-2 p-4 border-t border-border;
+}
+
+/* Button styles */
+.btn {
+  @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background;
+}
+
+.btn-primary {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90;
+}
+
+.btn-secondary {
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+}
+
+.btn-destructive {
+  @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+}
+
+.btn-ghost {
+  @apply hover:bg-accent hover:text-accent-foreground;
+}
+
+.btn-sm {
+  @apply h-8 px-3;
+}
+
+.btn-md {
+  @apply h-10 px-4 py-2;
+}
+
+.btn-lg {
+  @apply h-11 px-8;
+}
+
+/* Input styles */
+.input {
+  @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+/* Utility classes */
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-base { font-size: 1rem; line-height: 1.5rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+
+.font-light { font-weight: 300; }
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.2s ease-in-out;
+}
