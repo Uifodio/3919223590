@@ -1,65 +1,34 @@
 #!/usr/bin/env python3
 """
-Nova Explorer - Simplified Version
+Nova Explorer - Ultra Simple Version
 Advanced File Manager with Built-in Editor
 Built with Kivy for maximum reliability and simplicity
 """
 
 import os
 import sys
-import json
-import shutil
-import threading
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional
 
 # Kivy imports
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.popup import Popup
-from kivy.uix.spinner import Spinner
-from kivy.uix.checkbox import CheckBox
-from kivy.uix.slider import Slider
-from kivy.uix.progressbar import ProgressBar
 from kivy.core.window import Window
 from kivy.metrics import dp
-from kivy.clock import Clock
-from kivy.properties import StringProperty, BooleanProperty, NumericProperty, ListProperty
-from kivy.graphics import Color, Rectangle
+from kivy.properties import StringProperty, ListProperty
 
 # Set window size and title
 Window.size = (1200, 800)
 Window.minimum_width = 800
 Window.minimum_height = 600
 
-# Simple separator widget
-class Separator(BoxLayout):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.size_hint_y = None
-        self.height = dp(1)
-        with self.canvas:
-            Color(0.5, 0.5, 0.5, 1)
-            self.rect = Rectangle(pos=self.pos, size=self.size)
-        self.bind(pos=self._update_rect, size=self._update_rect)
-    
-    def _update_rect(self, instance, value):
-        self.rect.pos = instance.pos
-        self.rect.size = instance.size
-
 class FileItem(BoxLayout):
     """Individual file/folder item in the file list"""
-    name = StringProperty('')
-    size = StringProperty('')
-    modified = StringProperty('')
-    is_folder = BooleanProperty(False)
-    is_selected = BooleanProperty(False)
     
     def __init__(self, file_path: str, **kwargs):
         super().__init__(**kwargs)
@@ -69,17 +38,10 @@ class FileItem(BoxLayout):
         self.height = dp(40)
         self.padding = dp(10)
         self.spacing = dp(10)
-        
-        # Set background color
         self.background_color = (0.3, 0.3, 0.3, 1)
         
         self.update_info()
         self._create_widgets()
-    
-    def _update_bg(self, instance, value):
-        if hasattr(self, 'bg_rect'):
-            self.bg_rect.pos = instance.pos
-            self.bg_rect.size = instance.size
     
     def _create_widgets(self):
         """Create the widget layout"""
@@ -154,23 +116,13 @@ class FileList(ScrollView):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Use BoxLayout instead of GridLayout to avoid the unpacking error
         self.layout = BoxLayout(orientation='vertical', spacing=dp(2), size_hint_y=None)
         self.layout.bind(minimum_height=self.layout.setter('height'))
         self.add_widget(self.layout)
         self.current_path = os.path.expanduser('~')
-        
-        # Set background color
-        with self.canvas.before:
-            Color(0.1, 0.1, 0.1, 1)
-            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
-        self.bind(pos=self._update_bg, size=self._update_bg)
+        self.background_color = (0.1, 0.1, 0.1, 1)
         
         self.refresh_files()
-    
-    def _update_bg(self, instance, value):
-        self.bg_rect.pos = instance.pos
-        self.bg_rect.size = instance.size
     
     def refresh_files(self):
         """Refresh the file list"""
@@ -221,10 +173,10 @@ class FileList(ScrollView):
         """Select a file item"""
         # Clear previous selection
         for child in self.layout.children:
-            if hasattr(child, 'is_selected'):
-                child.is_selected = False
+            if hasattr(child, 'background_color'):
+                child.background_color = (0.3, 0.3, 0.3, 1)
         
-        file_item.is_selected = True
+        file_item.background_color = (0.2, 0.4, 0.8, 1)
         self.selected_files = [file_item.file_path]
     
     def open_file(self, file_path):
@@ -246,19 +198,13 @@ class FileList(ScrollView):
 
 class AddressBar(BoxLayout):
     """Address bar for navigation"""
-    current_path = StringProperty('')
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.orientation = 'horizontal'
         self.size_hint_y = None
         self.height = dp(40)
-        
-        # Set background color
-        with self.canvas.before:
-            Color(0.2, 0.2, 0.2, 1)
-            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
-        self.bind(pos=self._update_bg, size=self._update_bg)
+        self.background_color = (0.2, 0.2, 0.2, 1)
         
         # Path input
         self.path_input = TextInput(
@@ -279,10 +225,6 @@ class AddressBar(BoxLayout):
         self.add_widget(self.path_input)
         self.add_widget(self.go_button)
     
-    def _update_bg(self, instance, value):
-        self.bg_rect.pos = instance.pos
-        self.bg_rect.size = instance.size
-    
     def navigate(self, instance):
         """Navigate to the entered path"""
         path = self.path_input.text.strip()
@@ -292,7 +234,6 @@ class AddressBar(BoxLayout):
     
     def update_path(self, path):
         """Update the displayed path"""
-        self.current_path = path
         self.path_input.text = path
 
 class ToolBar(BoxLayout):
@@ -305,12 +246,7 @@ class ToolBar(BoxLayout):
         self.height = dp(50)
         self.padding = dp(5)
         self.spacing = dp(5)
-        
-        # Set background color
-        with self.canvas.before:
-            Color(0.3, 0.3, 0.3, 1)
-            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
-        self.bind(pos=self._update_bg, size=self._update_bg)
+        self.background_color = (0.3, 0.3, 0.3, 1)
         
         # Navigation buttons
         self.back_btn = Button(
@@ -367,14 +303,10 @@ class ToolBar(BoxLayout):
         self.add_widget(self.forward_btn)
         self.add_widget(self.up_btn)
         self.add_widget(self.refresh_btn)
-        self.add_widget(Separator())
+        self.add_widget(Label(text='|', size_hint_x=None, width=dp(20)))  # Simple separator
         self.add_widget(self.new_folder_btn)
         self.add_widget(self.new_file_btn)
         self.add_widget(Label())  # Spacer
-    
-    def _update_bg(self, instance, value):
-        self.bg_rect.pos = instance.pos
-        self.bg_rect.size = instance.size
     
     def go_back(self, instance):
         """Go back in history"""
@@ -415,12 +347,7 @@ class StatusBar(BoxLayout):
         self.size_hint_y = None
         self.height = dp(30)
         self.padding = dp(5)
-        
-        # Set background color
-        with self.canvas.before:
-            Color(0.2, 0.2, 0.2, 1)
-            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
-        self.bind(pos=self._update_bg, size=self._update_bg)
+        self.background_color = (0.2, 0.2, 0.2, 1)
         
         self.status_label = Label(
             text='Ready',
@@ -436,10 +363,6 @@ class StatusBar(BoxLayout):
         
         self.add_widget(self.status_label)
         self.add_widget(self.info_label)
-    
-    def _update_bg(self, instance, value):
-        self.bg_rect.pos = instance.pos
-        self.bg_rect.size = instance.size
     
     def update_status(self, text: str):
         """Update status text"""
