@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova Explorer</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/dark-theme.css">
+    <link rel="stylesheet" href="styles/light-theme.css">
+    <link rel="stylesheet" href="styles/editor.css">
+    <link rel="stylesheet" href="styles/terminal.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="dark-theme">
+    <div id="app">
+        <!-- Top Toolbar -->
+        <div id="toolbar">
+            <div class="toolbar-left">
+                <button id="back-btn" class="toolbar-btn" title="Back (Alt+Left)">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <button id="forward-btn" class="toolbar-btn" title="Forward (Alt+Right)">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <button id="up-btn" class="toolbar-btn" title="Up (Alt+Up)">
+                    <i class="fas fa-arrow-up"></i>
+                </button>
+                <div class="separator"></div>
+                <button id="refresh-btn" class="toolbar-btn" title="Refresh (F5)">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button id="new-folder-btn" class="toolbar-btn" title="New Folder (Ctrl+Shift+N)">
+                    <i class="fas fa-folder-plus"></i>
+                </button>
+                <button id="new-file-btn" class="toolbar-btn" title="New File (Ctrl+N)">
+                    <i class="fas fa-file-plus"></i>
+                </button>
+            </div>
+            
+            <div class="toolbar-center">
+                <div id="address-bar">
+                    <input type="text" id="path-input" placeholder="Enter path or search...">
+                    <button id="go-btn" class="address-btn">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="toolbar-right">
+                <button id="view-mode-btn" class="toolbar-btn" title="Toggle View Mode">
+                    <i class="fas fa-th-large"></i>
+                </button>
+                <button id="search-btn" class="toolbar-btn" title="Search (Ctrl+F)">
+                    <i class="fas fa-search"></i>
+                </button>
+                <button id="terminal-btn" class="toolbar-btn" title="Toggle Terminal (Ctrl+`)">
+                    <i class="fas fa-terminal"></i>
+                </button>
+                <button id="settings-btn" class="toolbar-btn" title="Settings (Ctrl+,)">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div id="main-content">
+            <!-- Sidebar -->
+            <div id="sidebar">
+                <div id="sidebar-tabs">
+                    <button class="tab-btn active" data-tab="explorer">
+                        <i class="fas fa-folder"></i>
+                        <span>Explorer</span>
+                    </button>
+                    <button class="tab-btn" data-tab="search">
+                        <i class="fas fa-search"></i>
+                        <span>Search</span>
+                    </button>
+                    <button class="tab-btn" data-tab="recent">
+                        <i class="fas fa-clock"></i>
+                        <span>Recent</span>
+                    </button>
+                </div>
+                
+                <div id="sidebar-content">
+                    <!-- Explorer Tab -->
+                    <div id="explorer-tab" class="tab-content active">
+                        <div id="file-tree"></div>
+                    </div>
+                    
+                    <!-- Search Tab -->
+                    <div id="search-tab" class="tab-content">
+                        <div class="search-panel">
+                            <input type="text" id="search-input" placeholder="Search files...">
+                            <div class="search-options">
+                                <label>
+                                    <input type="checkbox" id="search-filename" checked>
+                                    Filename
+                                </label>
+                                <label>
+                                    <input type="checkbox" id="search-content">
+                                    Content
+                                </label>
+                                <label>
+                                    <input type="checkbox" id="search-case-sensitive">
+                                    Case sensitive
+                                </label>
+                            </div>
+                            <button id="search-start-btn" class="search-btn">
+                                <i class="fas fa-search"></i>
+                                Search
+                            </button>
+                            <div id="search-results"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Tab -->
+                    <div id="recent-tab" class="tab-content">
+                        <div id="recent-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File List Area -->
+            <div id="file-area">
+                <div id="file-list-header">
+                    <div class="header-cell name-cell">
+                        <span>Name</span>
+                        <i class="fas fa-sort"></i>
+                    </div>
+                    <div class="header-cell size-cell">
+                        <span>Size</span>
+                        <i class="fas fa-sort"></i>
+                    </div>
+                    <div class="header-cell type-cell">
+                        <span>Type</span>
+                        <i class="fas fa-sort"></i>
+                    </div>
+                    <div class="header-cell date-cell">
+                        <span>Date Modified</span>
+                        <i class="fas fa-sort"></i>
+                    </div>
+                </div>
+                
+                <div id="file-list"></div>
+            </div>
+
+            <!-- Editor Area -->
+            <div id="editor-area" class="hidden">
+                <div id="editor-tabs">
+                    <div id="tab-bar">
+                        <div id="tabs"></div>
+                        <button id="new-tab-btn" class="tab-btn">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="editor-container">
+                    <div id="monaco-editor"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terminal Panel -->
+        <div id="terminal-panel" class="hidden">
+            <div id="terminal-header">
+                <span>Terminal</span>
+                <button id="terminal-close-btn" class="close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="terminal-container"></div>
+        </div>
+
+        <!-- Status Bar -->
+        <div id="status-bar">
+            <div class="status-left">
+                <span id="status-text">Ready</span>
+            </div>
+            <div class="status-right">
+                <span id="selection-info">0 items selected</span>
+                <span id="file-count">0 files</span>
+                <span id="encoding">UTF-8</span>
+                <span id="line-ending">LF</span>
+            </div>
+        </div>
+
+        <!-- Context Menu -->
+        <div id="context-menu" class="hidden">
+            <div class="menu-item" data-action="open">
+                <i class="fas fa-external-link-alt"></i>
+                Open
+            </div>
+            <div class="menu-item" data-action="open-with">
+                <i class="fas fa-edit"></i>
+                Open with Editor
+            </div>
+            <div class="menu-separator"></div>
+            <div class="menu-item" data-action="cut">
+                <i class="fas fa-cut"></i>
+                Cut
+            </div>
+            <div class="menu-item" data-action="copy">
+                <i class="fas fa-copy"></i>
+                Copy
+            </div>
+            <div class="menu-item" data-action="paste">
+                <i class="fas fa-paste"></i>
+                Paste
+            </div>
+            <div class="menu-separator"></div>
+            <div class="menu-item" data-action="rename">
+                <i class="fas fa-edit"></i>
+                Rename
+            </div>
+            <div class="menu-item" data-action="duplicate">
+                <i class="fas fa-clone"></i>
+                Duplicate
+            </div>
+            <div class="menu-separator"></div>
+            <div class="menu-item" data-action="delete">
+                <i class="fas fa-trash"></i>
+                Delete
+            </div>
+            <div class="menu-separator"></div>
+            <div class="menu-item" data-action="properties">
+                <i class="fas fa-info-circle"></i>
+                Properties
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Settings</h2>
+                    <button class="close-btn" id="settings-close-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-section">
+                        <h3>Appearance</h3>
+                        <div class="setting-item">
+                            <label for="theme-select">Theme:</label>
+                            <select id="theme-select">
+                                <option value="dark">Dark</option>
+                                <option value="light">Light</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="font-size">Font Size:</label>
+                            <input type="range" id="font-size" min="10" max="24" value="14">
+                            <span id="font-size-value">14</span>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>File Explorer</h3>
+                        <div class="setting-item">
+                            <label>
+                                <input type="checkbox" id="show-hidden-files">
+                                Show hidden files
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label>
+                                <input type="checkbox" id="auto-save">
+                                Auto save files
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>Editor</h3>
+                        <div class="setting-item">
+                            <label for="tab-size">Tab Size:</label>
+                            <input type="number" id="tab-size" min="2" max="8" value="4">
+                        </div>
+                        <div class="setting-item">
+                            <label>
+                                <input type="checkbox" id="word-wrap">
+                                Word wrap
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label>
+                                <input type="checkbox" id="line-numbers">
+                                Show line numbers
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="settings-save-btn" class="btn btn-primary">Save</button>
+                    <button id="settings-cancel-btn" class="btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Overlay -->
+        <div id="progress-overlay" class="hidden">
+            <div class="progress-content">
+                <div class="progress-spinner"></div>
+                <div class="progress-text">Processing...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    <script src="https://unpkg.com/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/file-manager.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/terminal.js"></script>
+    <script src="js/settings.js"></script>
+</body>
+</html>
