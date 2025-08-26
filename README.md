@@ -1,133 +1,166 @@
-# 🚀 Windows File Manager Pro - Professional File Management Solution
+# 🚀 Windows File Manager Pro
 
-A feature-rich, modern file manager for Windows 11/10 built with C# and WPF, designed for developers, designers, and power users who demand professional-grade file management capabilities.
+A professional, modern file manager for Windows built with **Electron**, **React**, **TypeScript**, and **Vite**. This application provides a powerful, intuitive interface for file management with advanced features like built-in code editing, ZIP handling, and intelligent search.
 
-## ✨ Features Overview
+## ✨ Features
 
 ### 🔧 Core File Operations
-- **File Explorer Tree View** - Standard left-panel navigation with expandable folders
-- **Multi-window Support** - Open multiple independent instances (like running 9 explorers)
+- **File Explorer Tree View** - Hierarchical folder navigation with expandable trees
+- **Multi-window Support** - Open multiple independent instances
 - **Drag & Drop** - Seamless file operations between windows and external applications
-- **Copy, Rename, Delete, Duplicate** - Full basic file operations with progress tracking
+- **Copy, Rename, Delete, Duplicate** - Full file operations with progress tracking
 - **Multi-file Selection** - Shift/Ctrl select and apply actions to multiple files
 - **Safe Operations** - Files sent to system trash with undo capability
 
 ### 📝 Built-in Code Editor
-- **Native Text Editor** - No external applications required
+- **Monaco Editor Integration** - Professional-grade code editing experience
 - **Syntax Highlighting** - Support for 50+ programming languages
-- **Auto-save & Undo** - Automatic saving with comprehensive undo/redo
-- **Find & Replace** - Quick text search within files
-- **Line Numbers** - Professional code editing experience
+- **Auto-completion** - Intelligent code suggestions and IntelliSense
 - **Multiple Tabs** - Edit multiple files simultaneously
+- **Auto-save** - Automatic file saving with configurable intervals
+- **Find & Replace** - Advanced search with regex support
 
 ### 🔍 Advanced Search & Navigation
-- **Fast File Search** - Instant file/folder name search
-- **Content Search** - Search inside files with preview
-- **Recent Files** - Quick access to recently opened items
-- **Favorites** - Bookmark frequently used locations
+- **Fast File Search** - Real-time search across file names and content
+- **Content Search** - Search inside text files with preview
+- **Advanced Filters** - Filter by size, date, type, and attributes
+- **Search History** - Save and reuse search queries
+- **Export Results** - Export search results to CSV or text format
 
 ### 📦 Archive & ZIP Support
-- **ZIP as Folders** - Open ZIP archives as regular folders
-- **Edit Inside Archives** - Modify files within ZIPs seamlessly
-- **Auto-backup** - Automatic .bak creation when editing archived files
-- **Archive Creation** - Create new ZIP files with drag & drop
+- **ZIP as Folders** - Browse ZIP files as regular directories
+- **Edit Inside Archives** - Modify files within ZIP archives
+- **Auto-backup** - Automatic backup before editing archived files
+- **Batch Operations** - Extract, compress, and manage multiple archives
 
 ### 🎨 Modern UI/UX
-- **Dark Theme (Default)** - Clean, modern interface optimized for long sessions
-- **Light Theme Option** - Alternative light mode available
-- **Customizable Interface** - Adjustable font sizes, colors, and layouts
-- **Progress Bars** - Visual feedback for all operations
+- **Dark/Light Themes** - Beautiful, customizable themes
 - **Responsive Design** - Adapts to different screen sizes
+- **Split Views** - Resizable panels for efficient workflow
+- **Keyboard Shortcuts** - Full keyboard navigation support
+- **Context Menus** - Right-click context menus for quick actions
 
 ### ⚙️ Configuration & Customization
-- **JSON Settings** - Everything customizable via configuration files
-- **Cross-window Clipboard** - Cut/copy in one window, paste in another
-- **Keyboard Shortcuts** - Full keyboard navigation support
-- **Custom Themes** - Create and share custom color schemes
+- **Settings Panel** - Comprehensive configuration options
+- **Theme Customization** - Create and share custom themes
+- **Keyboard Shortcuts** - Customize all keyboard shortcuts
+- **File Associations** - Configure default applications for file types
+- **Plugin System** - Extensible architecture for custom features
 
-## 🚀 Installation
+## 🚀 Quick Start
 
 ### Prerequisites
-- Windows 10 (version 1903 or later) or Windows 11
-- .NET 6.0 Desktop Runtime or later
-- Minimum 4GB RAM
-- 100MB free disk space
+- **Node.js** 18.0.0 or higher
+- **npm** 9.0.0 or higher
+- **Windows 10/11** (primary target)
 
-### Quick Start
-1. **Download** the latest release from GitHub
-2. **Extract** the ZIP file to your preferred location
-3. **Run** `WindowsFileManagerPro.exe`
-4. **Enjoy** professional file management!
+### Installation
 
-### Build from Source
-```bash
-git clone https://github.com/yourusername/windows-file-manager-pro.git
-cd windows-file-manager-pro
-dotnet restore
-dotnet build --configuration Release
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/windows-file-manager-pro.git
+   cd windows-file-manager-pro
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start development server**
+   ```bash
+   npm run electron:dev
+   ```
+
+4. **Build for production**
+   ```bash
+   npm run electron:build
+   ```
+
+## 🛠️ Development
+
+### Available Scripts
+
+- `npm run dev` - Start Vite dev server
+- `npm run build` - Build React app for production
+- `npm run electron:dev` - Start Electron in development mode
+- `npm run electron:build` - Build Electron app for distribution
+- `npm run electron:preview` - Preview built Electron app
+- `npm run lint` - Run ESLint
+- `npm run lint:fix` - Fix ESLint issues
+
+### Project Structure
+
+```
+windows-file-manager-pro/
+├── electron/                 # Electron main process
+│   ├── main.ts              # Main process entry point
+│   └── preload.ts           # Preload script
+├── src/                     # React application
+│   ├── components/          # React components
+│   ├── hooks/               # Custom React hooks
+│   ├── stores/              # State management (Zustand)
+│   ├── types/               # TypeScript type definitions
+│   ├── utils/               # Utility functions
+│   ├── App.tsx              # Main App component
+│   └── main.tsx             # React entry point
+├── dist/                    # Built React app
+├── dist-electron/           # Built Electron app
+├── package.json             # Dependencies and scripts
+├── vite.config.ts           # Vite configuration
+├── tailwind.config.js       # Tailwind CSS configuration
+└── tsconfig.json            # TypeScript configuration
 ```
 
-## 📖 Usage Guide
+### Technology Stack
 
-### Basic Operations
-- **Navigate**: Use the tree view on the left or address bar
-- **Select Files**: Click to select, Ctrl+Click for multiple, Shift+Click for range
-- **Open Files**: Double-click to open in built-in editor or default application
-- **New Window**: File → New Window or Ctrl+N
+- **Frontend**: React 18 + TypeScript + Tailwind CSS
+- **Desktop**: Electron 28
+- **Build Tool**: Vite 5
+- **State Management**: Zustand
+- **Code Editor**: Monaco Editor
+- **Package Manager**: npm
+- **Linting**: ESLint + TypeScript ESLint
 
-### Advanced Features
-- **Drag & Drop**: Drag files between windows or to external applications
-- **Quick Replace**: Monitor download folder and drag files to project windows
-- **Archive Editing**: Open ZIP files as folders and edit contents directly
-- **Multi-window Clipboard**: Copy in one window, paste in another
+## 📱 Usage
 
-### Keyboard Shortcuts
-- `Ctrl+N` - New Window
-- `Ctrl+O` - Open File
-- `Ctrl+S` - Save File
-- `Ctrl+F` - Find in File
-- `Ctrl+H` - Find and Replace
-- `Ctrl+Z` - Undo
-- `Ctrl+Y` - Redo
-- `F5` - Refresh
-- `F2` - Rename
-- `Delete` - Move to Trash
-- `Shift+Delete` - Permanent Delete
+### Basic File Operations
+1. **Navigate** - Use the tree view to browse folders
+2. **Select Files** - Click to select, Ctrl+Click for multiple selection
+3. **Copy/Move** - Drag and drop or use context menus
+4. **Delete** - Select files and press Delete key or use context menu
 
-## 🛠️ Configuration
+### Code Editing
+1. **Open File** - Double-click any text file or use File > Open
+2. **Edit** - Use the built-in Monaco editor with full IDE features
+3. **Save** - Ctrl+S or File > Save
+4. **Multiple Tabs** - Open multiple files for simultaneous editing
 
-The application uses JSON configuration files located in:
-```
-%APPDATA%\WindowsFileManagerPro\settings.json
-```
+### Advanced Search
+1. **Search Panel** - Use the search icon in the toolbar
+2. **File Search** - Search by name, extension, or content
+3. **Filters** - Apply size, date, and type filters
+4. **Export** - Save search results for later use
 
-### Customizable Options
-- Theme selection (Dark/Light/Custom)
-- Font sizes and families
-- Editor preferences
-- File associations
-- Keyboard shortcuts
-- Interface layout
+## 🎯 Roadmap
 
-## 🔧 Technical Details
+### Version 1.1
+- [ ] File preview for images and documents
+- [ ] FTP/SFTP support
+- [ ] Cloud storage integration (OneDrive, Google Drive)
+- [ ] Advanced file synchronization
 
-- **Framework**: .NET 6.0 WPF
-- **Language**: C# 10.0
-- **Architecture**: MVVM pattern with dependency injection
-- **Performance**: Optimized for large file operations and real-time search
-- **Compatibility**: Windows 10/11 (x64)
+### Version 1.2
+- [ ] Plugin marketplace
+- [ ] Custom themes and icons
+- [ ] Advanced file comparison tools
+- [ ] Batch file processing
 
-## 🐛 Troubleshooting
-
-### Common Issues
-1. **Application won't start**: Ensure .NET 6.0 Runtime is installed
-2. **Slow performance**: Check available RAM and close unnecessary applications
-3. **File operations fail**: Verify file permissions and antivirus settings
-
-### Support
-- **GitHub Issues**: Report bugs and request features
-- **Documentation**: Comprehensive guides in the docs folder
-- **Community**: Join discussions in GitHub Discussions
+### Version 1.3
+- [ ] Multi-language support
+- [ ] Accessibility improvements
+- [ ] Performance optimizations
+- [ ] Advanced scripting support
 
 ## 🤝 Contributing
 
@@ -146,13 +179,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Built with modern Windows development technologies
-- Inspired by professional file management needs
-- Community-driven feature development
-- Performance-focused architecture
+- **Electron** team for the amazing desktop framework
+- **React** team for the powerful UI library
+- **Monaco Editor** team for the professional code editor
+- **Tailwind CSS** team for the utility-first CSS framework
+- **Vite** team for the fast build tool
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/yourusername/windows-file-manager-pro/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/windows-file-manager-pro/discussions)
+- **Email**: support@windowsfilemanagerpro.com
 
 ---
 
-**Windows File Manager Pro** - Professional file management for the modern Windows user.
+**Built with ❤️ for Windows developers and power users**
 
-*Built with ❤️ for Windows developers and power users*
+*Windows File Manager Pro - Professional file management reimagined*

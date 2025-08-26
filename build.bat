@@ -4,76 +4,58 @@ echo Windows File Manager Pro - Build Script
 echo ========================================
 echo.
 
-REM Check if .NET 9.0 is installed
-echo Checking .NET 9.0 installation...
-dotnet --version 2>nul
-if errorlevel 1 (
-    echo ERROR: .NET 9.0 is not installed or not in PATH
-    echo Please install .NET 9.0 Desktop Runtime from:
-    echo https://dotnet.microsoft.com/download/dotnet/9.0
+echo Checking Node.js installation...
+node --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ERROR: Node.js is not installed or not in PATH
+    echo Please install Node.js 18.0.0 or higher from https://nodejs.org/
     pause
     exit /b 1
 )
 
-echo .NET version found: 
-dotnet --version
-echo.
-
-REM Clean previous builds
-echo Cleaning previous builds...
-if exist "bin" rmdir /s /q "bin"
-if exist "obj" rmdir /s /q "obj"
-echo Cleaned.
-echo.
-
-REM Restore packages
-echo Restoring NuGet packages...
-dotnet restore
-if errorlevel 1 (
-    echo ERROR: Failed to restore packages
+echo Checking npm installation...
+npm --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ERROR: npm is not installed or not in PATH
     pause
     exit /b 1
 )
-echo Packages restored successfully.
-echo.
 
-REM Build in Release mode
-echo Building in Release mode...
-dotnet build -c Release --no-restore
-if errorlevel 1 (
-    echo ERROR: Build failed
+echo.
+echo Installing dependencies...
+npm install
+if %errorlevel% neq 0 (
+    echo ERROR: Failed to install dependencies
     pause
     exit /b 1
 )
-echo Build completed successfully.
-echo.
 
-REM Publish single file
-echo Publishing single file executable...
-dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:PublishTrimmed=false --no-restore
-if errorlevel 1 (
-    echo ERROR: Publish failed
+echo.
+echo Building React application...
+npm run build
+if %errorlevel% neq 0 (
+    echo ERROR: Failed to build React application
     pause
     exit /b 1
 )
-echo Publish completed successfully.
-echo.
 
-REM Show results
+echo.
+echo Building Electron application...
+npm run electron:build
+if %errorlevel% neq 0 (
+    echo ERROR: Failed to build Electron application
+    pause
+    exit /b 1
+)
+
 echo.
 echo ========================================
-echo BUILD COMPLETED SUCCESSFULLY!
+echo Build completed successfully!
 echo ========================================
 echo.
-echo Output location: bin\Release\net9.0-windows\win-x64\publish\
-echo Executable: WindowsFileManagerPro.exe
+echo The built application is located in:
+echo dist-electron/
 echo.
-echo You can now run the application from the publish folder.
+echo You can now distribute the application.
 echo.
-
-REM Open output folder
-echo Opening output folder...
-start "" "bin\Release\net9.0-windows\win-x64\publish\"
-echo.
-
 pause
