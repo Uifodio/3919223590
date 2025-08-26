@@ -1,0 +1,34 @@
+{
+  "theme": "dark",
+  "font_size": 12,
+  "auto_save": true,
+  "backup_on_edit": true,
+  "show_hidden_files": false,
+  "default_editor": "built_in",
+  "unity_integration": {
+    "auto_detect": true,
+    "unity_path": "",
+    "vs_path": ""
+  },
+  "editor": {
+    "syntax_highlighting": true,
+    "line_numbers": true,
+    "word_wrap": false,
+    "tab_size": 4,
+    "auto_indent": true,
+    "open_in_new_window": true
+  },
+  "file_operations": {
+    "confirm_delete": true,
+    "use_recycle_bin": true,
+    "show_progress": true
+  },
+  "recent_files": [],
+  "recent_folders": [],
+  "window_geometry": {
+    "width": 1400,
+    "height": 900,
+    "x": 100,
+    "y": 100
+  }
+}
