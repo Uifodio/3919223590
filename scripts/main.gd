@@ -187,14 +187,15 @@ func update_file_list():
 	if current_path != current_path.get_base_dir():
 		file_list.add_item("📂 ..", null, false)
 	
+	# Initialize arrays
+	var folders = []
+	var files = []
+	
 	# Get directory contents
 	var dir = DirAccess.open(current_path)
 	if dir:
 		dir.list_dir_begin()
 		var file_name = dir.get_next()
-		
-		var folders = []
-		var files = []
 		
 		while file_name != "":
 			if not file_name.begins_with(".") or show_hidden_files:
