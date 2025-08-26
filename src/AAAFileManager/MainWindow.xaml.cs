@@ -363,9 +363,70 @@ namespace AAAFileManager
             MessageBox.Show("Settings saved in %APPDATA%/AAAFileManager/settings.json", "Settings");
         }
 
+        private void ThemeDark_Click(object sender, RoutedEventArgs e)
+        {
+            SettingsService.Instance.Settings.Theme = "Dark";
+            SettingsService.Instance.Save();
+            ThemeService.ApplyTheme("Dark");
+        }
+
+        private void ThemeLight_Click(object sender, RoutedEventArgs e)
+        {
+            SettingsService.Instance.Settings.Theme = "Light";
+            SettingsService.Instance.Save();
+            ThemeService.ApplyTheme("Light");
+        }
+
         private void About_Click(object sender, RoutedEventArgs e)
         {
             MessageBox.Show("AAA File Manager\nFast, modern, developer-friendly.", "About");
+        }
+
+        private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (FileList.SelectedItems.Count == 1 && FileList.SelectedItem is Models.FileItem item && !_isZipMode)
+            {
+                if (!item.IsDirectory && File.Exists(item.FullPath)) Preview.ShowFile(item.FullPath);
+                else Preview.Clear();
+            }
+            else
+            {
+                Preview.Clear();
+            }
+        }
+
+        private void ContextOpen_Click(object sender, RoutedEventArgs e)
+        {
+            if (FileList.SelectedItem is not Models.FileItem item) return;
+            FileList_MouseDoubleClick(sender, null!);
+        }
+
+        private void ContextOpenWith_Click(object sender, RoutedEventArgs e)
+        {
+            if (FileList.SelectedItem is not Models.FileItem item) return;
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(item.FullPath) { UseShellExecute = true, Verb = "openas" }); } catch { }
+        }
+
+        private async void ContextNewFolder_Click(object sender, RoutedEventArgs e)
+        {
+            var name = Microsoft.VisualBasic.Interaction.InputBox("Folder name:", "New Folder", "New Folder");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var path = System.IO.Path.Combine(_currentPath, name);
+            try { Directory.CreateDirectory(path); await LoadDirectoryAsync(_currentPath); } catch (Exception ex) { MessageBox.Show(ex.Message); }
+        }
+
+        private async void ContextNewFile_Click(object sender, RoutedEventArgs e)
+        {
+            var name = Microsoft.VisualBasic.Interaction.InputBox("File name:", "New File", "New File.txt");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var path = System.IO.Path.Combine(_currentPath, name);
+            try { File.WriteAllText(path, string.Empty); await LoadDirectoryAsync(_currentPath); } catch (Exception ex) { MessageBox.Show(ex.Message); }
+        }
+
+        private void ContextOpenTerminal_Click(object sender, RoutedEventArgs e)
+        {
+            try { System.Diagnostics.Process.Start("wt.exe", $"-d \"{_currentPath}\""); }
+            catch { try { System.Diagnostics.Process.Start("cmd.exe", "/K cd /d \"" + _currentPath + "\""); } catch { } }
         }
 
         private void Exit_Click(object sender, RoutedEventArgs e)

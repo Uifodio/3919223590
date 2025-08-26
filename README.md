@@ -17,7 +17,7 @@ A modern, developer-focused file manager for Windows 11 with a built-in code edi
 
 ## Requirements
 - Windows 10/11 x64
-- .NET 8 SDK (if building from source)
+- .NET 9 SDK (9.0.304 or newer) if building from source
 
 ## Quick Start (no IDE)
 1. Download or clone this repo to Windows.

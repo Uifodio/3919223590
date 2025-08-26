@@ -33,6 +33,11 @@
       </MenuItem>
       <MenuItem Header="_Tools">
         <MenuItem Header="_Settings" Click="Settings_Click"/>
+        <Separator/>
+        <MenuItem Header="Theme">
+          <MenuItem Header="Dark" Click="ThemeDark_Click"/>
+          <MenuItem Header="Light" Click="ThemeLight_Click"/>
+        </MenuItem>
       </MenuItem>
       <MenuItem Header="_Help">
         <MenuItem Header="_About" Click="About_Click"/>
@@ -96,7 +101,18 @@
             <TextBlock Text="Files" FontWeight="Bold"/>
           </DockPanel>
         </Border>
-        <ListView Name="FileList" Grid.Row="1" Margin="6" SelectionMode="Extended" MouseDoubleClick="FileList_MouseDoubleClick" PreviewMouseMove="FileList_PreviewMouseMove" AllowDrop="True" Drop="FileList_Drop">
+        <ListView Name="FileList" Grid.Row="1" Margin="6" SelectionMode="Extended" MouseDoubleClick="FileList_MouseDoubleClick" PreviewMouseMove="FileList_PreviewMouseMove" AllowDrop="True" Drop="FileList_Drop" SelectionChanged="FileList_SelectionChanged">
+          <ListView.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Open" Click="ContextOpen_Click"/>
+              <MenuItem Header="Open With..." Click="ContextOpenWith_Click"/>
+              <Separator/>
+              <MenuItem Header="New Folder" Click="ContextNewFolder_Click"/>
+              <MenuItem Header="New File" Click="ContextNewFile_Click"/>
+              <Separator/>
+              <MenuItem Header="Open Terminal Here" Click="ContextOpenTerminal_Click"/>
+            </ContextMenu>
+          </ListView.ContextMenu>
           <ListView.View>
             <GridView>
               <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="220"/>
@@ -114,7 +130,14 @@
         </Expander>
       </Grid>
 
-      <TabControl Name="EditorTabs" Grid.Column="2" Grid.RowSpan="2" Margin="6"/>
+      <Grid Grid.Column="2" Grid.RowSpan="2" Margin="6">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="2*"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TabControl Name="EditorTabs" Grid.Row="0"/>
+        <local:PreviewPane x:Name="Preview" Grid.Row="1"/>
+      </Grid>
     </Grid>
   </DockPanel>
 </Window>
