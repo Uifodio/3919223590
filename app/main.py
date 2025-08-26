@@ -88,13 +88,84 @@ class ProgressDialog(QtWidgets.QProgressDialog):
         self.setMinimumDuration(400)
 
 
-def ensure_backup(path: Path) -> None:
-    try:
-        if path.exists():
-            bak = path.with_suffix(path.suffix + ".bak")
-            shutil.copy2(path, bak)
-    except Exception:
-        pass
+class NavigationHistory(QtCore.QObject):
+    changed = QtCore.Signal(Path)
+
+    def __init__(self, start: Path):
+        super().__init__()
+        self._back: List[Path] = []
+        self._forward: List[Path] = []
+        self._current: Path = start
+
+    @property
+    def current(self) -> Path:
+        return self._current
+
+    def can_back(self) -> bool:
+        return len(self._back) > 0
+
+    def can_forward(self) -> bool:
+        return len(self._forward) > 0
+
+    def push(self, path: Path):
+        if path == self._current:
+            return
+        self._back.append(self._current)
+        self._current = path
+        self._forward.clear()
+        self.changed.emit(path)
+
+    def back(self):
+        if not self._back:
+            return
+        self._forward.append(self._current)
+        self._current = self._back.pop()
+        self.changed.emit(self._current)
+
+    def forward(self):
+        if not self._forward:
+            return
+        self._back.append(self._current)
+        self._current = self._forward.pop()
+        self.changed.emit(self._current)
+
+
+class Breadcrumbs(QtWidgets.QWidget):
+    pathClicked = QtCore.Signal(Path)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._path = Path.home()
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().setContentsMargins(0, 0, 0, 0)
+        self.layout().setSpacing(4)
+
+    def set_path(self, path: Path):
+        self._path = path
+        # Clear
+        while self.layout().count():
+            item = self.layout().takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+        # Windows drive handling and root
+        parts: List[Path] = []
+        p = path
+        while True:
+            parts.insert(0, p)
+            parent = p.parent
+            if parent == p:
+                break
+            p = parent
+        for i, part in enumerate(parts):
+            btn = QtWidgets.QToolButton()
+            btn.setText(part.drive if part.drive else (part.name if part.name else str(part)))
+            btn.setAutoRaise(True)
+            btn.clicked.connect(lambda _=False, pp=part: self.pathClicked.emit(pp))
+            self.layout().addWidget(btn)
+            if i < len(parts) - 1:
+                arrow = QtWidgets.QLabel("›")
+                self.layout().addWidget(arrow)
 
 
 # --------------------------- File Operations ---------------------------
@@ -374,9 +445,16 @@ class FilesView(QtWidgets.QListView):
         self.model_fs = QtWidgets.QFileSystemModel(self)
         self.model_fs.setReadOnly(False)
         self.model_fs.setFilter(QtCore.QDir.Files | QtCore.QDir.NoDotAndDotDot)
+        self._apply_icon_provider()
         self.setModel(self.model_fs)
 
         self.doubleClicked.connect(self.on_double_clicked)
+
+    def _apply_icon_provider(self):
+        try:
+            self.model_fs.setIconProvider(CustomIconProvider())
+        except Exception:
+            pass
 
     def set_directory(self, path: Path):
         if not path.exists() or not path.is_dir():
@@ -427,6 +505,66 @@ class FilesView(QtWidgets.QListView):
     def on_double_clicked(self, idx: QtCore.QModelIndex):
         path = Path(self.model_fs.filePath(idx))
         self.fileActivated.emit(path)
+
+
+class FilesDetailsView(QtWidgets.QTreeView):
+    fileActivated = QtCore.Signal(Path)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setSortingEnabled(True)
+        self.setAllColumnsShowFocus(True)
+        self.setAlternatingRowColors(True)
+        self.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.setEditTriggers(QtWidgets.QAbstractItemView.EditKeyPressed | QtWidgets.QAbstractItemView.SelectedClicked)
+
+        self.model_fs = QtWidgets.QFileSystemModel(self)
+        self.model_fs.setReadOnly(False)
+        self.model_fs.setFilter(QtCore.QDir.Files | QtCore.QDir.NoDotAndDotDot)
+        try:
+            self.model_fs.setIconProvider(CustomIconProvider())
+        except Exception:
+            pass
+        self.setModel(self.model_fs)
+        self.setRootIsDecorated(False)
+        self.setColumnWidth(0, 300)
+
+        self.doubleClicked.connect(self.on_double_clicked)
+
+    def set_directory(self, path: Path):
+        if not path.exists() or not path.is_dir():
+            return
+        self.model_fs.setRootPath(str(path))
+        self.setRootIndex(self.model_fs.index(str(path)))
+        # Show columns: Name, Size, Type, Date Modified
+        for col, w in [(0, 320), (1, 100), (2, 160), (3, 180)]:
+            self.setColumnWidth(col, w)
+
+    def selected_paths(self) -> List[Path]:
+        paths: List[Path] = []
+        for idx in self.selectionModel().selectedRows():
+            paths.append(Path(self.model_fs.filePath(idx)))
+        return paths
+
+    def on_double_clicked(self, idx: QtCore.QModelIndex):
+        path = Path(self.model_fs.filePath(idx))
+        self.fileActivated.emit(path)
+
+
+class CustomIconProvider(QtWidgets.QFileIconProvider):
+    def icon(self, type_or_info):  # type: ignore[override]
+        try:
+            if isinstance(type_or_info, QtWidgets.QFileIconProvider.IconType):
+                return super().icon(type_or_info)
+            info = type_or_info
+            file_path = Path(info.absoluteFilePath())
+            if file_path.suffix.lower() in {".png", ".jpg", ".jpeg", ".bmp", ".gif"} and file_path.is_file():
+                pix = QtGui.QPixmap(str(file_path))
+                if not pix.isNull():
+                    return QtGui.QIcon(pix.scaled(128, 128, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation))
+            return super().icon(type_or_info)
+        except Exception:
+            return super().icon(type_or_info)
 
 
 class FindReplaceBar(QtWidgets.QWidget):
@@ -545,16 +683,25 @@ class MainWindow(QtWidgets.QMainWindow):
         # Simple navigation bar
         nav = QtWidgets.QHBoxLayout()
         self.back_btn = QtWidgets.QPushButton("◀")
+        self.forward_btn = QtWidgets.QPushButton("▶")
         self.up_btn = QtWidgets.QPushButton("⬆")
         self.addr = QtWidgets.QLineEdit()
+        self.breadcrumbs = Breadcrumbs(self)
         nav.addWidget(self.back_btn)
+        nav.addWidget(self.forward_btn)
         nav.addWidget(self.up_btn)
         nav.addWidget(self.addr)
         right.layout().addLayout(nav)
-
-        self.files_view = FilesView(self)
-        self.files_view.fileActivated.connect(self.on_file_activated)
-        right.layout().addWidget(self.files_view)
+        right.layout().addWidget(self.breadcrumbs)
+        # Stacked views: icons and details
+        self.files_icons = FilesView(self)
+        self.files_details = FilesDetailsView(self)
+        self.files_icons.fileActivated.connect(self.on_file_activated)
+        self.files_details.fileActivated.connect(self.on_file_activated)
+        self.files_stack = QtWidgets.QStackedWidget(self)
+        self.files_stack.addWidget(self.files_icons)
+        self.files_stack.addWidget(self.files_details)
+        right.layout().addWidget(self.files_stack)
 
         splitter = QtWidgets.QSplitter(self)
         splitter.addWidget(self.folder_tree)
@@ -570,12 +717,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self._open_initial_path(start_path)
         else:
             # Default to showing home in files view
-            self.files_view.set_directory(Path.home())
+            self._set_directory(Path.home())
             self.addr.setText(str(Path.home()))
+            self.breadcrumbs.set_path(Path.home())
 
-        self.back_btn.clicked.connect(self._go_back_disabled)
+        self.history = NavigationHistory(Path.home())
+        self.history.changed.connect(self._on_history_changed)
+        self.back_btn.clicked.connect(self._go_back)
+        self.forward_btn.clicked.connect(self._go_forward)
         self.up_btn.clicked.connect(self._go_up)
         self.addr.returnPressed.connect(self._go_address)
+        self.breadcrumbs.pathClicked.connect(self._go_breadcrumb)
 
     # ------------------- Menu & Actions -------------------
     def _build_menu(self):
@@ -598,6 +750,23 @@ class MainWindow(QtWidgets.QMainWindow):
 
         view_menu = mb.addMenu("View")
         act_toggle_theme = view_menu.addAction("Toggle Dark/Light")
+        view_menu.addSeparator()
+        self.act_view_icons = view_menu.addAction("Large Icons")
+        self.act_view_details = view_menu.addAction("Details")
+        self.act_view_icons.setCheckable(True)
+        self.act_view_details.setCheckable(True)
+        self.act_view_icons.setChecked(True)
+        self.view_group = QtGui.QActionGroup(self)
+        self.view_group.setExclusive(True)
+        self.view_group.addAction(self.act_view_icons)
+        self.view_group.addAction(self.act_view_details)
+        self.act_view_icons.triggered.connect(lambda: self._set_view_mode("icons"))
+        self.act_view_details.triggered.connect(lambda: self._set_view_mode("details"))
+        view_menu.addSeparator()
+        sort_menu = view_menu.addMenu("Sort By")
+        for label, col in [("Name", 0), ("Size", 1), ("Type", 2), ("Date", 3)]:
+            a = sort_menu.addAction(label)
+            a.triggered.connect(lambda _=False, c=col: self._sort_by(c))
 
         tools_menu = mb.addMenu("Tools")
         act_monitor = tools_menu.addAction("Monitor Folder for Quick Replace...")
@@ -625,8 +794,7 @@ class MainWindow(QtWidgets.QMainWindow):
     # ------------------- Navigation -------------------
     def on_folder_activated(self, path: Path):
         if path.is_dir():
-            self.files_view.set_directory(path)
-            self.addr.setText(str(path))
+            self._set_directory(path)
             self._add_recent(path)
 
     def _on_folder_selection_changed(self, selected, deselected):
@@ -635,24 +803,48 @@ class MainWindow(QtWidgets.QMainWindow):
         if idxs:
             p = Path(self.folder_tree.model_fs.filePath(idxs[0]))
             if p.exists() and p.is_dir():
-                self.files_view.set_directory(p)
-                self.addr.setText(str(p))
+                self._set_directory(p)
 
-    def _go_back_disabled(self):
-        QtWidgets.QApplication.beep()
+    def _go_back(self):
+        self.history.back()
+
+    def _go_forward(self):
+        self.history.forward()
 
     def _go_up(self):
         current_dir = Path(self.addr.text()).resolve()
         parent = current_dir.parent if current_dir.exists() else Path.home()
         if parent == current_dir:
             return
-        self.files_view.set_directory(parent)
-        self.addr.setText(str(parent))
+        self._set_directory(parent)
 
     def _go_address(self):
         p = Path(self.addr.text()).expanduser()
         if p.exists() and p.is_dir():
-            self.files_view.set_directory(p)
+            self._set_directory(p)
+
+    def _go_breadcrumb(self, path: Path):
+        if path.exists() and path.is_dir():
+            self._set_directory(path)
+
+    def _on_history_changed(self, path: Path):
+        # Do not push again into history here; just reflect
+        self._apply_directory(path)
+        self.back_btn.setEnabled(self.history.can_back())
+        self.forward_btn.setEnabled(self.history.can_forward())
+
+    def _set_directory(self, path: Path, add_history: bool = True):
+        if add_history:
+            self.history.push(path)
+        self._apply_directory(path)
+        self.back_btn.setEnabled(self.history.can_back())
+        self.forward_btn.setEnabled(self.history.can_forward())
+
+    def _apply_directory(self, path: Path):
+        self.files_icons.set_directory(path)
+        self.files_details.set_directory(path)
+        self.addr.setText(str(path))
+        self.breadcrumbs.set_path(path)
 
     # ------------------- Open Paths -------------------
     def on_file_activated(self, path: Path):
@@ -705,6 +897,19 @@ class MainWindow(QtWidgets.QMainWindow):
     def _open_search_dialog(self):
         dlg = SearchDialog(self)
         dlg.exec()
+
+    # ------------------- View & Sorting -------------------
+    def _set_view_mode(self, mode: str):
+        if mode == "icons":
+            self.files_stack.setCurrentWidget(self.files_icons)
+            self.act_view_icons.setChecked(True)
+        else:
+            self.files_stack.setCurrentWidget(self.files_details)
+            self.act_view_details.setChecked(True)
+
+    def _sort_by(self, column: int):
+        # Sort only affects details view; icons use default order
+        self.files_details.sortByColumn(column, QtCore.Qt.AscendingOrder)
 
 
 class SearchDialog(QtWidgets.QDialog):
