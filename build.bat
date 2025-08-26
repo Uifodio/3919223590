@@ -147,8 +147,81 @@ if %BUILD_EXIT_CODE% neq 0 (
     exit /b 1
 )
 
-:: Check if build was successful
-call :log "Checking build output"
+:: Check multiple possible locations for the EXE
+call :log "Checking build output locations"
+set "EXE_FOUND="
+
+:: Check dist directory
+if exist "dist\NovaExplorer.exe" (
+    set "EXE_FOUND=dist\NovaExplorer.exe"
+    call :log "Found EXE in dist\NovaExplorer.exe"
+    goto :exe_found
+)
+
+:: Check if dist directory exists and list contents
+if exist "dist" (
+    call :log "dist directory exists, listing contents:"
+    dir dist >> "%DEBUG_LOG%" 2>&1
+    for /f "tokens=*" %%i in ('dir dist /b 2^>nul') do (
+        call :log "dist contains: %%i"
+    )
+)
+
+:: Check current directory
+if exist "NovaExplorer.exe" (
+    set "EXE_FOUND=NovaExplorer.exe"
+    call :log "Found EXE in current directory: NovaExplorer.exe"
+    goto :exe_found
+)
+
+:: Check build directory
+if exist "build" (
+    call :log "build directory exists, searching for EXE..."
+    for /r build %%i in (NovaExplorer.exe) do (
+        if exist "%%i" (
+            set "EXE_FOUND=%%i"
+            call :log "Found EXE in build: %%i"
+            goto :exe_found
+        )
+    )
+)
+
+:: No EXE found
+call :log "ERROR: No EXE found in any expected location"
+echo ERROR: Build completed but EXE not found
+echo.
+echo Checking what was created:
+if exist "dist" (
+    echo dist directory contents:
+    dir dist
+    echo.
+)
+if exist "build" (
+    echo build directory contents:
+    dir build
+    echo.
+)
+echo.
+echo Check debug log: %DEBUG_LOG%
+pause
+exit /b 1
+
+:exe_found
+call :log "EXE found at: %EXE_FOUND%"
+
+:: If EXE is not in dist, copy it there
+if not "%EXE_FOUND%"=="dist\NovaExplorer.exe" (
+    call :log "Copying EXE to dist directory"
+    if not exist "dist" mkdir dist
+    copy "%EXE_FOUND%" "dist\NovaExplorer.exe" >> "%DEBUG_LOG%" 2>&1
+    if %errorlevel% equ 0 (
+        call :log "Successfully copied EXE to dist\NovaExplorer.exe"
+    ) else (
+        call :log "ERROR: Failed to copy EXE to dist directory"
+    )
+)
+
+:: Verify final EXE exists
 if exist "dist\NovaExplorer.exe" (
     call :log "Build successful: dist\NovaExplorer.exe"
     echo.
@@ -164,8 +237,8 @@ if exist "dist\NovaExplorer.exe" (
     echo - Set it as Unity's external editor
     echo.
 ) else (
-    call :log "ERROR: Build completed but EXE not found"
-    echo ERROR: Build completed but EXE not found
+    call :log "ERROR: Final EXE verification failed"
+    echo ERROR: EXE not found in dist directory after copy attempt
     echo Check debug log: %DEBUG_LOG%
     pause
     exit /b 1
