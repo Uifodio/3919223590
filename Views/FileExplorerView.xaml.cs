@@ -12,7 +12,7 @@ using WindowsFileManagerPro.Services;
 
 namespace WindowsFileManagerPro.Views
 {
-    public partial class FileExplorerView : UserControl
+    public partial class FileExplorerView : System.Windows.Controls.UserControl
     {
         private readonly IFileService _fileService;
         private readonly IZipService _zipService;
@@ -318,7 +318,7 @@ namespace WindowsFileManagerPro.Views
             }
         }
 
-        private void FileListView_KeyDown(object sender, KeyEventArgs e)
+        private void FileListView_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             try
             {
@@ -397,7 +397,7 @@ namespace WindowsFileManagerPro.Views
             }
         }
 
-        private async void AddressTextBox_KeyDown(object sender, KeyEventArgs e)
+        private async void AddressTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
