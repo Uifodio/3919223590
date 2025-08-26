@@ -33,11 +33,6 @@
     }
   },
   "include": [
-    "src",
-    "electron",
-    "vite.config.ts"
-  ],
-  "references": [
-    { "path": "./tsconfig.node.json" }
+    "src"
   ]
 }
