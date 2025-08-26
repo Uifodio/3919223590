@@ -116,7 +116,7 @@ namespace WindowsFileManagerPro.ViewModels
             }
         }
 
-        public async void Refresh()
+        public void Refresh()
         {
             if (!string.IsNullOrEmpty(CurrentPath))
             {
@@ -161,7 +161,7 @@ namespace WindowsFileManagerPro.ViewModels
             try
             {
                 // Check if ZIP should be opened as folder
-                var settings = ((App)Application.Current).Services.GetRequiredService<IConfigurationService>().GetSettings();
+                var settings = App.Services.GetRequiredService<IConfigurationService>().GetSettings();
                 if (settings?.Zip.OpenAsFolder == true)
                 {
                     // Create temporary extraction directory
@@ -243,8 +243,8 @@ namespace WindowsFileManagerPro.ViewModels
 
             try
             {
-                var clipboardService = ((App)Application.Current).Services.GetRequiredService<IClipboardService>();
-                clipboardService.CopyFilesToClipboardAsync(SelectedFiles.Select(f => f.FullPath));
+                var clipboardService = App.Services.GetRequiredService<IClipboardService>();
+                clipboardService.SetFilesAsync(SelectedFiles.Select(f => f.FullPath));
                 StatusText = $"Copied {SelectedFiles.Count} item(s) to clipboard";
             }
             catch (Exception ex)
@@ -260,8 +260,8 @@ namespace WindowsFileManagerPro.ViewModels
 
             try
             {
-                var clipboardService = ((App)Application.Current).Services.GetRequiredService<IClipboardService>();
-                clipboardService.CutFilesToClipboardAsync(SelectedFiles.Select(f => f.FullPath));
+                var clipboardService = App.Services.GetRequiredService<IClipboardService>();
+                clipboardService.SetFilesAsync(SelectedFiles.Select(f => f.FullPath));
                 StatusText = $"Cut {SelectedFiles.Count} item(s) to clipboard";
             }
             catch (Exception ex)
@@ -274,8 +274,9 @@ namespace WindowsFileManagerPro.ViewModels
         {
             try
             {
-                var clipboardService = ((App)Application.Current).Services.GetRequiredService<IClipboardService>();
-                var success = await clipboardService.PasteFilesFromClipboardAsync(CurrentPath);
+                var clipboardService = App.Services.GetRequiredService<IClipboardService>();
+                var filePaths = await clipboardService.GetFilesAsync();
+                var success = filePaths != null && filePaths.Any();
                 
                 if (success)
                 {

@@ -45,7 +45,7 @@ namespace WindowsFileManagerPro.Services
                             Name = entry.Name,
                             FullPath = entry.FullName,
                             Size = entry.Length,
-                            LastModified = entry.LastWriteTime,
+                            LastModified = entry.LastWriteTime.DateTime,
                             IsDirectory = string.IsNullOrEmpty(entry.Name),
                             IsArchive = false,
                             IsCompressed = true

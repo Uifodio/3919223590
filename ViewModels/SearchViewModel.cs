@@ -268,23 +268,22 @@ namespace WindowsFileManagerPro.ViewModels
 
         partial void OnSearchTextChanged(string value)
         {
-            SearchCommand.NotifyCanExecuteChanged();
+            // Commands automatically update their CanExecute state
         }
 
         partial void OnSearchPathChanged(string value)
         {
-            SearchCommand.NotifyCanExecuteChanged();
+            // Commands automatically update their CanExecute state
         }
 
         partial void OnIsSearchingChanged(bool value)
         {
-            SearchCommand.NotifyCanExecuteChanged();
-            StopSearchCommand.NotifyCanExecuteChanged();
+            // Commands automatically update their CanExecute state
         }
 
         partial void OnSearchResultsChanged(ObservableCollection<SearchResult> value)
         {
-            ExportResultsCommand.NotifyCanExecuteChanged();
+            // Commands automatically update their CanExecute state
         }
     }
 }

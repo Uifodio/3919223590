@@ -19,7 +19,7 @@ namespace WindowsFileManagerPro.Views
         {
             InitializeComponent();
             
-            var services = ((App)Application.Current).Services;
+            var services = App.Services;
             _viewModel = services.GetRequiredService<MainWindowViewModel>();
             _fileService = services.GetRequiredService<IFileService>();
             _editorService = services.GetRequiredService<IEditorService>();
@@ -129,7 +129,7 @@ namespace WindowsFileManagerPro.Views
                 }
                 else
                 {
-                    MessageBox.Show("No file is currently open for editing.", "Save", MessageBoxButton.OK, MessageBoxImage.Information);
+                    System.Windows.MessageBox.Show("No file is currently open for editing.", "Save", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
@@ -260,9 +260,9 @@ namespace WindowsFileManagerPro.Views
         {
             try
             {
-                Application.Current.Resources.MergedDictionaries.Clear();
-                Application.Current.Resources.MergedDictionaries.Add(
-                    new ResourceDictionary { Source = new Uri("Themes/DarkTheme.xaml", UriKind.Relative) });
+                            System.Windows.Application.Current.Resources.MergedDictionaries.Clear();
+            System.Windows.Application.Current.Resources.MergedDictionaries.Add(
+                new ResourceDictionary { Source = new Uri("Themes/DarkTheme.xaml", UriKind.Relative) });
                 
                 var settings = _configService.GetSettings() ?? new Models.AppSettings();
                 settings.Theme = "Dark";
@@ -280,9 +280,9 @@ namespace WindowsFileManagerPro.Views
         {
             try
             {
-                Application.Current.Resources.MergedDictionaries.Clear();
-                Application.Current.Resources.MergedDictionaries.Add(
-                    new ResourceDictionary { Source = new Uri("Themes/LightTheme.xaml", UriKind.Relative) });
+                            System.Windows.Application.Current.Resources.MergedDictionaries.Clear();
+            System.Windows.Application.Current.Resources.MergedDictionaries.Add(
+                new ResourceDictionary { Source = new Uri("Themes/LightTheme.xaml", UriKind.Relative) });
                 
                 var settings = _configService.GetSettings() ?? new Models.AppSettings();
                 settings.Theme = "Light";
@@ -333,7 +333,7 @@ namespace WindowsFileManagerPro.Views
             try
             {
                 // Implement ZIP manager
-                MessageBox.Show("ZIP Manager feature coming soon!", "ZIP Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Windows.MessageBox.Show("ZIP Manager feature coming soon!", "ZIP Manager", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                 UpdateStatus("ZIP Manager requested");
             }
             catch (Exception ex)
@@ -347,7 +347,7 @@ namespace WindowsFileManagerPro.Views
             try
             {
                 // Implement backup manager
-                MessageBox.Show("Backup Manager feature coming soon!", "Backup Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Windows.MessageBox.Show("Backup Manager feature coming soon!", "Backup Manager", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                 UpdateStatus("Backup Manager requested");
             }
             catch (Exception ex)
@@ -360,11 +360,11 @@ namespace WindowsFileManagerPro.Views
         {
             try
             {
-                MessageBox.Show(
+                System.Windows.MessageBox.Show(
                     "Windows File Manager Pro\nVersion 1.0.0\n\nProfessional file management with built-in editor\n\nBuilt with ❤️ for Windows developers and power users",
                     "About",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -475,7 +475,7 @@ namespace WindowsFileManagerPro.Views
 
         #region Helper Methods
 
-        private void OpenFileInEditor(string filePath)
+        public void OpenFileInEditor(string filePath)
         {
             try
             {
@@ -544,7 +544,7 @@ namespace WindowsFileManagerPro.Views
 
         private void ShowError(string message, Exception ex)
         {
-            MessageBox.Show($"{message}: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            System.Windows.MessageBox.Show($"{message}: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             UpdateStatus($"Error: {message}");
         }
 

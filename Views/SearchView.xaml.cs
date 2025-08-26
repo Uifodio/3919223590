@@ -19,7 +19,7 @@ namespace WindowsFileManagerPro.Views
         public SearchView()
         {
             InitializeComponent();
-            var services = ((App)Application.Current).Services;
+            var services = App.Services;
             _searchService = services.GetRequiredService<ISearchService>();
             _fileService = services.GetRequiredService<IFileService>();
             InitializeSearchView();
@@ -51,19 +51,19 @@ namespace WindowsFileManagerPro.Views
 
                 if (string.IsNullOrEmpty(searchPath))
                 {
-                    MessageBox.Show("Please enter a search path.", "Search Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    System.Windows.MessageBox.Show("Please enter a search path.", "Search Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
                     return;
                 }
 
                 if (string.IsNullOrEmpty(searchText))
                 {
-                    MessageBox.Show("Please enter search text.", "Search Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    System.Windows.MessageBox.Show("Please enter search text.", "Search Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
                     return;
                 }
 
                 if (!Directory.Exists(searchPath))
                 {
-                    MessageBox.Show("The specified search path does not exist.", "Search Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    System.Windows.MessageBox.Show("The specified search path does not exist.", "Search Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
                     return;
                 }
 
@@ -183,7 +183,7 @@ namespace WindowsFileManagerPro.Views
             {
                 if (_searchResults.Count == 0)
                 {
-                    MessageBox.Show("No results to export.", "Export", MessageBoxButton.OK, MessageBoxImage.Information);
+                    System.Windows.MessageBox.Show("No results to export.", "Export", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                     return;
                 }
 
@@ -291,9 +291,9 @@ namespace WindowsFileManagerPro.Views
             base.OnSourceInitialized(e);
             
             // Set owner if available
-            if (Application.Current.MainWindow != null && Application.Current.MainWindow != this)
+            if (System.Windows.Application.Current.MainWindow != null && System.Windows.Application.Current.MainWindow != this)
             {
-                Owner = Application.Current.MainWindow;
+                Owner = System.Windows.Application.Current.MainWindow;
             }
         }
     }

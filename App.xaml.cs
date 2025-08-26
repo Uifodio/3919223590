@@ -16,7 +16,7 @@ namespace WindowsFileManagerPro
     {
         private IHost? _host;
         
-        public IServiceProvider Services => _host?.Services ?? throw new InvalidOperationException("Services not initialized");
+        public static IServiceProvider Services => Current is App app ? app._host?.Services ?? throw new InvalidOperationException("Services not initialized") : throw new InvalidOperationException("App not initialized");
 
         protected override async void OnStartup(StartupEventArgs e)
         {
@@ -32,8 +32,8 @@ namespace WindowsFileManagerPro
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to start application: {ex.Message}", "Startup Error", 
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                                System.Windows.MessageBox.Show($"Failed to start application: {ex.Message}", "Startup Error",
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
                 Shutdown();
             }
         }

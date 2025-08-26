@@ -22,7 +22,7 @@ namespace WindowsFileManagerPro.Views
         public FileExplorerView()
         {
             InitializeComponent();
-            var services = ((App)Application.Current).Services;
+            var services = App.Services;
             _fileService = services.GetRequiredService<IFileService>();
             _zipService = services.GetRequiredService<IZipService>();
             InitializeExplorer();
@@ -201,7 +201,10 @@ namespace WindowsFileManagerPro.Views
                 if (folderItem?.Items.Count == 0)
                 {
                     var folderPath = folderItem.Tag?.ToString() ?? folderItem.Header.ToString();
-                    await LoadDirectoryContentsAsync(folderItem, folderPath);
+                    if (!string.IsNullOrEmpty(folderPath))
+                    {
+                        await LoadDirectoryContentsAsync(folderItem, folderPath);
+                    }
                 }
             }
             catch (Exception ex)
@@ -276,7 +279,7 @@ namespace WindowsFileManagerPro.Views
             try
             {
                 // Check if ZIP should be opened as folder
-                var settings = ((App)Application.Current).Services.GetRequiredService<IConfigurationService>().GetSettings();
+                var settings = App.Services.GetRequiredService<IConfigurationService>().GetSettings();
                 if (settings?.Zip.OpenAsFolder == true)
                 {
                     // Create temporary extraction directory
@@ -351,13 +354,13 @@ namespace WindowsFileManagerPro.Views
                 var selectedFiles = FileListView.SelectedItems.Cast<FileItem>().ToList();
                 if (selectedFiles.Count == 0) return;
 
-                var result = MessageBox.Show(
+                var result = System.Windows.MessageBox.Show(
                     $"Are you sure you want to delete {selectedFiles.Count} item(s)?",
                     "Confirm Delete",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Question);
 
-                if (result == MessageBoxResult.Yes)
+                if (result == System.Windows.MessageBoxResult.Yes)
                 {
                     foreach (var file in selectedFiles)
                     {

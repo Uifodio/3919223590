@@ -76,7 +76,7 @@
                     Style="{StaticResource ToolBarButtonStyle}"
                     ToolTip="Save file (Ctrl+S)"/>
             <Button Content="Save As" 
-                    Click="SaveAsButton_Click"
+                    Click="SaveFileAs"
                     Style="{StaticResource ToolBarButtonStyle}"
                     ToolTip="Save file as..."/>
             <Separator/>

@@ -24,7 +24,7 @@ namespace WindowsFileManagerPro.Views
         public EditorView()
         {
             InitializeComponent();
-            _editorService = App.Current.Services.GetRequiredService<IEditorService>();
+            _editorService = App.Services.GetRequiredService<IEditorService>();
             InitializeEditor();
         }
 
@@ -143,6 +143,24 @@ namespace WindowsFileManagerPro.Views
         {
             EditorTextBox.Redo();
             UpdateStatus("Redo performed");
+        }
+
+        public void Cut()
+        {
+            EditorTextBox.Cut();
+            UpdateStatus("Cut performed");
+        }
+
+        public void Copy()
+        {
+            EditorTextBox.Copy();
+            UpdateStatus("Copy performed");
+        }
+
+        public void Paste()
+        {
+            EditorTextBox.Paste();
+            UpdateStatus("Paste performed");
         }
 
         public void ShowFindDialog()
@@ -337,7 +355,7 @@ namespace WindowsFileManagerPro.Views
                 Grid.SetRow(replaceTextBox, 3);
             }
 
-            var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(5) };
+            var buttonPanel = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(5) };
             var findButton = new System.Windows.Controls.Button { Content = "Find", Width = 80, Margin = new Thickness(5) };
             var closeButton = new System.Windows.Controls.Button { Content = "Close", Width = 80, Margin = new Thickness(5) };
 
@@ -351,7 +369,7 @@ namespace WindowsFileManagerPro.Views
             findButton.Click += (s, e) => 
             {
                 // TODO: Implement find/replace functionality
-                MessageBox.Show("Find/Replace functionality will be implemented in the next version.", "Feature Coming Soon");
+                System.Windows.MessageBox.Show("Find/Replace functionality will be implemented in the next version.", "Feature Coming Soon");
             };
 
             Content = grid;
