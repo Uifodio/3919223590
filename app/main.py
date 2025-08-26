@@ -79,6 +79,15 @@ def human_readable_size(num_bytes: int) -> str:
     return f"{num_bytes:.1f} PB"
 
 
+def ensure_backup(path: Path) -> None:
+    try:
+        if path.exists():
+            bak = path.with_suffix(path.suffix + ".bak")
+            shutil.copy2(path, bak)
+    except Exception:
+        pass
+
+
 class ProgressDialog(QtWidgets.QProgressDialog):
     def __init__(self, title: str, label: str, parent=None):
         super().__init__(label, "Cancel", 0, 100, parent)
@@ -257,36 +266,76 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self._autosave_timer.timeout.connect(self._maybe_autosave)
         if SETTINGS.get("editor_autosave", True):
             self._autosave_timer.start()
+        # Line numbers
+        self._lineNumberArea = LineNumberArea(self)
+        self.blockCountChanged.connect(self.updateLineNumberAreaWidth)
+        self.updateRequest.connect(self.updateLineNumberArea)
+        self.cursorPositionChanged.connect(self.highlightCurrentLine)
+        self.updateLineNumberAreaWidth(0)
+        self.highlightCurrentLine()
 
-    def open_path(self, path: Path, text: Optional[str] = None) -> None:
-        self._path = path
-        if text is None:
-            try:
-                text = path.read_text(encoding="utf-8", errors="replace")
-            except Exception as ex:
-                QtWidgets.QMessageBox.warning(self, "Open Error", str(ex))
-                return
-        self.setPlainText(text)
-        self.document().setModified(False)
+    def lineNumberAreaWidth(self) -> int:
+        digits = len(str(max(1, self.blockCount())))
+        space = 3 + self.fontMetrics().horizontalAdvance('9') * digits
+        return space
 
-    def save(self) -> bool:
-        if not self._path:
-            return False
-        try:
-            # Only backup real filesystem files, not virtual zip pseudo-paths
-            p = self._path
-            if p.exists() and p.is_file():
-                ensure_backup(p)
-            p.write_text(self.toPlainText(), encoding="utf-8")
-            self.document().setModified(False)
-            return True
-        except Exception as ex:
-            QtWidgets.QMessageBox.warning(self, "Save Error", str(ex))
-            return False
+    def updateLineNumberAreaWidth(self, _):
+        self.setViewportMargins(self.lineNumberAreaWidth(), 0, 0, 0)
 
-    def _maybe_autosave(self) -> None:
-        if SETTINGS.get("editor_autosave", True) and self.document().isModified():
-            self.save()
+    def updateLineNumberArea(self, rect, dy):
+        if dy:
+            self._lineNumberArea.scroll(0, dy)
+        else:
+            self._lineNumberArea.update(0, rect.y(), self._lineNumberArea.width(), rect.height())
+        if rect.contains(self.viewport().rect()):
+            self.updateLineNumberAreaWidth(0)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        cr = self.contentsRect()
+        self._lineNumberArea.setGeometry(QtCore.QRect(cr.left(), cr.top(), self.lineNumberAreaWidth(), cr.height()))
+
+    def lineNumberAreaPaintEvent(self, event):
+        painter = QtGui.QPainter(self._lineNumberArea)
+        painter.fillRect(event.rect(), QtGui.QColor(45, 45, 48))
+
+        block = self.firstVisibleBlock()
+        blockNumber = block.blockNumber()
+        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        bottom = top + int(self.blockBoundingRect(block).height())
+
+        while block.isValid() and top <= event.rect().bottom():
+            if block.isVisible() and bottom >= event.rect().top():
+                number = str(blockNumber + 1)
+                painter.setPen(QtGui.QColor(120, 120, 120))
+                painter.drawText(0, top, self._lineNumberArea.width() - 6, self.fontMetrics().height(), QtCore.Qt.AlignRight, number)
+            block = block.next()
+            top = bottom
+            bottom = top + int(self.blockBoundingRect(block).height())
+            blockNumber += 1
+
+    def highlightCurrentLine(self):
+        extraSelections = []
+        if not self.isReadOnly():
+            selection = QtWidgets.QTextEdit.ExtraSelection()
+            lineColor = QtGui.QColor(255, 255, 255, 20)
+            selection.format.setBackground(lineColor)
+            selection.format.setProperty(QtGui.QTextFormat.FullWidthSelection, True)
+            selection.cursor = self.textCursor()
+            selection.cursor.clearSelection()
+            extraSelections.append(selection)
+        self.setExtraSelections(extraSelections)
+
+class LineNumberArea(QtWidgets.QWidget):
+    def __init__(self, editor: CodeEditor):
+        super().__init__(editor)
+        self.editor = editor
+
+    def sizeHint(self):
+        return QtCore.QSize(self.editor.lineNumberAreaWidth(), 0)
+
+    def paintEvent(self, event):
+        self.editor.lineNumberAreaPaintEvent(event)
 
 
 class SimpleHighlighter(QtGui.QSyntaxHighlighter):
@@ -772,6 +821,9 @@ class MainWindow(QtWidgets.QMainWindow):
         act_monitor = tools_menu.addAction("Monitor Folder for Quick Replace...")
         act_recent = tools_menu.addAction("Open Recent...")
         act_search = tools_menu.addAction("Search (names + content)...")
+        tools_menu.addSeparator()
+        act_batch_rename = tools_menu.addAction("Batch Rename...")
+        act_split_view = tools_menu.addAction("Toggle Split View")
 
         act_new_window.triggered.connect(self._new_window)
         act_open_folder.triggered.connect(self._open_folder)
@@ -790,6 +842,8 @@ class MainWindow(QtWidgets.QMainWindow):
         act_monitor.triggered.connect(self._monitor_folder)
         act_recent.triggered.connect(self._open_recent)
         act_search.triggered.connect(self._open_search_dialog)
+        act_batch_rename.triggered.connect(self._batch_rename)
+        act_split_view.triggered.connect(self._toggle_split_view)
 
     # ------------------- Navigation -------------------
     def on_folder_activated(self, path: Path):
@@ -910,6 +964,111 @@ class MainWindow(QtWidgets.QMainWindow):
     def _sort_by(self, column: int):
         # Sort only affects details view; icons use default order
         self.files_details.sortByColumn(column, QtCore.Qt.AscendingOrder)
+
+    # ------------------- Batch Rename -------------------
+    def _batch_rename(self):
+        paths = self.files_icons.selected_paths() or self.files_details.selected_paths()
+        if not paths:
+            QtWidgets.QMessageBox.information(self, "Batch Rename", "Select files to rename in the files view.")
+            return
+        dlg = BatchRenameDialog(paths, self)
+        if dlg.exec() == QtWidgets.QDialog.Accepted:
+            for old, new in dlg.get_operations():
+                try:
+                    ensure_backup(old)
+                    old.rename(new)
+                except Exception as ex:
+                    QtWidgets.QMessageBox.warning(self, "Rename Error", f"{old} -> {new}: {ex}")
+
+    # ------------------- Split View -------------------
+    def _toggle_split_view(self):
+        # Replace right pane with a splitter containing current stack duplicated
+        parent = self.files_stack.parent()
+        if isinstance(parent, QtWidgets.QSplitter) and parent.count() == 2:
+            # Already split
+            # Remove second pane
+            if hasattr(self, "files_stack2") and self.files_stack2 is not None:
+                w = self.files_stack2
+                self.files_stack2 = None
+                w.setParent(None)
+            return
+        # Create a new details+icons stack as second pane
+        self.files_icons2 = FilesView(self)
+        self.files_details2 = FilesDetailsView(self)
+        self.files_icons2.fileActivated.connect(self.on_file_activated)
+        self.files_details2.fileActivated.connect(self.on_file_activated)
+        self.files_stack2 = QtWidgets.QStackedWidget(self)
+        self.files_stack2.addWidget(self.files_icons2)
+        self.files_stack2.addWidget(self.files_details2)
+        # Put into splitter
+        splitter: QtWidgets.QSplitter = self.centralWidget()  # left folder + right container
+        right_container = splitter.widget(1)
+        new_right_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
+        # Take existing right container's files_stack
+        layout = right_container.layout()
+        layout.addWidget(new_right_splitter)
+        new_right_splitter.addWidget(self.files_stack)
+        new_right_splitter.addWidget(self.files_stack2)
+        new_right_splitter.setSizes([1, 1])
+
+
+class BatchRenameDialog(QtWidgets.QDialog):
+    def __init__(self, paths: List[Path], parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Batch Rename")
+        self.resize(700, 500)
+        self.paths = paths
+        layout = QtWidgets.QVBoxLayout(self)
+        form = QtWidgets.QHBoxLayout()
+        self.find_edit = QtWidgets.QLineEdit()
+        self.find_edit.setPlaceholderText("Find (supports * wildcard)")
+        self.replace_edit = QtWidgets.QLineEdit()
+        self.replace_edit.setPlaceholderText("Replace with (use {n} for numbering)")
+        self.start_spin = QtWidgets.QSpinBox()
+        self.start_spin.setMinimum(1)
+        self.start_spin.setPrefix("Start # ")
+        go_btn = QtWidgets.QPushButton("Preview")
+        form.addWidget(self.find_edit)
+        form.addWidget(self.replace_edit)
+        form.addWidget(self.start_spin)
+        form.addWidget(go_btn)
+        layout.addLayout(form)
+        self.list = QtWidgets.QTableWidget(0, 2)
+        self.list.setHorizontalHeaderLabels(["From", "To"])
+        self.list.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(self.list)
+        btns = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        layout.addWidget(btns)
+        go_btn.clicked.connect(self._preview)
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+
+    def _preview(self):
+        self.list.setRowCount(0)
+        pattern = self.find_edit.text()
+        repl = self.replace_edit.text()
+        start = self.start_spin.value()
+        counter = start
+        from fnmatch import fnmatch
+        for p in self.paths:
+            name = p.name
+            if not pattern or fnmatch(name, pattern):
+                new_name = repl.replace("{n}", f"{counter}") if repl else name
+                target = p.with_name(new_name)
+                row = self.list.rowCount()
+                self.list.insertRow(row)
+                self.list.setItem(row, 0, QtWidgets.QTableWidgetItem(str(p)))
+                self.list.setItem(row, 1, QtWidgets.QTableWidgetItem(str(target)))
+                counter += 1
+
+    def get_operations(self) -> List[tuple[Path, Path]]:
+        ops: List[tuple[Path, Path]] = []
+        for row in range(self.list.rowCount()):
+            old = Path(self.list.item(row, 0).text())
+            new = Path(self.list.item(row, 1).text())
+            if old != new:
+                ops.append((old, new))
+        return ops
 
 
 class SearchDialog(QtWidgets.QDialog):
