@@ -92,6 +92,10 @@ func setup_signals():
 	# Connect file list
 	file_list.item_selected.connect(on_file_selected)
 	file_list.item_activated.connect(on_file_activated)
+	
+	# Connect editor buttons
+	editor_area.get_node("EditorToolbar/SaveButton").pressed.connect(_on_save_button_pressed)
+	editor_area.get_node("EditorToolbar/CloseEditorButton").pressed.connect(_on_close_editor_button_pressed)
 
 func load_directory(path: String):
 	if not DirAccess.dir_exists_absolute(path):

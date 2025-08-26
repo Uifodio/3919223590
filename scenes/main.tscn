@@ -1,0 +1,123 @@
+[gd_scene load_steps=2 format=3 uid="uid://bqxvn8y5qxqxq"]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_0x8y5"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_0x8y5")
+
+[node name="MainLayout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Toolbar" type="HBoxContainer" parent="MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+
+[node name="BackButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "← Back"
+
+[node name="ForwardButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "Forward →"
+
+[node name="UpButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "↑ Up"
+
+[node name="HSeparator" type="HSeparator" parent="MainLayout/Toolbar"]
+layout_mode = 2
+
+[node name="NewFolderButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "📁 New Folder"
+
+[node name="NewFileButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "📄 New File"
+
+[node name="HSeparator2" type="HSeparator" parent="MainLayout/Toolbar"]
+layout_mode = 2
+
+[node name="CopyButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "📋 Copy"
+
+[node name="DeleteButton" type="Button" parent="MainLayout/Toolbar"]
+layout_mode = 2
+text = "🗑️ Delete"
+
+[node name="AddressBar" type="HBoxContainer" parent="MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+
+[node name="PathInput" type="LineEdit" parent="MainLayout/AddressBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Enter path..."
+
+[node name="GoButton" type="Button" parent="MainLayout/AddressBar"]
+layout_mode = 2
+text = "Go"
+
+[node name="RefreshButton" type="Button" parent="MainLayout/AddressBar"]
+layout_mode = 2
+text = "🔄"
+
+[node name="ContentArea" type="HSplitContainer" parent="MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="FileList" type="ItemList" parent="MainLayout/ContentArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="EditorArea" type="VBoxContainer" parent="MainLayout/ContentArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+visible = false
+
+[node name="EditorToolbar" type="HBoxContainer" parent="MainLayout/ContentArea/EditorArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+
+[node name="FileLabel" type="Label" parent="MainLayout/ContentArea/EditorArea/EditorToolbar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "📝 No file open"
+
+[node name="SaveButton" type="Button" parent="MainLayout/ContentArea/EditorArea/EditorToolbar"]
+layout_mode = 2
+text = "💾 Save"
+
+[node name="CloseEditorButton" type="Button" parent="MainLayout/ContentArea/EditorArea/EditorToolbar"]
+layout_mode = 2
+text = "✕ Close"
+
+[node name="TextEdit" type="TextEdit" parent="MainLayout/ContentArea/EditorArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+placeholder_text = "File content will appear here..."
+
+[node name="StatusBar" type="HBoxContainer" parent="MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+
+[node name="StatusLabel" type="Label" parent="MainLayout/StatusBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Ready"
