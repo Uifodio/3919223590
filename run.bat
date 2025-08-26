@@ -125,11 +125,28 @@ if %errorlevel% neq 0 (
 
 %PYTHON_CMD% -m pip install -r requirements.txt >> "%DEBUG_LOG%" 2>&1
 if %errorlevel% neq 0 (
-    call :log "ERROR: Failed to install dependencies"
+    call :log "ERROR: Failed to install dependencies from requirements.txt"
     echo ERROR: Failed to install dependencies
-    echo Check debug log: %DEBUG_LOG%
-    pause
-    exit /b 1
+    echo Trying individual package installation...
+    
+    call :log "Installing packages individually"
+    %PYTHON_CMD% -m pip install PySide6==6.6.1 >> "%DEBUG_LOG%" 2>&1
+    %PYTHON_CMD% -m pip install Pillow==10.1.0 >> "%DEBUG_LOG%" 2>&1
+    %PYTHON_CMD% -m pip install pywin32==306 >> "%DEBUG_LOG%" 2>&1
+    %PYTHON_CMD% -m pip install psutil==5.9.6 >> "%DEBUG_LOG%" 2>&1
+    %PYTHON_CMD% -m pip install pyperclip==1.8.2 >> "%DEBUG_LOG%" 2>&1
+    %PYTHON_CMD% -m pip install send2trash==1.8.3 >> "%DEBUG_LOG%" 2>&1
+    %PYTHON_CMD% -m pip install pyinstaller==6.2.0 >> "%DEBUG_LOG%" 2>&1
+    
+    call :log "Verifying dependencies"
+    %PYTHON_CMD% -c "import PySide6, PIL, psutil, pyperclip, send2trash, win32api, PyInstaller; print('Dependencies OK')" >> "%DEBUG_LOG%" 2>&1
+    if %errorlevel% neq 0 (
+        call :log "ERROR: Dependency verification failed"
+        echo ERROR: Failed to install dependencies
+        echo Check debug log: %DEBUG_LOG%
+        pause
+        exit /b 1
+    )
 )
 
 :: Create necessary directories
