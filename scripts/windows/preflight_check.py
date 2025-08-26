@@ -33,9 +33,19 @@ def try_import(module_name: str):
 def pip_install(package: str) -> bool:
     exe = sys.executable or "python"
     try:
-        subprocess.check_call([exe, "-m", "pip", "install", package], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-        return True
-    except Exception:
+        print(f"Installing {package}...")
+        result = subprocess.run([exe, "-m", "pip", "install", package], 
+                              capture_output=True, text=True, timeout=300)
+        if result.returncode == 0:
+            return True
+        else:
+            print(f"Install failed: {result.stderr}")
+            return False
+    except subprocess.TimeoutExpired:
+        print(f"Install timed out for {package}")
+        return False
+    except Exception as e:
+        print(f"Install error for {package}: {e}")
         return False
 
 
@@ -43,6 +53,7 @@ def main() -> int:
     print("=== Nova Explorer Preflight Check (Windows) ===")
     print(f"Python: {sys.version.split()[0]} ({sys.executable})")
     print(f"Platform: {sys.platform}")
+    print(f"Current directory: {os.getcwd()}")
     print()
 
     missing = []
@@ -58,7 +69,7 @@ def main() -> int:
         print("\nAll dependencies are present.")
         return 0
 
-    print("\nAttempting to auto-install missing packages...")
+    print(f"\nAttempting to auto-install {len(missing)} missing packages...")
     any_installed = False
     for module_name, package in missing:
         ok, _ = try_import(module_name)
