@@ -1,0 +1,27 @@
+<UserControl x:Class="AAAFileManager.SearchPane"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="120" d:DesignWidth="400">
+  <Grid Margin="6">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*"/>
+      <ColumnDefinition Width="*"/>
+      <ColumnDefinition Width="Auto"/>
+    </Grid.ColumnDefinitions>
+    <StackPanel Orientation="Vertical" Margin="0,0,6,0">
+      <TextBlock Text="Name contains:"/>
+      <TextBox x:Name="NameQuery"/>
+    </StackPanel>
+    <StackPanel Orientation="Vertical" Grid.Column="1" Margin="6,0,6,0">
+      <TextBlock Text="Text contains:"/>
+      <TextBox x:Name="ContentQuery"/>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Grid.Column="2" VerticalAlignment="Bottom">
+      <Button Content="Search" Click="Search_Click" Margin="0,0,6,0"/>
+      <Button Content="Cancel" Click="Cancel_Click"/>
+    </StackPanel>
+  </Grid>
+</UserControl>
