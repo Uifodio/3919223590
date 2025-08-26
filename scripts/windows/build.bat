@@ -25,6 +25,10 @@ if %errorlevel% neq 0 (
   exit /b 1
 )
 
+:: Get Python version for DLL handling
+for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYTHON_VERSION=%%i
+echo Python version: %PYTHON_VERSION%
+
 :: Upgrade pip quietly
 python -m pip install --upgrade pip >> "%DEBUG_LOG%" 2>&1
 
@@ -45,22 +49,84 @@ if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 if exist NovaExplorer.spec del /q NovaExplorer.spec
 
-:: Build with PyInstaller (one-folder, windowed)
-echo Building with PyInstaller...
-pyinstaller --noconfirm --clean ^
-  --name "NovaExplorer" ^
-  --windowed ^
-  --icon assets\icon.ico ^
-  --add-data "assets;assets" ^
-  main.py >> "%DEBUG_LOG%" 2>&1
+:: Create PyInstaller spec file for better control
+echo Creating PyInstaller spec file...
+python -c "
+import PyInstaller.__main__
+PyInstaller.__main__.run([
+    '--name=NovaExplorer',
+    '--windowed',
+    '--onedir',
+    '--clean',
+    '--distpath=dist',
+    '--workpath=build',
+    '--specpath=.',
+    '--add-data=assets;assets',
+    '--hidden-import=PySide6.QtCore',
+    '--hidden-import=PySide6.QtWidgets',
+    '--hidden-import=PySide6.QtGui',
+    '--collect-all=PySide6',
+    '--collect-all=shiboken6',
+    'main.py'
+])
+" >> "%DEBUG_LOG%" 2>&1
 
 if %errorlevel% neq 0 (
-  echo Build failed. See %DEBUG_LOG%
-  type "%DEBUG_LOG%" | more
-  pause
-  exit /b 1
+  echo Build failed. Trying alternative method...
+  
+  :: Alternative: Use --onefile instead of --onedir
+  echo Trying onefile build...
+  pyinstaller --noconfirm --clean ^
+    --name "NovaExplorer" ^
+    --onefile ^
+    --windowed ^
+    --icon assets\icon.ico ^
+    --add-data "assets;assets" ^
+    --hidden-import PySide6.QtCore ^
+    --hidden-import PySide6.QtWidgets ^
+    --hidden-import PySide6.QtGui ^
+    --collect-all PySide6 ^
+    --collect-all shiboken6 ^
+    main.py >> "%DEBUG_LOG%" 2>&1
+  
+  if %errorlevel% neq 0 (
+    echo Both build methods failed. See %DEBUG_LOG%
+    type "%DEBUG_LOG%" | more
+    pause
+    exit /b 1
+  )
 )
 
-echo Build complete. Output in dist\NovaExplorer
+:: Check if build was successful
+if not exist "dist\NovaExplorer" (
+  echo Build output not found. Checking for onefile build...
+  if exist "dist\NovaExplorer.exe" (
+    echo Onefile build successful: dist\NovaExplorer.exe
+    
+    :: Create launcher to handle DLL issues
+    echo Creating launcher script...
+    python "scripts\windows\create_launcher.py"
+    if %errorlevel% equ 0 (
+      echo Launcher created: dist\NovaExplorer_Launcher.bat
+      echo Use the launcher to run the application.
+    )
+  ) else (
+    echo Build failed. No output found.
+    pause
+    exit /b 1
+  )
+) else (
+  echo Build successful: dist\NovaExplorer\
+  
+  :: Create launcher for folder build too
+  echo Creating launcher script...
+  python "scripts\windows\create_launcher.py"
+  if %errorlevel% equ 0 (
+    echo Launcher created: dist\NovaExplorer_Launcher.bat
+    echo Use the launcher to run the application.
+  )
+)
+
+echo Build complete.
 pause
 endlocal
