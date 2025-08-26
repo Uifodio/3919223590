@@ -109,22 +109,21 @@ class FileItem(BoxLayout):
         self.background_color = COLORS['panel_bg']
         
         # Selection indicator
-        with self.canvas.before:
-            Color(*COLORS['selection'])
-            self.selection_rect = Rectangle(pos=self.pos, size=self.size)
-        self.selection_rect.opacity = 0
-        
+        self.selection_rect = None
         self.bind(pos=self._update_rect, size=self._update_rect, is_selected=self._update_selection)
         
         self.update_info()
         self._create_widgets()
     
     def _update_rect(self, instance, value):
-        self.selection_rect.pos = instance.pos
-        self.selection_rect.size = instance.size
+        pass  # Canvas operations removed for stability
     
     def _update_selection(self, instance, value):
-        self.selection_rect.opacity = 1 if self.is_selected else 0
+        # Update background color for selection
+        if self.is_selected:
+            self.background_color = COLORS['selection']
+        else:
+            self.background_color = COLORS['panel_bg']
     
     def _create_widgets(self):
         """Create professional widget layout"""
@@ -270,13 +269,17 @@ class FileList(ScrollView):
             
             # Add parent directory option
             if self.current_path != os.path.dirname(self.current_path):
-                parent_item = FileItem(self.current_path)
-                parent_item.name = ".."
-                parent_item.size = "<DIR>"
-                parent_item.modified = ""
-                parent_item.icon_label.text = "📂"
-                parent_item.bind(on_touch_down=self.on_file_touch)
-                self.layout.add_widget(parent_item)
+                # Create a simple button for parent directory
+                parent_btn = Button(
+                    text='📂 ..',
+                    size_hint_y=None,
+                    height=dp(36),
+                    background_color=COLORS['panel_bg'],
+                    color=COLORS['text_primary'],
+                    font_size=dp(12)
+                )
+                parent_btn.bind(on_press=self.go_up)
+                self.layout.add_widget(parent_btn)
             
             # Get files and folders
             items = []
@@ -312,6 +315,8 @@ class FileList(ScrollView):
         for child in self.layout.children:
             if hasattr(child, 'is_selected'):
                 child.is_selected = False
+            elif hasattr(child, 'background_color'):
+                child.background_color = COLORS['panel_bg']
         
         file_item.is_selected = True
         self.selected_files = [file_item.file_path]
@@ -426,10 +431,6 @@ class ToolBar(BoxLayout):
         )
         self.up_btn.bind(on_press=self.go_up)
         
-        # Separator
-        separator = BoxLayout(size_hint_x=None, width=dp(1))
-        separator.background_color = COLORS['border']
-        
         # Action buttons
         self.new_folder_btn = ProfessionalButton(
             text='📁 New Folder',
@@ -467,10 +468,18 @@ class ToolBar(BoxLayout):
         self.add_widget(self.back_btn)
         self.add_widget(self.forward_btn)
         self.add_widget(self.up_btn)
-        self.add_widget(separator)
+        
+        # Add separator using a simple label
+        separator_label = Label(text='|', size_hint_x=None, width=dp(20), color=COLORS['border'])
+        self.add_widget(separator_label)
+        
         self.add_widget(self.new_folder_btn)
         self.add_widget(self.new_file_btn)
-        self.add_widget(separator)
+        
+        # Add another separator
+        separator_label2 = Label(text='|', size_hint_x=None, width=dp(20), color=COLORS['border'])
+        self.add_widget(separator_label2)
+        
         self.add_widget(self.copy_btn)
         self.add_widget(self.delete_btn)
         self.add_widget(Label())  # Spacer
