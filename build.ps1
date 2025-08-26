@@ -1,70 +1,42 @@
-# Windows File Manager Pro - Build Script
-# PowerShell version
+# Windows File Manager Pro (Python + PySide6) - Build Script
+param(
+	[string]$PythonExe = "python"
+)
 
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Windows File Manager Pro - Build Script" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
+$ErrorActionPreference = "Stop"
+$root = Split-Path -Parent $PSCommandPath
+Set-Location $root
 
-# Check Node.js installation
-Write-Host "Checking Node.js installation..." -ForegroundColor Yellow
-try {
-    $nodeVersion = node --version
-    Write-Host "Node.js version: $nodeVersion" -ForegroundColor Green
-} catch {
-    Write-Host "ERROR: Node.js is not installed or not in PATH" -ForegroundColor Red
-    Write-Host "Please install Node.js 18.0.0 or higher from https://nodejs.org/" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
-    exit 1
+function Ensure-Admin {
+	$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+	$principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
+	if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+		Write-Host "Relaunching as Administrator..." -ForegroundColor Yellow
+		$args = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+		Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $args
+		exit
+	}
 }
 
-# Check npm installation
-Write-Host "Checking npm installation..." -ForegroundColor Yellow
-try {
-    $npmVersion = npm --version
-    Write-Host "npm version: $npmVersion" -ForegroundColor Green
-} catch {
-    Write-Host "ERROR: npm is not installed or not in PATH" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
-    exit 1
+Ensure-Admin
+
+# Create venv
+if (-not (Test-Path ".venv")) {
+	& $PythonExe -m venv .venv
 }
 
-Write-Host ""
-Write-Host "Installing dependencies..." -ForegroundColor Yellow
-npm install
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: Failed to install dependencies" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
-    exit 1
-}
+$env:VIRTUAL_ENV = Join-Path $root ".venv"
+$venvPython = Join-Path $env:VIRTUAL_ENV "Scripts/python.exe"
 
-Write-Host ""
-Write-Host "Building React application..." -ForegroundColor Yellow
-npm run build
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: Failed to build React application" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
-    exit 1
-}
+# Upgrade pip and install deps
+& $venvPython -m pip install --upgrade pip
+& $venvPython -m pip install -r requirements.txt
 
-Write-Host ""
-Write-Host "Building Electron application..." -ForegroundColor Yellow
-npm run electron:build
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: Failed to build Electron application" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
-    exit 1
-}
+# Build with PyInstaller (one-folder + console off)
+$dist = Join-Path $root "dist-py"
+if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
 
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "Build completed successfully!" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "The built application is located in:" -ForegroundColor White
-Write-Host "dist-electron/" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "You can now distribute the application." -ForegroundColor White
-Write-Host ""
+& $venvPython -m PyInstaller --noconfirm --noconsole --name "Windows File Manager Pro" --distpath "$dist" --workpath "$dist\build" --specpath "$dist\spec" app/main.py
 
-Read-Host "Press Enter to exit"
+# Open dist folder
+Start-Process explorer.exe $dist
