@@ -5,13 +5,13 @@ Address Bar Widget - Shows current path and allows navigation
 import os
 from pathlib import Path
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QCompleter
-from PySide6.QtCore import Qt, pyqtSignal, QStringListModel
+from PySide6.QtCore import Qt, Signal, QStringListModel
 from PySide6.QtGui import QFont, QKeySequence
 
 class AddressBar(QWidget):
     """Address bar widget for showing and editing current path"""
     
-    path_changed = pyqtSignal(str)  # Signal emitted when path changes
+    path_changed = Signal(str)  # Signal emitted when path changes
     
     def __init__(self):
         super().__init__()

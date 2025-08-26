@@ -9,12 +9,12 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit,
     QPushButton, QLabel, QSplitter, QListWidget, QListWidgetItem,
     QMenu, QMessageBox, QFileDialog, QProgressBar, QStatusBar,
-    QToolBar, QAction, QApplication, QInputDialog
+    QToolBar, QApplication, QInputDialog
 )
-from PySide6.QtCore import Qt, QThread, pyqtSignal, QTimer, QSettings
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSettings
 from PySide6.QtGui import (
     QTextCursor, QFont, QSyntaxHighlighter, QTextCharFormat,
-    QColor, QKeySequence, QIcon, QTextDocument
+    QColor, QKeySequence, QIcon, QTextDocument, QAction
 )
 
 class SyntaxHighlighter(QSyntaxHighlighter):

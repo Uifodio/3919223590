@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QListWidget, QListWidgetItem, QMenu, QMessageBox, QInputDialog,
     QProgressDialog, QApplication
 )
-from PySide6.QtCore import Qt, QThread, pyqtSignal, QMimeData, QTimer, QUrl
+from PySide6.QtCore import Qt, QThread, Signal, QMimeData, QTimer, QUrl
 from PySide6.QtGui import QIcon, QFont, QDrag, QPixmap
 
 class FileListWidget(QListWidget):

@@ -1,0 +1,15 @@
+2025-08-26 16:52:33,550 - __main__ - INFO - === Application Startup ===
+2025-08-26 16:52:33,550 - __main__ - INFO - Python version: 3.13.3 (main, Aug 14 2025, 11:53:40) [GCC 14.2.0]
+2025-08-26 16:52:33,550 - __main__ - INFO - Platform: linux
+2025-08-26 16:52:33,550 - __main__ - INFO - Current directory: /workspace
+2025-08-26 16:52:33,550 - __main__ - INFO - Python path: ['/workspace', '/usr/lib/python313.zip', '/usr/lib/python3.13', '/usr/lib/python3.13/lib-dynload', '/workspace/venv/lib/python3.13/site-packages']
+2025-08-26 16:52:33,550 - __main__ - INFO - Starting application initialization...
+2025-08-26 16:52:33,591 - __main__ - INFO - ✓ PySide6 version: 6.9.2
+2025-08-26 16:52:33,592 - __main__ - INFO - ✓ PIL version: 11.3.0
+2025-08-26 16:52:33,592 - __main__ - ERROR - ✗ win32api missing: No module named 'win32api'
+2025-08-26 16:52:33,601 - __main__ - INFO - ✓ psutil version: 7.0.0
+2025-08-26 16:52:33,601 - __main__ - INFO - ✓ watchdog available
+2025-08-26 16:52:33,603 - __main__ - INFO - ✓ pyperclip available
+2025-08-26 16:52:33,606 - __main__ - INFO - ✓ send2trash available
+2025-08-26 16:52:33,606 - __main__ - ERROR - Missing modules: ['win32api']
+2025-08-26 16:52:33,606 - __main__ - ERROR - Critical dependencies missing. Please install requirements.

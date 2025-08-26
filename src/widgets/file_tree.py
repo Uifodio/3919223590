@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QMenu, QMessageBox
-from PySide6.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtGui import QIcon, QFont
 
 class FileTreeWidget(QTreeWidget):

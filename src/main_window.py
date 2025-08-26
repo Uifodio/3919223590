@@ -8,10 +8,10 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSplitter,
     QMenuBar, QStatusBar, QToolBar, QMessageBox, QFileDialog,
-    QApplication, QMenu, QAction, QShortcut
+    QApplication, QMenu
 )
-from PySide6.QtCore import Qt, QThread, pyqtSignal, QTimer, QSettings
-from PySide6.QtGui import QKeySequence, QIcon, QFont
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSettings
+from PySide6.QtGui import QKeySequence, QIcon, QFont, QAction, QShortcut
 
 from .widgets.file_tree import FileTreeWidget
 from .widgets.file_list import FileListWidget
