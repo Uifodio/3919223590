@@ -1,0 +1,11 @@
+# File Manager Dependencies
+# Core Python libraries (usually included with Python)
+# tkinter - GUI framework
+# os - Operating system interface
+# shutil - High-level file operations
+# datetime - Date and time utilities
+# platform - Platform identification
+# subprocess - Subprocess management
+
+# Optional dependencies for enhanced functionality
+pywin32>=228; sys_platform == "win32"  # Windows API access for drive enumeration
