@@ -404,8 +404,15 @@ class FileListWidget(QListWidget):
             try:
                 if config_manager.get("file_operations.use_recycle_bin", True):
                     # Move to recycle bin
-                    import send2trash
-                    send2trash.send2trash(file_path)
+                    try:
+                        import send2trash
+                        send2trash.send2trash(file_path)
+                    except ImportError:
+                        # Fallback to permanent delete if send2trash not available
+                        if os.path.isfile(file_path):
+                            os.remove(file_path)
+                        elif os.path.isdir(file_path):
+                            shutil.rmtree(file_path)
                 else:
                     # Permanent delete
                     if os.path.isfile(file_path):

@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTextEdit,
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread, pyqtSlot
 from PyQt6.QtGui import (QFont, QFontMetrics, QPainter, QColor, QTextCursor,
                          QKeySequence, QAction, QPixmap, QIcon, QTextCharFormat,
-                         QSyntaxHighlighter, QTextBlockFormat)
+                         QSyntaxHighlighter, QTextBlockFormat, QTextDocument)
 from pygments import highlight
 from pygments.lexers import get_lexer_by_name, TextLexer
 from pygments.formatters import HtmlFormatter

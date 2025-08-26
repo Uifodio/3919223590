@@ -5,12 +5,12 @@ from pathlib import Path
 from typing import List, Optional
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QSplitter, QLineEdit, QPushButton, QLabel, 
-                             QMenuBar, QMenu, QAction, QToolBar, QStatusBar,
+                             QMenuBar, QMenu, QToolBar, QStatusBar,
                              QMessageBox, QFileDialog, QProgressBar, QDialog,
                              QTabWidget, QApplication, QDockWidget, QTextEdit,
                              QListWidget, QListWidgetItem, QInputDialog)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread, pyqtSlot, QSettings
-from PyQt6.QtGui import QFont, QIcon, QPixmap, QKeySequence, QPalette, QColor
+from PyQt6.QtGui import QFont, QIcon, QPixmap, QKeySequence, QPalette, QColor, QAction
 
 from .file_explorer import FileExplorer
 from .code_editor import CodeEditorWindow

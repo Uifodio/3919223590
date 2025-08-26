@@ -1,11 +1,16 @@
 import os
 import subprocess
 import json
-import winreg
 from pathlib import Path
 from typing import List, Dict, Optional
 from PyQt6.QtWidgets import QMessageBox
 import sys
+
+# Import winreg only on Windows
+try:
+    import winreg
+except ImportError:
+    winreg = None
 
 from .utils import config_manager, SystemUtils
 
@@ -48,6 +53,9 @@ class UnityIntegration:
     
     def _set_unity_external_editor(self, unity_path: str, editor_path: str):
         """Set external script editor in Unity registry"""
+        if winreg is None:
+            raise Exception("Registry access not available on this platform")
+            
         try:
             # Unity stores external editor settings in registry
             registry_key = r"SOFTWARE\Unity Technologies\Unity Editor 5.x\External Script Editor"
@@ -187,24 +195,25 @@ class UnityIntegration:
                             })
             
             # Check Unity Editor recent projects
-            registry_key = r"SOFTWARE\Unity Technologies\Unity Editor 5.x\RecentlyUsedProjectPaths"
-            try:
-                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, registry_key) as key:
-                    i = 0
-                    while True:
-                        try:
-                            name, value, _ = winreg.EnumValue(key, i)
-                            if os.path.exists(value):
-                                projects.append({
-                                    'name': os.path.basename(value),
-                                    'path': value,
-                                    'version': ''
-                                })
-                            i += 1
-                        except WindowsError:
-                            break
-            except:
-                pass
+            if winreg is not None:
+                registry_key = r"SOFTWARE\Unity Technologies\Unity Editor 5.x\RecentlyUsedProjectPaths"
+                try:
+                    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, registry_key) as key:
+                        i = 0
+                        while True:
+                            try:
+                                name, value, _ = winreg.EnumValue(key, i)
+                                if os.path.exists(value):
+                                    projects.append({
+                                        'name': os.path.basename(value),
+                                        'path': value,
+                                        'version': ''
+                                    })
+                                i += 1
+                            except WindowsError:
+                                break
+                except:
+                    pass
                 
         except Exception:
             pass

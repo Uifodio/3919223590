@@ -45,6 +45,10 @@ A powerful, modern file manager designed specifically for Unity developers and W
 2. Double-click `setup.bat` (Windows) or run `python quick_start.py`
 3. The script will automatically install dependencies and start the application
 
+#### Option 1b: Launcher (If you encounter issues)
+1. Run `python launcher.py` for a more robust startup with error handling
+2. The launcher will check dependencies and provide helpful error messages
+
 #### Option 2: Manual Setup
 1. Clone this repository:
 ```bash
@@ -164,12 +168,36 @@ The executable will be created in the `dist/` folder.
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🆘 Support
+## 🆘 Support & Troubleshooting
+
+### Common Issues
+
+#### Import Errors
+If you encounter import errors like `ImportError: cannot import name 'QAction'`:
+1. Make sure you have the latest version of the code
+2. Run `python test_imports.py` to check all imports
+3. Try running `python launcher.py` for better error handling
+
+#### Missing Dependencies
+If you get "Missing required dependencies" errors:
+1. Run `pip install -r requirements.txt`
+2. Make sure you have Python 3.8 or higher
+3. Try `python setup.bat` for automatic setup
+
+#### PyInstaller Issues
+If you encounter issues when building the executable:
+1. Make sure PyInstaller is installed: `pip install pyinstaller`
+2. Run `python build.py` for automatic build process
+3. Check that all dependencies are properly installed
+
+### Getting Help
 
 If you encounter any issues or have questions:
 1. Check the documentation
-2. Search existing issues
-3. Create a new issue with detailed information
+2. Run `python test_imports.py` to verify your setup
+3. Try `python launcher.py` for detailed error messages
+4. Search existing issues
+5. Create a new issue with detailed information
 
 ## 🎉 Acknowledgments
 

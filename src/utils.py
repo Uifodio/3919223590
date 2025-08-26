@@ -6,8 +6,13 @@ import platform
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-import winreg
 import psutil
+
+# Import winreg only on Windows
+try:
+    import winreg
+except ImportError:
+    winreg = None
 
 class FileUtils:
     """Utility class for file operations"""
@@ -185,6 +190,9 @@ class SystemUtils:
         """Find Visual Studio installations"""
         vs_paths = []
         
+        if winreg is None:
+            return vs_paths
+        
         # Registry keys for Visual Studio
         registry_keys = [
             r"SOFTWARE\Microsoft\VisualStudio\SxS\VS7",
@@ -211,6 +219,9 @@ class SystemUtils:
     @staticmethod
     def get_default_browser() -> str:
         """Get default browser path"""
+        if winreg is None:
+            return ""
+            
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
                                r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice") as key:
