@@ -263,41 +263,35 @@ class AnoraEditor(wx.Frame):
         self.toolbar.SetBackgroundColour(wx.Colour(45, 45, 48))
         self.toolbar.SetForegroundColour(wx.Colour(212, 212, 212))
         
-        # New file button
-        new_btn = self.toolbar.AddTool(wx.ID_NEW, "New", 
-                                     wx.ArtProvider.GetBitmap(wx.ART_NEW))
-        
-        # Open file button
-        open_btn = self.toolbar.AddTool(wx.ID_OPEN, "Open", 
-                                      wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN))
-        
-        # Save button
-        save_btn = self.toolbar.AddTool(wx.ID_SAVE, "Save", 
-                                      wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE))
+        # New/Open/Save buttons with safe stock art
+        new_btn = self.toolbar.AddTool(wx.ID_NEW, "New",
+                                      wx.ArtProvider.GetBitmap(wx.ART_NEW, wx.ART_TOOLBAR))
+        open_btn = self.toolbar.AddTool(wx.ID_OPEN, "Open",
+                                        wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN, wx.ART_TOOLBAR))
+        save_btn = self.toolbar.AddTool(wx.ID_SAVE, "Save",
+                                        wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE, wx.ART_TOOLBAR))
         
         self.toolbar.AddSeparator()
         
-        # Search button
-        search_btn = self.toolbar.AddTool(wx.ID_FIND, "Find", 
-                                        wx.ArtProvider.GetBitmap(wx.ART_FIND))
-        
-        # Replace button
-        replace_btn = self.toolbar.AddTool(wx.ID_REPLACE, "Replace", 
-                                         wx.ArtProvider.GetBitmap(wx.ART_REPLACE))
+        # Search/Replace buttons with safe art (Replace has no stock art)
+        search_btn = self.toolbar.AddTool(wx.ID_FIND, "Find",
+                                          wx.ArtProvider.GetBitmap(wx.ART_FIND, wx.ART_TOOLBAR))
+        replace_btn = self.toolbar.AddTool(wx.ID_REPLACE, "Replace",
+                                           wx.ArtProvider.GetBitmap(wx.ART_TIP, wx.ART_TOOLBAR))
         
         self.toolbar.AddSeparator()
         
-        # Fullscreen button
-        fullscreen_btn = self.toolbar.AddTool(wx.ID_ANY, "Fullscreen", 
-                                            wx.ArtProvider.GetBitmap(wx.ART_FULL_SCREEN))
+        # Fullscreen button (use GO_UP as generic)
+        fullscreen_btn = self.toolbar.AddTool(wx.ID_ANY, "Fullscreen",
+                                              wx.ArtProvider.GetBitmap(wx.ART_GO_UP, wx.ART_TOOLBAR))
         
         # Always on top button
-        top_btn = self.toolbar.AddTool(wx.ID_ANY, "Always on Top", 
-                                     wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK))
+        top_btn = self.toolbar.AddTool(wx.ID_ANY, "Always on Top",
+                                       wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_TOOLBAR))
         
-        # Pin button
-        pin_btn = self.toolbar.AddTool(wx.ID_ANY, "Pin", 
-                                     wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK))
+        # Pin button (reuse tick mark)
+        pin_btn = self.toolbar.AddTool(wx.ID_ANY, "Pin",
+                                       wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_TOOLBAR))
         
         self.toolbar.Realize()
         
@@ -470,25 +464,45 @@ class AnoraEditor(wx.Frame):
             
     def setup_python_highlighting(self, editor):
         """Set up Python syntax highlighting"""
-        editor.SetLexer(stc.STC_LEX_PYTHON)
+        try:
+            editor.SetLexer(stc.STC_LEX_PYTHON)
+        except Exception:
+            return
         
         # Set styles
-        editor.StyleSetForeground(stc.STC_P_WORD, self.syntax_styles['keyword'][0])
-        editor.StyleSetForeground(stc.STC_P_STRING, self.syntax_styles['string'][0])
-        editor.StyleSetForeground(stc.STC_P_COMMENTLINE, self.syntax_styles['comment'][0])
-        editor.StyleSetForeground(stc.STC_P_NUMBER, self.syntax_styles['number'][0])
-        editor.StyleSetForeground(stc.STC_P_OPERATOR, self.syntax_styles['operator'][0])
+        for sid, key in [
+            (getattr(stc, 'STC_P_WORD', None), 'keyword'),
+            (getattr(stc, 'STC_P_STRING', None), 'string'),
+            (getattr(stc, 'STC_P_COMMENTLINE', None), 'comment'),
+            (getattr(stc, 'STC_P_NUMBER', None), 'number'),
+            (getattr(stc, 'STC_P_OPERATOR', None), 'operator'),
+        ]:
+            if sid is not None:
+                try:
+                    editor.StyleSetForeground(sid, self.syntax_styles[key][0])
+                except Exception:
+                    pass
         
     def setup_csharp_highlighting(self, editor):
         """Set up C# syntax highlighting"""
-        editor.SetLexer(stc.STC_LEX_CPP)
+        try:
+            editor.SetLexer(stc.STC_LEX_CPP)
+        except Exception:
+            return
         
         # Set styles
-        editor.StyleSetForeground(stc.STC_C_WORD, self.syntax_styles['keyword'][0])
-        editor.StyleSetForeground(stc.STC_C_STRING, self.syntax_styles['string'][0])
-        editor.StyleSetForeground(stc.STC_C_COMMENTLINE, self.syntax_styles['comment'][0])
-        editor.StyleSetForeground(stc.STC_C_NUMBER, self.syntax_styles['number'][0])
-        editor.StyleSetForeground(stc.STC_C_OPERATOR, self.syntax_styles['operator'][0])
+        for sid, key in [
+            (getattr(stc, 'STC_C_WORD', None), 'keyword'),
+            (getattr(stc, 'STC_C_STRING', None), 'string'),
+            (getattr(stc, 'STC_C_COMMENTLINE', None), 'comment'),
+            (getattr(stc, 'STC_C_NUMBER', None), 'number'),
+            (getattr(stc, 'STC_C_OPERATOR', None), 'operator'),
+        ]:
+            if sid is not None:
+                try:
+                    editor.StyleSetForeground(sid, self.syntax_styles[key][0])
+                except Exception:
+                    pass
         
     def setup_javascript_highlighting(self, editor):
         """Set up JavaScript syntax highlighting"""
@@ -503,54 +517,104 @@ class AnoraEditor(wx.Frame):
         
     def setup_html_highlighting(self, editor):
         """Set up HTML syntax highlighting"""
-        editor.SetLexer(stc.STC_LEX_HTML)
+        try:
+            editor.SetLexer(stc.STC_LEX_HTML)
+        except Exception:
+            return
         
         # Set styles
-        editor.StyleSetForeground(stc.STC_H_TAG, self.syntax_styles['keyword'][0])
-        editor.StyleSetForeground(stc.STC_H_ATTRIBUTE, self.syntax_styles['function'][0])
-        editor.StyleSetForeground(stc.STC_H_VALUE, self.syntax_styles['string'][0])
-        editor.StyleSetForeground(stc.STC_H_COMMENT, self.syntax_styles['comment'][0])
+        for sid, key in [
+            (getattr(stc, 'STC_H_TAG', None), 'keyword'),
+            (getattr(stc, 'STC_H_ATTRIBUTE', None), 'function'),
+            (getattr(stc, 'STC_H_VALUE', None), 'string'),
+            (getattr(stc, 'STC_H_COMMENT', None), 'comment'),
+        ]:
+            if sid is not None:
+                try:
+                    editor.StyleSetForeground(sid, self.syntax_styles[key][0])
+                except Exception:
+                    pass
         
     def setup_css_highlighting(self, editor):
         """Set up CSS syntax highlighting"""
-        editor.SetLexer(stc.STC_LEX_CSS)
+        try:
+            editor.SetLexer(stc.STC_LEX_CSS)
+        except Exception:
+            return
         
         # Set styles
-        editor.StyleSetForeground(stc.STC_CSS_TAG, self.syntax_styles['keyword'][0])
-        editor.StyleSetForeground(stc.STC_CSS_CLASS, self.syntax_styles['function'][0])
-        editor.StyleSetForeground(stc.STC_CSS_VALUE, self.syntax_styles['string'][0])
-        editor.StyleSetForeground(stc.STC_CSS_COMMENT, self.syntax_styles['comment'][0])
+        for sid, key in [
+            (getattr(stc, 'STC_CSS_TAG', None), 'keyword'),
+            (getattr(stc, 'STC_CSS_CLASS', None), 'function'),
+            (getattr(stc, 'STC_CSS_VALUE', None), 'string'),
+            (getattr(stc, 'STC_CSS_COMMENT', None), 'comment'),
+        ]:
+            if sid is not None:
+                try:
+                    editor.StyleSetForeground(sid, self.syntax_styles[key][0])
+                except Exception:
+                    pass
         
     def setup_json_highlighting(self, editor):
         """Set up JSON syntax highlighting"""
-        editor.SetLexer(stc.STC_LEX_JSON)
+        try:
+            editor.SetLexer(stc.STC_LEX_JSON)
+        except Exception:
+            return
         
         # Set styles
-        editor.StyleSetForeground(stc.STC_JSON_KEYWORD, self.syntax_styles['keyword'][0])
-        editor.StyleSetForeground(stc.STC_JSON_STRING, self.syntax_styles['string'][0])
-        editor.StyleSetForeground(stc.STC_JSON_NUMBER, self.syntax_styles['number'][0])
-        editor.StyleSetForeground(stc.STC_JSON_OPERATOR, self.syntax_styles['operator'][0])
+        for sid, key in [
+            (getattr(stc, 'STC_JSON_KEYWORD', None), 'keyword'),
+            (getattr(stc, 'STC_JSON_STRING', None), 'string'),
+            (getattr(stc, 'STC_JSON_NUMBER', None), 'number'),
+            (getattr(stc, 'STC_JSON_OPERATOR', None), 'operator'),
+        ]:
+            if sid is not None:
+                try:
+                    editor.StyleSetForeground(sid, self.syntax_styles[key][0])
+                except Exception:
+                    pass
         
     def setup_xml_highlighting(self, editor):
         """Set up XML syntax highlighting"""
-        editor.SetLexer(stc.STC_LEX_XML)
+        try:
+            editor.SetLexer(stc.STC_LEX_XML)
+        except Exception:
+            return
         
         # Set styles
-        editor.StyleSetForeground(stc.STC_H_TAG, self.syntax_styles['keyword'][0])
-        editor.StyleSetForeground(stc.STC_H_ATTRIBUTE, self.syntax_styles['function'][0])
-        editor.StyleSetForeground(stc.STC_H_VALUE, self.syntax_styles['string'][0])
-        editor.StyleSetForeground(stc.STC_H_COMMENT, self.syntax_styles['comment'][0])
+        for sid, key in [
+            (getattr(stc, 'STC_H_TAG', None), 'keyword'),
+            (getattr(stc, 'STC_H_ATTRIBUTE', None), 'function'),
+            (getattr(stc, 'STC_H_VALUE', None), 'string'),
+            (getattr(stc, 'STC_H_COMMENT', None), 'comment'),
+        ]:
+            if sid is not None:
+                try:
+                    editor.StyleSetForeground(sid, self.syntax_styles[key][0])
+                except Exception:
+                    pass
         
     def setup_cpp_highlighting(self, editor):
         """Set up C++ syntax highlighting"""
-        editor.SetLexer(stc.STC_LEX_CPP)
+        try:
+            editor.SetLexer(stc.STC_LEX_CPP)
+        except Exception:
+            return
         
         # Set styles
-        editor.StyleSetForeground(stc.STC_C_WORD, self.syntax_styles['keyword'][0])
-        editor.StyleSetForeground(stc.STC_C_STRING, self.syntax_styles['string'][0])
-        editor.StyleSetForeground(stc.STC_C_COMMENTLINE, self.syntax_styles['comment'][0])
-        editor.StyleSetForeground(stc.STC_C_NUMBER, self.syntax_styles['number'][0])
-        editor.StyleSetForeground(stc.STC_C_OPERATOR, self.syntax_styles['operator'][0])
+        for sid, key in [
+            (getattr(stc, 'STC_C_WORD', None), 'keyword'),
+            (getattr(stc, 'STC_C_STRING', None), 'string'),
+            (getattr(stc, 'STC_C_COMMENTLINE', None), 'comment'),
+            (getattr(stc, 'STC_C_NUMBER', None), 'number'),
+            (getattr(stc, 'STC_C_OPERATOR', None), 'operator'),
+        ]:
+            if sid is not None:
+                try:
+                    editor.StyleSetForeground(sid, self.syntax_styles[key][0])
+                except Exception:
+                    pass
         
     def setup_generic_highlighting(self, editor):
         """Set up generic syntax highlighting"""
@@ -566,7 +630,13 @@ class AnoraEditor(wx.Frame):
         """Set up professional window behavior"""
         # Set window properties
         self.SetTitle("Anora Editor - Professional Code Editor")
-        self.SetIcon(wx.ArtProvider.GetIcon(wx.ART_FRAME_ICON))
+        try:
+            # Use a safe stock icon; ART_FRAME_ICON may not exist on some builds
+            icon = wx.ArtProvider.GetIcon(wx.ART_INFORMATION, wx.ART_FRAME_ICON, (32, 32))
+            if icon.IsOk():
+                self.SetIcon(icon)
+        except Exception:
+            pass
         
         # Enable professional window hints
         try:
