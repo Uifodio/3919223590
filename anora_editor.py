@@ -279,21 +279,13 @@ class AnoraEditor:
         text_frame = tk.Frame(tab_frame, bg=self.colors['bg'])
         text_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Line numbers with scrollbar
-        line_frame = tk.Frame(text_frame, bg=self.colors['bg'])
-        line_frame.pack(side=tk.LEFT, fill=tk.Y)
-        
-        self.line_numbers = tk.Text(line_frame, width=6, padx=6, takefocus=0,
+        # Line numbers - NO separate scrollbar
+        self.line_numbers = tk.Text(text_frame, width=6, padx=6, takefocus=0,
                                    border=0, background=self.colors['tab_bg'],
                                    foreground=self.colors['tab_fg'],
                                    state='disabled', font=('Consolas', 10),
                                    wrap=tk.NONE)
         self.line_numbers.pack(side=tk.LEFT, fill=tk.Y)
-        
-        # Add scrollbar to line numbers
-        line_scrollbar = tk.Scrollbar(line_frame, orient=tk.VERTICAL, command=self.line_numbers.yview)
-        line_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.line_numbers.configure(yscrollcommand=line_scrollbar.set)
         
         # Main text editor
         text_widget = scrolledtext.ScrolledText(
@@ -309,37 +301,14 @@ class AnoraEditor:
         )
         text_widget.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-        # BULLETPROOF line number synchronization
+        # PERFECT line number sync - they move together
         def sync_scroll(*args):
-            # Update text widget scroll
+            # Both widgets scroll together
             text_widget.yview(*args)
-            # Force line numbers to exact same position
-            try:
-                self.line_numbers.yview_moveto(text_widget.yview()[0])
-            except Exception:
-                pass
+            self.line_numbers.yview(*args)
         
-        # Configure scrollbar to sync both widgets
+        # Configure main scrollbar to control both
         text_widget.configure(yscrollcommand=sync_scroll)
-        # Line numbers scrollbar is handled separately to avoid conflicts
-        
-        # Comprehensive event binding for all scroll scenarios
-        def force_sync(*args):
-            try:
-                self.line_numbers.yview_moveto(text_widget.yview()[0])
-            except Exception:
-                pass
-        
-        # Bind to all possible scroll events
-        text_widget.bind('<Configure>', force_sync)
-        text_widget.bind('<KeyRelease>', force_sync)
-        text_widget.bind('<ButtonRelease-1>', force_sync)
-        text_widget.bind('<MouseWheel>', force_sync)
-        text_widget.bind('<Button-4>', force_sync)
-        text_widget.bind('<Button-5>', force_sync)
-        text_widget.bind('<Key>', force_sync)
-        text_widget.bind('<Button-1>', force_sync)
-        text_widget.bind('<B1-Motion>', force_sync)
         
         # Configure tags for syntax highlighting
         text_widget.tag_configure("keyword", foreground="#569cd6")
@@ -389,6 +358,9 @@ class AnoraEditor:
             self.update_bracket_match()
             self.update_line_numbers()
         text_widget.bind('<KeyRelease>', on_text_change)
+        
+        # Highlight syntax when scrolling to new areas
+        text_widget.bind('<Configure>', lambda e: self.root.after(100, self.highlight_syntax))
 
         # Context menu
         context_menu = tk.Menu(text_widget, tearoff=0, bg=self.colors['menu_bg'], fg=self.colors['menu_fg'])
@@ -449,8 +421,8 @@ class AnoraEditor:
             tab = self.tabs[self.current_tab]
             tab['modified'] = True
             self.update_tab_title()
-            # Immediate syntax highlighting for responsiveness
-            self.highlight_syntax()
+            # Delayed syntax highlighting for performance
+            self.root.after(200, self.highlight_syntax)
             self.schedule_session_save()
             
     def update_tab_title(self):
@@ -517,64 +489,58 @@ class AnoraEditor:
                 }
                 tab['syntax'] = syntax_map.get(ext, 'text')
             
-            # Apply syntax highlighting
-            content = text_widget.get("1.0", tk.END)
+            # FAST syntax highlighting - only visible lines
             try:
+                # Get visible line range
+                first_visible = text_widget.index("@0,0")
+                last_visible = text_widget.index("@0,%d" % text_widget.winfo_height())
+                
+                start_line = int(first_visible.split('.')[0])
+                end_line = int(last_visible.split('.')[0]) + 5  # Buffer
+                
+                # Get content for visible lines only
+                start_idx = f"{start_line}.0"
+                end_idx = f"{end_line}.0"
+                visible_content = text_widget.get(start_idx, end_idx)
+                
+                if not visible_content.strip():
+                    return
+                
                 lexer = get_lexer_by_name(tab['syntax'])
-                tokens = list(lexer.get_tokens(content))
+                tokens = list(lexer.get_tokens(visible_content))
 
-                # Clear existing tags
+                # Clear tags only for visible area
                 for tag in ["keyword", "string", "comment", "number", "function"]:
-                    text_widget.tag_remove(tag, "1.0", tk.END)
+                    text_widget.tag_remove(tag, start_idx, end_idx)
 
-                # Pre-compute line start offsets for fast conversion
-                raw = content
-                line_starts = [0]
-                for i, ch in enumerate(raw):
-                    if ch == '\n':
-                        line_starts.append(i + 1)
-
-                def offset_to_index(offset: int) -> str:
-                    # Binary search for line
-                    lo, hi = 0, len(line_starts) - 1
-                    while lo <= hi:
-                        mid = (lo + hi) // 2
-                        if line_starts[mid] <= offset:
-                            lo = mid + 1
-                        else:
-                            hi = mid - 1
-                    line = hi
-                    col = offset - line_starts[line]
-                    # Tk indices are 1-based lines and 0-based columns
-                    return f"{line + 1}.{col}"
-
-                def should_tag(tt) -> Optional[str]:
-                    # Map pygments token types to our tags
-                    if tt in Token.Keyword or tt in Token.Name.Builtin:
-                        return "keyword"
-                    if tt in Token.String:
-                        return "string"
-                    if tt in Token.Comment:
-                        return "comment"
-                    if tt in Token.Literal.Number:
-                        return "number"
-                    if tt in Token.Name.Function:
-                        return "function"
-                    return None
-
-                # Walk tokens and tag precise ranges
-                offset = 0
+                # Simple token processing - no complex offset calculations
+                current_pos = start_idx
                 for tt, val in tokens:
-                    length = len(val)
-                    tag_name = should_tag(tt)
-                    if tag_name and length > 0:
-                        start_idx = offset_to_index(offset)
-                        end_idx = offset_to_index(offset + length)
-                        try:
-                            text_widget.tag_add(tag_name, start_idx, end_idx)
-                        except Exception:
-                            pass
-                    offset += length
+                    if val.strip():  # Only highlight non-whitespace
+                        tag_name = None
+                        if tt in Token.Keyword or tt in Token.Name.Builtin:
+                            tag_name = "keyword"
+                        elif tt in Token.String:
+                            tag_name = "string"
+                        elif tt in Token.Comment:
+                            tag_name = "comment"
+                        elif tt in Token.Literal.Number:
+                            tag_name = "number"
+                        elif tt in Token.Name.Function:
+                            tag_name = "function"
+                        
+                        if tag_name:
+                            try:
+                                end_pos = text_widget.index(f"{current_pos} + {len(val)}c")
+                                text_widget.tag_add(tag_name, current_pos, end_pos)
+                            except Exception:
+                                pass
+                    
+                    # Move position
+                    try:
+                        current_pos = text_widget.index(f"{current_pos} + {len(val)}c")
+                    except Exception:
+                        break
 
             except Exception:
                 pass  # Ignore highlighting errors
