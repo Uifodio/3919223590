@@ -14,9 +14,20 @@ from typing import Dict, List, Optional
 import threading
 import time
 
+# Try to import drag and drop support
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD
+    DRAG_DROP_AVAILABLE = True
+except ImportError:
+    DRAG_DROP_AVAILABLE = False
+
 class AnoraEditor:
     def __init__(self):
-        self.root = tk.Tk()
+        # Initialize root window with drag and drop support if available
+        if DRAG_DROP_AVAILABLE:
+            self.root = TkinterDnD.Tk()
+        else:
+            self.root = tk.Tk()
         self.root.title("Anora Editor - Professional Code Editor for Unity")
         self.root.geometry("800x600")
         self.root.minsize(400, 300)
@@ -403,30 +414,38 @@ class AnoraEditor:
         self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
         
     def setup_drag_drop(self):
-        # Enable drag and drop for the main window
-        self.root.drop_target_register('DND_Files')
-        self.root.dnd_bind('<<Drop>>', self.on_drop)
-        
-        # Enable drag and drop for the notebook (tab area)
-        self.notebook.drop_target_register('DND_Files')
-        self.notebook.dnd_bind('<<Drop>>', self.on_drop)
+        # Professional drag and drop implementation
+        if not DRAG_DROP_AVAILABLE:
+            return
+            
+        try:
+            # Enable drag and drop for the main window
+            self.root.drop_target_register(DND_FILES)
+            self.root.dnd_bind('<<Drop>>', self.on_drop)
+            
+            # Enable drag and drop for the notebook (tab area)
+            self.notebook.drop_target_register(DND_FILES)
+            self.notebook.dnd_bind('<<Drop>>', self.on_drop)
+        except Exception as e:
+            print(f"Drag and drop setup failed: {e}")
         
     def on_drop(self, event):
-        # Handle dropped files
+        # Professional file drop handling
         try:
             files = event.data
             if isinstance(files, str):
                 files = [files]
             
             for file_path in files:
-                # Remove any extra quotes or brackets
-                file_path = file_path.strip('{}').strip('"')
+                # Clean Windows file path
+                file_path = file_path.strip('{}').strip('"').strip("'")
                 if os.path.exists(file_path):
                     self.create_new_tab(file_path)
                     self.add_recent_file(file_path)
                     self.schedule_session_save()
+                    self.update_status(f"Opened: {os.path.basename(file_path)}")
         except Exception as e:
-            print(f"Drop error: {e}")
+            self.update_status(f"Drop error: {str(e)}")
                 
     def on_tab_changed(self, event):
         if self.tabs:
