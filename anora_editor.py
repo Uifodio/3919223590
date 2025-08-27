@@ -4,12 +4,16 @@ from tkinter import font as tkfont
 import os
 import sys
 from pygments import highlight
-from pygments.lexers import get_lexer_by_name, TextLexer
+from pygments.lexers import get_lexer_by_name, TextLexer, get_lexer_for_filename
 from pygments.formatters import HtmlFormatter
+from pygments.styles import get_style_by_name
 import re
 from typing import Dict, List, Optional
 import threading
 import time
+import json
+import pickle
+from datetime import datetime
 
 class AnoraEditor:
     def __init__(self):
@@ -47,6 +51,16 @@ class AnoraEditor:
         self.replace_var = tk.StringVar()
         self.search_results = []
         self.current_search_index = 0
+        
+        # Enhanced features
+        self.undo_history = {}  # Tab-based undo history
+        self.redo_history = {}  # Tab-based redo history
+        self.recent_files = []
+        self.settings = self.load_settings()
+        self.file_associations = self.load_file_associations()
+        
+        # Drag and drop support
+        self.drag_drop_enabled = True
         
         self.setup_ui()
         self.setup_bindings()
@@ -124,6 +138,21 @@ class AnoraEditor:
         menubar.add_cascade(label="Window", menu=window_menu)
         window_menu.add_command(label="New Tab", command=self.create_new_tab, accelerator="Ctrl+T")
         window_menu.add_command(label="Close Tab", command=self.close_current_tab, accelerator="Ctrl+W")
+        window_menu.add_command(label="Close All Tabs", command=self.close_all_tabs)
+        window_menu.add_separator()
+        window_menu.add_command(label="Next Tab", command=self.next_tab, accelerator="Ctrl+Tab")
+        window_menu.add_command(label="Previous Tab", command=self.previous_tab, accelerator="Ctrl+Shift+Tab")
+        
+        # Tools menu
+        tools_menu = tk.Menu(menubar, tearoff=0, bg=self.colors['menu_bg'], fg=self.colors['menu_fg'])
+        menubar.add_cascade(label="Tools", menu=tools_menu)
+        tools_menu.add_command(label="Settings", command=self.show_settings)
+        tools_menu.add_command(label="File Associations", command=self.show_file_associations)
+        tools_menu.add_separator()
+        tools_menu.add_command(label="Format Code", command=self.format_code)
+        tools_menu.add_command(label="Comment/Uncomment", command=self.toggle_comment, accelerator="Ctrl+/")
+        tools_menu.add_command(label="Duplicate Line", command=self.duplicate_line, accelerator="Ctrl+D")
+        tools_menu.add_command(label="Delete Line", command=self.delete_line, accelerator="Ctrl+L")
         
     def create_toolbar(self):
         toolbar = tk.Frame(self.root, bg=self.colors['bg'], height=40)
@@ -210,6 +239,11 @@ class AnoraEditor:
                                relief=tk.FLAT, padx=10)
         replace_btn.pack(side=tk.LEFT, padx=2)
         
+        skip_btn = tk.Button(self.search_frame, text="Skip", command=self.skip_current,
+                            bg=self.colors['button_bg'], fg=self.colors['button_fg'],
+                            relief=tk.FLAT, padx=10)
+        skip_btn.pack(side=tk.LEFT, padx=2)
+        
         replace_all_btn = tk.Button(self.search_frame, text="Replace All", command=self.replace_all,
                                    bg=self.colors['button_bg'], fg=self.colors['button_fg'],
                                    relief=tk.FLAT, padx=10)
@@ -265,12 +299,24 @@ class AnoraEditor:
         )
         text_widget.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
         
-        # Configure tags for syntax highlighting
-        text_widget.tag_configure("keyword", foreground="#569cd6")
-        text_widget.tag_configure("string", foreground="#ce9178")
-        text_widget.tag_configure("comment", foreground="#6a9955")
-        text_widget.tag_configure("number", foreground="#b5cea8")
-        text_widget.tag_configure("function", foreground="#dcdcaa")
+        # Configure tags for enhanced syntax highlighting
+        text_widget.tag_configure("keyword", foreground="#569cd6", font=('Consolas', 10, 'bold'))
+        text_widget.tag_configure("string", foreground="#ce9178", font=('Consolas', 10))
+        text_widget.tag_configure("comment", foreground="#6a9955", font=('Consolas', 10, 'italic'))
+        text_widget.tag_configure("number", foreground="#b5cea8", font=('Consolas', 10))
+        text_widget.tag_configure("function", foreground="#dcdcaa", font=('Consolas', 10, 'bold'))
+        text_widget.tag_configure("class", foreground="#4ec9b0", font=('Consolas', 10, 'bold'))
+        text_widget.tag_configure("operator", foreground="#d4d4d4", font=('Consolas', 10))
+        text_widget.tag_configure("variable", foreground="#9cdcfe", font=('Consolas', 10))
+        text_widget.tag_configure("constant", foreground="#4fc1ff", font=('Consolas', 10))
+        text_widget.tag_configure("type", foreground="#4ec9b0", font=('Consolas', 10))
+        text_widget.tag_configure("decorator", foreground="#dcdcaa", font=('Consolas', 10))
+        text_widget.tag_configure("error", foreground="#f44747", font=('Consolas', 10))
+        text_widget.tag_configure("warning", foreground="#ffcc02", font=('Consolas', 10))
+        
+        # Search highlighting tags
+        text_widget.tag_configure("search", background="#ffff00", foreground="#000000")
+        text_widget.tag_configure("current_search", background="#00ff00", foreground="#000000")
         
         # Tab data
         tab_data = {
@@ -296,6 +342,21 @@ class AnoraEditor:
         text_widget.bind('<Button-1>', self.update_line_numbers)
         text_widget.bind('<Key>', self.update_line_numbers)
         text_widget.bind('<MouseWheel>', self.update_line_numbers)
+        text_widget.bind('<Control-z>', self.undo)
+        text_widget.bind('<Control-y>', self.redo)
+        text_widget.bind('<Control-d>', self.duplicate_line)
+        text_widget.bind('<Control-l>', self.delete_line)
+        text_widget.bind('<Control-slash>', self.toggle_comment)
+        text_widget.bind('<Control-Tab>', self.next_tab)
+        text_widget.bind('<Control-Shift-Tab>', self.previous_tab)
+        
+        # Drag and drop bindings (if available)
+        try:
+            text_widget.drop_target_register('DND_Files')
+            text_widget.dnd_bind('<<Drop>>', self.on_drop)
+        except:
+            # Drag and drop not available, skip
+            pass
         
         # Load file if provided
         if file_path:
@@ -318,13 +379,40 @@ class AnoraEditor:
         self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
         
     def setup_drag_drop(self):
-        # Drag and drop functionality will be implemented with native tkinter
-        # For now, we'll use file dialogs for opening files
-        pass
+        # Enable drag and drop for the main window (if available)
+        try:
+            self.root.drop_target_register('DND_Files')
+            self.root.dnd_bind('<<Drop>>', self.on_drop)
+        except:
+            # Drag and drop not available, disable feature
+            self.drag_drop_enabled = False
         
     def on_drop(self, event):
-        # Placeholder for drag and drop functionality
-        pass
+        """Handle file drops on the editor"""
+        if not self.drag_drop_enabled:
+            return
+            
+        files = event.data
+        if isinstance(files, str):
+            files = [files]
+        
+        for file_path in files:
+            if os.path.isfile(file_path):
+                # Check if file is already open
+                existing_tab = self.find_tab_by_path(file_path)
+                if existing_tab is not None:
+                    # Switch to existing tab
+                    self.notebook.select(existing_tab)
+                else:
+                    # Create new tab
+                    self.create_new_tab(file_path)
+                    
+    def find_tab_by_path(self, file_path):
+        """Find tab index by file path"""
+        for i, tab in enumerate(self.tabs):
+            if tab['file_path'] == file_path:
+                return i
+        return None
                 
     def on_tab_changed(self, event):
         if self.tabs:
@@ -376,45 +464,87 @@ class AnoraEditor:
             
             # Determine syntax based on file extension
             if tab['file_path']:
-                ext = os.path.splitext(tab['file_path'])[1].lower()
-                syntax_map = {
-                    '.py': 'python',
-                    '.js': 'javascript',
-                    '.cs': 'csharp',
-                    '.cpp': 'cpp',
-                    '.c': 'c',
-                    '.h': 'cpp',
-                    '.html': 'html',
-                    '.css': 'css',
-                    '.json': 'json',
-                    '.xml': 'xml'
-                }
-                tab['syntax'] = syntax_map.get(ext, 'text')
+                try:
+                    lexer = get_lexer_for_filename(tab['file_path'])
+                    tab['syntax'] = lexer.name
+                except:
+                    ext = os.path.splitext(tab['file_path'])[1].lower()
+                    syntax_map = {
+                        '.py': 'python',
+                        '.js': 'javascript',
+                        '.cs': 'csharp',
+                        '.cpp': 'cpp',
+                        '.c': 'c',
+                        '.h': 'cpp',
+                        '.html': 'html',
+                        '.css': 'css',
+                        '.json': 'json',
+                        '.xml': 'xml',
+                        '.sh': 'bash',
+                        '.bat': 'batch',
+                        '.ps1': 'powershell',
+                        '.php': 'php',
+                        '.rb': 'ruby',
+                        '.java': 'java',
+                        '.kt': 'kotlin',
+                        '.swift': 'swift',
+                        '.go': 'go',
+                        '.rs': 'rust',
+                        '.sql': 'sql',
+                        '.md': 'markdown',
+                        '.yml': 'yaml',
+                        '.yaml': 'yaml',
+                        '.toml': 'toml',
+                        '.ini': 'ini',
+                        '.cfg': 'ini',
+                        '.conf': 'ini'
+                    }
+                    tab['syntax'] = syntax_map.get(ext, 'text')
             
-            # Apply syntax highlighting
+            # Apply enhanced syntax highlighting
             content = text_widget.get("1.0", tk.END)
             try:
                 lexer = get_lexer_by_name(tab['syntax'])
                 tokens = lexer.get_tokens(content)
                 
                 # Clear existing tags
-                for tag in ["keyword", "string", "comment", "number", "function"]:
+                tags_to_clear = ["keyword", "string", "comment", "number", "function", 
+                               "class", "operator", "variable", "constant", "type", 
+                               "decorator", "error", "warning"]
+                for tag in tags_to_clear:
                     text_widget.tag_remove(tag, "1.0", tk.END)
                 
-                # Apply highlighting
+                # Apply enhanced highlighting
                 for token_type, value in tokens:
                     if token_type in ['Keyword', 'Name.Builtin']:
                         text_widget.tag_add("keyword", "1.0", tk.END)
-                    elif token_type in ['String', 'String.Single', 'String.Double']:
+                    elif token_type in ['String', 'String.Single', 'String.Double', 'String.Triple']:
                         text_widget.tag_add("string", "1.0", tk.END)
                     elif token_type in ['Comment', 'Comment.Single', 'Comment.Multiline']:
                         text_widget.tag_add("comment", "1.0", tk.END)
-                    elif token_type in ['Literal.Number']:
+                    elif token_type in ['Literal.Number', 'Literal.Number.Integer', 'Literal.Number.Float']:
                         text_widget.tag_add("number", "1.0", tk.END)
-                    elif token_type in ['Name.Function']:
+                    elif token_type in ['Name.Function', 'Name.Function.Magic']:
                         text_widget.tag_add("function", "1.0", tk.END)
+                    elif token_type in ['Name.Class']:
+                        text_widget.tag_add("class", "1.0", tk.END)
+                    elif token_type in ['Operator', 'Punctuation']:
+                        text_widget.tag_add("operator", "1.0", tk.END)
+                    elif token_type in ['Name.Variable', 'Name.Variable.Instance']:
+                        text_widget.tag_add("variable", "1.0", tk.END)
+                    elif token_type in ['Name.Constant']:
+                        text_widget.tag_add("constant", "1.0", tk.END)
+                    elif token_type in ['Name.Builtin.Type', 'Name.Type']:
+                        text_widget.tag_add("type", "1.0", tk.END)
+                    elif token_type in ['Name.Decorator']:
+                        text_widget.tag_add("decorator", "1.0", tk.END)
+                    elif token_type in ['Generic.Error']:
+                        text_widget.tag_add("error", "1.0", tk.END)
+                    elif token_type in ['Generic.Warning']:
+                        text_widget.tag_add("warning", "1.0", tk.END)
                         
-            except Exception:
+            except Exception as e:
+                print(f"Syntax highlighting error: {e}")
                 pass  # Ignore highlighting errors
                 
     def open_file(self):
@@ -515,6 +645,51 @@ class AnoraEditor:
             else:
                 self.create_new_tab()
                 
+    def close_all_tabs(self):
+        """Close all tabs with save prompts"""
+        if not self.tabs:
+            return
+            
+        # Check for modified tabs
+        modified_tabs = []
+        for i, tab in enumerate(self.tabs):
+            if tab['modified']:
+                modified_tabs.append(i)
+        
+        if modified_tabs:
+            result = messagebox.askyesnocancel("Save Changes", 
+                                             f"Do you want to save changes to {len(modified_tabs)} modified file(s)?")
+            if result is None:  # Cancel
+                return
+            elif result:  # Yes
+                for i in modified_tabs:
+                    self.current_tab = i
+                    self.notebook.select(i)
+                    self.save_file()
+        
+        # Close all tabs
+        for _ in range(len(self.tabs)):
+            self.notebook.forget(0)
+        self.tabs.clear()
+        self.current_tab = None
+        
+        # Create new tab
+        self.create_new_tab()
+        
+    def next_tab(self, event=None):
+        """Switch to next tab"""
+        if self.tabs and len(self.tabs) > 1:
+            next_index = (self.current_tab + 1) % len(self.tabs)
+            self.notebook.select(next_index)
+            self.current_tab = next_index
+            
+    def previous_tab(self, event=None):
+        """Switch to previous tab"""
+        if self.tabs and len(self.tabs) > 1:
+            prev_index = (self.current_tab - 1) % len(self.tabs)
+            self.notebook.select(prev_index)
+            self.current_tab = prev_index
+                
     def show_search(self):
         self.search_frame.pack(fill=tk.X, padx=5, pady=2)
         self.search_entry.focus()
@@ -535,6 +710,7 @@ class AnoraEditor:
                 
                 # Clear previous highlights
                 text_widget.tag_remove("search", "1.0", tk.END)
+                text_widget.tag_remove("current_search", "1.0", tk.END)
                 
                 # Find all occurrences
                 self.search_results = []
@@ -549,12 +725,12 @@ class AnoraEditor:
                     start = end
                     
                 # Highlight search results
-                text_widget.tag_config("search", background="yellow", foreground="black")
+                text_widget.tag_config("search", background="#ffff00", foreground="#000000")
                 
                 if self.search_results:
                     self.current_search_index = 0
                     self.goto_search_result()
-                    self.update_status(f"Found {len(self.search_results)} matches")
+                    self.update_status(f"Found {len(self.search_results)} matches (1 of {len(self.search_results)})")
                 else:
                     self.update_status("No matches found")
                     
@@ -563,13 +739,18 @@ class AnoraEditor:
             tab = self.tabs[self.current_tab]
             text_widget = tab['text']
             
-            # Remove previous selection
+            # Remove previous selection and current search highlight
             text_widget.tag_remove("sel", "1.0", tk.END)
+            text_widget.tag_remove("current_search", "1.0", tk.END)
             
-            # Select current result
+            # Select and highlight current result
             start, end = self.search_results[self.current_search_index]
             text_widget.tag_add("sel", start, end)
+            text_widget.tag_add("current_search", start, end)
             text_widget.see(start)
+            
+            # Update status
+            self.update_status(f"Match {self.current_search_index + 1} of {len(self.search_results)}")
             
     def replace_text(self):
         if self.current_tab is not None and self.tabs and self.search_results:
@@ -583,6 +764,13 @@ class AnoraEditor:
                 text_widget.insert("insert", replace_term)
                 
             # Move to next result
+            self.current_search_index = (self.current_search_index + 1) % len(self.search_results)
+            self.goto_search_result()
+            
+    def skip_current(self):
+        """Skip current search result and go to next"""
+        if self.search_results and self.current_tab is not None and self.tabs:
+            # Move to next result without replacing
             self.current_search_index = (self.current_search_index + 1) % len(self.search_results)
             self.goto_search_result()
             
@@ -652,6 +840,243 @@ class AnoraEditor:
             
     def update_status(self, message="Ready"):
         self.status_label.config(text=message)
+        
+    def duplicate_line(self, event=None):
+        """Duplicate the current line"""
+        if self.current_tab is not None and self.tabs:
+            tab = self.tabs[self.current_tab]
+            text_widget = tab['text']
+            
+            # Get current line
+            current_line = text_widget.index(tk.INSERT).split('.')[0]
+            line_start = f"{current_line}.0"
+            line_end = f"{int(current_line) + 1}.0"
+            
+            # Get line content
+            line_content = text_widget.get(line_start, line_end)
+            
+            # Insert duplicate
+            text_widget.insert(line_end, line_content)
+            
+    def delete_line(self, event=None):
+        """Delete the current line"""
+        if self.current_tab is not None and self.tabs:
+            tab = self.tabs[self.current_tab]
+            text_widget = tab['text']
+            
+            # Get current line
+            current_line = text_widget.index(tk.INSERT).split('.')[0]
+            line_start = f"{current_line}.0"
+            line_end = f"{int(current_line) + 1}.0"
+            
+            # Delete line
+            text_widget.delete(line_start, line_end)
+            
+    def toggle_comment(self, event=None):
+        """Toggle comment for current line or selection"""
+        if self.current_tab is not None and self.tabs:
+            tab = self.tabs[self.current_tab]
+            text_widget = tab['text']
+            
+            # Get syntax for comment style
+            syntax = tab.get('syntax', 'text')
+            comment_chars = {
+                'python': '#',
+                'csharp': '//',
+                'javascript': '//',
+                'cpp': '//',
+                'c': '//',
+                'java': '//',
+                'php': '//',
+                'ruby': '#',
+                'go': '//',
+                'rust': '//',
+                'swift': '//',
+                'kotlin': '//',
+                'sql': '--',
+                'bash': '#',
+                'powershell': '#',
+                'batch': 'REM ',
+                'html': '<!--',
+                'xml': '<!--'
+            }
+            
+            comment_char = comment_chars.get(syntax, '#')
+            
+            # Get selection or current line
+            try:
+                sel_start = text_widget.index("sel.first")
+                sel_end = text_widget.index("sel.last")
+                has_selection = True
+            except tk.TclError:
+                # No selection, use current line
+                current_line = text_widget.index(tk.INSERT).split('.')[0]
+                sel_start = f"{current_line}.0"
+                sel_end = f"{int(current_line) + 1}.0"
+                has_selection = False
+            
+            # Get selected text
+            selected_text = text_widget.get(sel_start, sel_end)
+            
+            # Check if already commented
+            lines = selected_text.split('\n')
+            all_commented = all(line.strip().startswith(comment_char) for line in lines if line.strip())
+            
+            if all_commented:
+                # Uncomment
+                new_lines = []
+                for line in lines:
+                    if line.strip().startswith(comment_char):
+                        new_lines.append(line.replace(comment_char, '', 1))
+                    else:
+                        new_lines.append(line)
+                new_text = '\n'.join(new_lines)
+            else:
+                # Comment
+                new_lines = []
+                for line in lines:
+                    if line.strip() and not line.strip().startswith(comment_char):
+                        new_lines.append(comment_char + ' ' + line)
+                    else:
+                        new_lines.append(line)
+                new_text = '\n'.join(new_lines)
+            
+            # Replace text
+            text_widget.delete(sel_start, sel_end)
+            text_widget.insert(sel_start, new_text)
+            
+    def format_code(self):
+        """Format the current code"""
+        if self.current_tab is not None and self.tabs:
+            tab = self.tabs[self.current_tab]
+            text_widget = tab['text']
+            syntax = tab.get('syntax', 'text')
+            
+            # Get current content
+            content = text_widget.get("1.0", tk.END)
+            
+            # Basic formatting for different languages
+            if syntax == 'python':
+                # Basic Python formatting
+                lines = content.split('\n')
+                formatted_lines = []
+                indent_level = 0
+                
+                for line in lines:
+                    stripped = line.strip()
+                    if stripped:
+                        # Adjust indent level
+                        if stripped.endswith(':'):
+                            formatted_lines.append('    ' * indent_level + stripped)
+                            indent_level += 1
+                        elif stripped.startswith(('return', 'break', 'continue', 'pass')):
+                            indent_level = max(0, indent_level - 1)
+                            formatted_lines.append('    ' * indent_level + stripped)
+                        else:
+                            formatted_lines.append('    ' * indent_level + stripped)
+                    else:
+                        formatted_lines.append('')
+                
+                formatted_content = '\n'.join(formatted_lines)
+                
+            elif syntax in ['csharp', 'javascript', 'cpp', 'java']:
+                # Basic C-style formatting
+                lines = content.split('\n')
+                formatted_lines = []
+                indent_level = 0
+                
+                for line in lines:
+                    stripped = line.strip()
+                    if stripped:
+                        if stripped.endswith('{'):
+                            formatted_lines.append('    ' * indent_level + stripped)
+                            indent_level += 1
+                        elif stripped.startswith('}'):
+                            indent_level = max(0, indent_level - 1)
+                            formatted_lines.append('    ' * indent_level + stripped)
+                        else:
+                            formatted_lines.append('    ' * indent_level + stripped)
+                    else:
+                        formatted_lines.append('')
+                
+                formatted_content = '\n'.join(formatted_lines)
+                
+            else:
+                # Default formatting - just clean up whitespace
+                lines = content.split('\n')
+                formatted_lines = []
+                for line in lines:
+                    if line.strip():
+                        formatted_lines.append(line.rstrip())
+                    else:
+                        formatted_lines.append('')
+                formatted_content = '\n'.join(formatted_lines)
+            
+            # Replace content
+            text_widget.delete("1.0", tk.END)
+            text_widget.insert("1.0", formatted_content)
+            self.update_status("Code formatted")
+            
+    def load_settings(self):
+        """Load editor settings"""
+        default_settings = {
+            'theme': 'dark',
+            'font_size': 10,
+            'font_family': 'Consolas',
+            'tab_size': 4,
+            'auto_save': False,
+            'word_wrap': False,
+            'line_numbers': True,
+            'syntax_highlighting': True,
+            'auto_indent': True
+        }
+        
+        try:
+            with open('anora_settings.json', 'r') as f:
+                settings = json.load(f)
+                return {**default_settings, **settings}
+        except:
+            return default_settings
+            
+    def save_settings(self):
+        """Save editor settings"""
+        try:
+            with open('anora_settings.json', 'w') as f:
+                json.dump(self.settings, f, indent=2)
+        except:
+            pass
+            
+    def load_file_associations(self):
+        """Load file associations"""
+        default_associations = {
+            '.py': 'python',
+            '.js': 'javascript',
+            '.cs': 'csharp',
+            '.cpp': 'cpp',
+            '.c': 'c',
+            '.h': 'cpp',
+            '.html': 'html',
+            '.css': 'css',
+            '.json': 'json',
+            '.xml': 'xml'
+        }
+        
+        try:
+            with open('file_associations.json', 'r') as f:
+                associations = json.load(f)
+                return {**default_associations, **associations}
+        except:
+            return default_associations
+            
+    def show_settings(self):
+        """Show settings dialog"""
+        # Placeholder for settings dialog
+        messagebox.showinfo("Settings", "Settings dialog will be implemented in the next version!")
+        
+    def show_file_associations(self):
+        """Show file associations dialog"""
+        # Placeholder for file associations dialog
+        messagebox.showinfo("File Associations", "File associations dialog will be implemented in the next version!")
         
     def run(self):
         self.root.mainloop()
