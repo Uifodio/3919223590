@@ -140,8 +140,6 @@ class AnoraEditor:
         window_menu.add_command(label="Close Tab", command=self.close_current_tab, accelerator="Ctrl+W")
         window_menu.add_separator()
         window_menu.add_command(label="Close Others", command=self.close_other_tabs)
-        window_menu.add_command(label="Keep First 5 Tabs", command=lambda: self.keep_n_tabs(5))
-        window_menu.add_command(label="Keep Last 5 Tabs", command=lambda: self.keep_n_tabs(5, from_end=True))
         window_menu.add_command(label="Reopen Closed Tab", command=self.reopen_closed_tab, accelerator="Ctrl+Shift+T")
 
         # Navigate menu
@@ -244,6 +242,22 @@ class AnoraEditor:
                              relief=tk.FLAT, padx=5)
         close_btn.pack(side=tk.RIGHT, padx=5)
         
+        # Navigation buttons
+        next_btn = tk.Button(self.search_frame, text="Next", command=self.find_next,
+                            bg=self.colors['button_bg'], fg=self.colors['button_fg'],
+                            relief=tk.FLAT, padx=10)
+        next_btn.pack(side=tk.LEFT, padx=2)
+
+        prev_btn = tk.Button(self.search_frame, text="Prev", command=self.find_prev,
+                            bg=self.colors['button_bg'], fg=self.colors['button_fg'],
+                            relief=tk.FLAT, padx=10)
+        prev_btn.pack(side=tk.LEFT, padx=2)
+
+        skip_btn = tk.Button(self.search_frame, text="Skip", command=self.skip_current,
+                            bg=self.colors['button_bg'], fg=self.colors['button_fg'],
+                            relief=tk.FLAT, padx=10)
+        skip_btn.pack(side=tk.LEFT, padx=2)
+
         # Initially hidden
         self.search_frame.pack_forget()
         
@@ -269,7 +283,7 @@ class AnoraEditor:
         text_frame.pack(fill=tk.BOTH, expand=True)
         
         # Line numbers
-        self.line_numbers = tk.Text(text_frame, width=4, padx=3, takefocus=0,
+        self.line_numbers = tk.Text(text_frame, width=6, padx=6, takefocus=0,
                                    border=0, background=self.colors['tab_bg'],
                                    foreground=self.colors['tab_fg'],
                                    state='disabled', font=('Consolas', 10))
@@ -288,6 +302,12 @@ class AnoraEditor:
             undo=True
         )
         text_widget.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        # Keep line numbers scrolled with text
+        def sync_scroll(*args):
+            text_widget.yview(*args)
+            self.line_numbers.yview_moveto(text_widget.yview()[0])
+        text_widget.configure(yscrollcommand=lambda *args: [sync_scroll(*args), None])
         
         # Configure tags for syntax highlighting
         text_widget.tag_configure("keyword", foreground="#569cd6")
@@ -295,8 +315,10 @@ class AnoraEditor:
         text_widget.tag_configure("comment", foreground="#6a9955")
         text_widget.tag_configure("number", foreground="#b5cea8")
         text_widget.tag_configure("function", foreground="#dcdcaa")
-        text_widget.tag_configure("current_line", background="#2a2a2a")
+        text_widget.tag_configure("current_line", background="#33415e")
         text_widget.tag_configure("bracket_match", background="#4b5632")
+        text_widget.tag_configure("search", background="yellow", foreground="black")
+        text_widget.tag_configure("search_current", background="#81c784", foreground="black")
         
         # Tab data
         tab_data = {
@@ -322,6 +344,9 @@ class AnoraEditor:
         text_widget.bind('<Button-1>', self.update_line_numbers)
         text_widget.bind('<Key>', self.update_line_numbers)
         text_widget.bind('<MouseWheel>', self.update_line_numbers)
+        # Linux touchpad scroll
+        text_widget.bind('<Button-4>', self.update_line_numbers)
+        text_widget.bind('<Button-5>', self.update_line_numbers)
 
         # Editing helpers
         text_widget.bind('<Return>', self.handle_auto_indent)
@@ -329,6 +354,22 @@ class AnoraEditor:
             text_widget.bind(ch, self.handle_bracket_autoclose)
         text_widget.bind('<KeyRelease>', self.update_current_line_highlight)
         text_widget.bind('<KeyRelease>', self.update_bracket_match)
+
+        # Context menu
+        context_menu = tk.Menu(text_widget, tearoff=0, bg=self.colors['menu_bg'], fg=self.colors['menu_fg'])
+        context_menu.add_command(label="Cut", command=lambda: text_widget.event_generate("<<Cut>>"))
+        context_menu.add_command(label="Copy", command=lambda: text_widget.event_generate("<<Copy>>"))
+        context_menu.add_command(label="Paste", command=lambda: text_widget.event_generate("<<Paste>>"))
+        context_menu.add_separator()
+        context_menu.add_command(label="Select All", command=lambda: text_widget.tag_add("sel", "1.0", tk.END))
+
+        def show_context_menu(event):
+            try:
+                context_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                context_menu.grab_release()
+
+        text_widget.bind('<Button-3>', show_context_menu)
         
         # Load file if provided
         if file_path:
@@ -348,6 +389,8 @@ class AnoraEditor:
         self.root.bind('<Control-a>', lambda e: self.select_all())
         self.root.bind('<Control-g>', lambda e: self.go_to_line())
         self.root.bind('<Control-Shift-T>', lambda e: self.reopen_closed_tab())
+        self.root.bind('<F3>', lambda e: self.find_next())
+        self.root.bind('<Shift-F3>', lambda e: self.find_prev())
         
         # Tab change binding
         self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
@@ -768,9 +811,8 @@ class AnoraEditor:
                     text_widget.tag_add("search", pos, end)
                     start = end
                     
-                # Highlight search results
-                text_widget.tag_config("search", background="yellow", foreground="black")
-                
+                # Tag colors configured in create_new_tab
+
                 if self.search_results:
                     self.current_search_index = 0
                     self.goto_search_result()
@@ -785,11 +827,27 @@ class AnoraEditor:
             
             # Remove previous selection
             text_widget.tag_remove("sel", "1.0", tk.END)
+            text_widget.tag_remove("search_current", "1.0", tk.END)
             
             # Select current result
             start, end = self.search_results[self.current_search_index]
             text_widget.tag_add("sel", start, end)
+            text_widget.tag_add("search_current", start, end)
             text_widget.see(start)
+
+    def find_next(self):
+        if not self.search_results:
+            self.find_text()
+            return
+        self.current_search_index = (self.current_search_index + 1) % len(self.search_results)
+        self.goto_search_result()
+
+    def find_prev(self):
+        if not self.search_results:
+            self.find_text()
+            return
+        self.current_search_index = (self.current_search_index - 1) % len(self.search_results)
+        self.goto_search_result()
             
     def replace_text(self):
         if self.current_tab is not None and self.tabs and self.search_results:
@@ -805,6 +863,12 @@ class AnoraEditor:
             # Move to next result
             self.current_search_index = (self.current_search_index + 1) % len(self.search_results)
             self.goto_search_result()
+
+    def skip_current(self):
+        if not self.search_results:
+            return
+        self.current_search_index = (self.current_search_index + 1) % len(self.search_results)
+        self.goto_search_result()
             
     def replace_all(self):
         if self.current_tab is not None and self.tabs:
@@ -1014,4 +1078,13 @@ class AnoraEditor:
 
 if __name__ == "__main__":
     app = AnoraEditor()
+    # Open files passed via command-line args
+    try:
+        args = sys.argv[1:]
+        for fp in args:
+            if os.path.exists(fp):
+                app.create_new_tab(fp)
+                app.add_recent_file(fp)
+    except Exception:
+        pass
     app.run()
