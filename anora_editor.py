@@ -224,10 +224,13 @@ class AnoraEditor(wx.Frame):
         
         # Search menu
         search_menu = wx.Menu()
+        # Custom IDs for Find Next/Previous (wx has no wx.ID_FINDNEXT/PREV)
+        self.id_find_next = wx.NewIdRef()
+        self.id_find_prev = wx.NewIdRef()
         search_menu.Append(wx.ID_FIND, "&Find\tCtrl+F", "Find text")
         search_menu.Append(wx.ID_REPLACE, "&Replace\tCtrl+H", "Replace text")
-        search_menu.Append(wx.ID_FINDNEXT, "Find &Next\tF3", "Find next occurrence")
-        search_menu.Append(wx.ID_FINDPREV, "Find &Previous\tShift+F3", "Find previous occurrence")
+        search_menu.Append(self.id_find_next, "Find &Next\tF3", "Find next occurrence")
+        search_menu.Append(self.id_find_prev, "Find &Previous\tShift+F3", "Find previous occurrence")
         menubar.Append(search_menu, "&Search")
         
         # View menu
@@ -307,16 +310,16 @@ class AnoraEditor(wx.Frame):
         # Find label and text
         find_label = wx.StaticText(self.search_panel, label="Find:")
         find_label.SetForegroundColour(wx.Colour(212, 212, 212))
-        self.find_text = wx.TextCtrl(self.search_panel, style=wx.TE_PROCESS_ENTER)
-        self.find_text.SetBackgroundColour(wx.Colour(30, 30, 30))
-        self.find_text.SetForegroundColour(wx.Colour(212, 212, 212))
+        self.find_input = wx.TextCtrl(self.search_panel, style=wx.TE_PROCESS_ENTER)
+        self.find_input.SetBackgroundColour(wx.Colour(30, 30, 30))
+        self.find_input.SetForegroundColour(wx.Colour(212, 212, 212))
         
         # Replace label and text
         replace_label = wx.StaticText(self.search_panel, label="Replace:")
         replace_label.SetForegroundColour(wx.Colour(212, 212, 212))
-        self.replace_text = wx.TextCtrl(self.search_panel, style=wx.TE_PROCESS_ENTER)
-        self.replace_text.SetBackgroundColour(wx.Colour(30, 30, 30))
-        self.replace_text.SetForegroundColour(wx.Colour(212, 212, 212))
+        self.replace_input = wx.TextCtrl(self.search_panel, style=wx.TE_PROCESS_ENTER)
+        self.replace_input.SetBackgroundColour(wx.Colour(30, 30, 30))
+        self.replace_input.SetForegroundColour(wx.Colour(212, 212, 212))
         
         # Buttons
         find_btn = wx.Button(self.search_panel, label="Find")
@@ -337,9 +340,9 @@ class AnoraEditor(wx.Frame):
         
         # Add to sizer
         search_sizer.Add(find_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
-        search_sizer.Add(self.find_text, 1, wx.EXPAND | wx.ALL, 5)
+        search_sizer.Add(self.find_input, 1, wx.EXPAND | wx.ALL, 5)
         search_sizer.Add(replace_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
-        search_sizer.Add(self.replace_text, 1, wx.EXPAND | wx.ALL, 5)
+        search_sizer.Add(self.replace_input, 1, wx.EXPAND | wx.ALL, 5)
         search_sizer.Add(find_btn, 0, wx.ALL, 5)
         search_sizer.Add(replace_btn, 0, wx.ALL, 5)
         search_sizer.Add(replace_all_btn, 0, wx.ALL, 5)
@@ -349,9 +352,9 @@ class AnoraEditor(wx.Frame):
         
         # Bind events
         close_btn.Bind(wx.EVT_BUTTON, self.hide_search_panel)
-        find_btn.Bind(wx.EVT_BUTTON, self.find_text)
-        replace_btn.Bind(wx.EVT_BUTTON, self.replace_text)
-        replace_all_btn.Bind(wx.EVT_BUTTON, self.replace_all_text)
+        find_btn.Bind(wx.EVT_BUTTON, self.cmd_find)
+        replace_btn.Bind(wx.EVT_BUTTON, self.cmd_replace)
+        replace_all_btn.Bind(wx.EVT_BUTTON, self.cmd_replace_all)
         
     def create_new_tab(self, file_path=None):
         """Create a new tab with a text editor"""
@@ -726,8 +729,8 @@ class AnoraEditor(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_select_all, id=wx.ID_SELECTALL)
         self.Bind(wx.EVT_MENU, self.on_find, id=wx.ID_FIND)
         self.Bind(wx.EVT_MENU, self.on_replace, id=wx.ID_REPLACE)
-        self.Bind(wx.EVT_MENU, self.on_find_next, id=wx.ID_FINDNEXT)
-        self.Bind(wx.EVT_MENU, self.on_find_prev, id=wx.ID_FINDPREV)
+        self.Bind(wx.EVT_MENU, self.on_find_next, id=self.id_find_next)
+        self.Bind(wx.EVT_MENU, self.on_find_prev, id=self.id_find_prev)
         self.Bind(wx.EVT_MENU, self.on_about, id=wx.ID_ABOUT)
         self.Bind(wx.EVT_MENU, self.on_help, id=wx.ID_HELP)
         
@@ -864,30 +867,30 @@ class AnoraEditor(wx.Frame):
         
     def on_find_next(self, event):
         """Find next occurrence"""
-        self.find_text()
+        self.cmd_find()
         
     def on_find_prev(self, event):
         """Find previous occurrence"""
-        self.find_text(forward=False)
+        self.cmd_find(forward=False)
         
     def show_search_panel(self):
         """Show the search panel"""
         self.search_panel.Show()
         self.Layout()
-        self.find_text.SetFocus()
+        self.find_input.SetFocus()
         
     def hide_search_panel(self, event=None):
         """Hide the search panel"""
         self.search_panel.Hide()
         self.Layout()
         
-    def find_text(self, event=None, forward=True):
+    def cmd_find(self, event=None, forward=True):
         """Find text in the current editor"""
         current_editor = self.get_current_editor()
         if not current_editor:
             return
             
-        search_text = self.find_text.GetValue()
+        search_text = self.find_input.GetValue()
         if not search_text:
             return
             
@@ -914,14 +917,14 @@ class AnoraEditor(wx.Frame):
         else:
             self.update_status("Text not found")
             
-    def replace_text(self, event=None):
+    def cmd_replace(self, event=None):
         """Replace current occurrence"""
         current_editor = self.get_current_editor()
         if not current_editor:
             return
             
-        search_text = self.find_text.GetValue()
-        replace_text = self.replace_text.GetValue()
+        search_text = self.find_input.GetValue()
+        replace_text = self.replace_input.GetValue()
         
         if not search_text:
             return
@@ -932,18 +935,18 @@ class AnoraEditor(wx.Frame):
         
         if selected_text == search_text:
             current_editor.Replace(start, end, replace_text)
-            self.find_text()  # Find next occurrence
+            self.cmd_find()  # Find next occurrence
         else:
-            self.find_text()  # Find first occurrence
+            self.cmd_find()  # Find first occurrence
             
-    def replace_all_text(self, event=None):
+    def cmd_replace_all(self, event=None):
         """Replace all occurrences"""
         current_editor = self.get_current_editor()
         if not current_editor:
             return
             
-        search_text = self.find_text.GetValue()
-        replace_text = self.replace_text.GetValue()
+        search_text = self.find_input.GetValue()
+        replace_text = self.replace_input.GetValue()
         
         if not search_text:
             return

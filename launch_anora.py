@@ -23,13 +23,14 @@ def log(message: str) -> None:
             f.write(line + '\n')
     except Exception:
         pass
-    print(line, flush=True)
+    # Avoid non-ASCII in console to prevent charmap errors on some Windows setups
+    safe_line = line.encode('ascii', errors='replace').decode('ascii')
+    print(safe_line, flush=True)
 
 
 def pause_if_headless():
     try:
         if not sys.stdout.isatty():
-            # Likely double-clicked; keep window open to show error
             input("\nPress Enter to close this window...")
     except Exception:
         pass
@@ -55,9 +56,9 @@ def try_imports(modules):
     for mod in modules:
         try:
             __import__(mod)
-            log(f"✅ {mod} available")
+            log(f"OK {mod} available")
         except ImportError:
-            log(f"❌ {mod} missing")
+            log(f"MISSING {mod}")
             missing.append(mod)
     return missing
 
@@ -71,9 +72,9 @@ def ensure_pip() -> None:
         try:
             import ensurepip
             ensurepip.bootstrap()
-            log("✅ ensurepip bootstrap completed")
+            log("ensurepip bootstrap completed")
         except Exception as e:
-            log(f"⚠️ ensurepip failed: {e}")
+            log(f"ensurepip failed: {e}")
 
 
 def pip_install(packages, user_fallback=True) -> bool:
@@ -84,7 +85,6 @@ def pip_install(packages, user_fallback=True) -> bool:
         [pyexe, '-m', 'pip', 'install', '-U'] + packages,
     ]
 
-    # On Windows, add fallback attempts
     if platform.system() == 'Windows' and user_fallback:
         cmds.append([pyexe, '-m', 'pip', 'install', '--user', '-U'] + packages)
         cmds.append([pyexe, '-m', 'pip', 'install', '-U', '--only-binary', ':all:'] + packages)
@@ -100,19 +100,17 @@ def pip_install(packages, user_fallback=True) -> bool:
 
 
 def install_wxpython() -> bool:
-    log("📦 Installing wxPython...")
-    # Prefer official extras wheels index when available
+    log("Installing wxPython...")
     index_url = 'https://extras.wxpython.org/wxPython4/extras/index.html'
-    ok = pip_install([f"wxPython>=4.2.1", '-f', index_url], user_fallback=True)
+    ok = pip_install(["wxPython>=4.2.1", '-f', index_url], user_fallback=True)
     if not ok:
-        # Retry without extras index
         ok = pip_install(["wxPython>=4.2.1"], user_fallback=True)
     return ok
 
 
 def install_optional_windows_features():
     if platform.system() == 'Windows':
-        log("📦 Installing Windows optional packages (pywin32, pygments)...")
+        log("Installing Windows optional packages (pywin32, pygments)...")
         pip_install(["pywin32", "pygments"], user_fallback=True)
     else:
         log("Skipping Windows optional packages on non-Windows platform")
@@ -127,9 +125,8 @@ def check_and_install_dependencies() -> bool:
     log(f"Missing required modules: {', '.join(missing)}")
     if 'wx' in missing or any(m.startswith('wx') for m in missing):
         if not install_wxpython():
-            log("❌ Failed to install wxPython. See log for details.")
+            log("Failed to install wxPython. See log for details.")
             return False
-        # Re-check after install
         missing = try_imports(required)
         if not missing:
             return True
@@ -140,19 +137,19 @@ def check_and_install_dependencies() -> bool:
 
 
 def show_welcome():
-    print("=" * 80)
-    print(f"🌟 Welcome to Anora Editor Launcher (Python {py_version_tag()})")
-    print("=" * 80)
-    print("This launcher will verify and install dependencies automatically, then run the editor.")
+    sep = "=" * 80
+    print(sep)
+    print(f"Welcome to Anora Editor Launcher (Python {py_version_tag()})")
+    print(sep)
+    print("This launcher verifies/installs dependencies automatically, then runs the editor.")
     print()
 
 
 def launch_anora() -> int:
     if not os.path.exists('anora_editor.py'):
-        log("❌ anora_editor.py not found in current directory")
+        log("anora_editor.py not found in current directory")
         return 1
 
-    # Re-exec the editor with the same interpreter to guarantee same environment
     args = [sys.executable, 'anora_editor.py'] + sys.argv[1:]
     log(f"Launching editor: {args}")
     return subprocess.call(args)
@@ -169,11 +166,10 @@ def main() -> int:
         install_optional_windows_features()
         ok = check_and_install_dependencies()
         if not ok:
-            log("❌ Could not satisfy required dependencies. See anora_launcher.log for details.")
+            log("Could not satisfy required dependencies. See anora_launcher.log for details.")
             pause_if_headless()
             return 2
 
-    # All good; launch editor
     rc = launch_anora()
     if rc != 0:
         log(f"Editor exited with code {rc}")
