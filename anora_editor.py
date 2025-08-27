@@ -321,16 +321,16 @@ class AnoraEditor:
         # Configure main scrollbar to control both
         text_widget.configure(yscrollcommand=sync_scroll)
         
-        # Configure tags for syntax highlighting
-        text_widget.tag_configure("keyword", foreground="#569cd6")
-        text_widget.tag_configure("string", foreground="#ce9178")
-        text_widget.tag_configure("comment", foreground="#6a9955")
-        text_widget.tag_configure("number", foreground="#b5cea8")
-        text_widget.tag_configure("function", foreground="#dcdcaa")
-        text_widget.tag_configure("current_line", background="#33415e")
-        text_widget.tag_configure("bracket_match", background="#4b5632")
-        text_widget.tag_configure("search", background="yellow", foreground="black")
-        text_widget.tag_configure("search_current", background="#81c784", foreground="black")
+        # Configure tags for syntax highlighting with enhanced colors
+        text_widget.tag_configure("keyword", foreground="#569cd6", font=('Consolas', 10, 'bold'))
+        text_widget.tag_configure("string", foreground="#ce9178", font=('Consolas', 10))
+        text_widget.tag_configure("comment", foreground="#6a9955", font=('Consolas', 10, 'italic'))
+        text_widget.tag_configure("number", foreground="#b5cea8", font=('Consolas', 10))
+        text_widget.tag_configure("function", foreground="#dcdcaa", font=('Consolas', 10, 'bold'))
+        text_widget.tag_configure("current_line", background="#2d2d30", relief="solid", borderwidth=1)
+        text_widget.tag_configure("bracket_match", background="#4b5632", relief="solid", borderwidth=1)
+        text_widget.tag_configure("search", background="#ffff00", foreground="#000000")
+        text_widget.tag_configure("search_current", background="#81c784", foreground="#000000", relief="solid", borderwidth=1)
         
         # Tab data
         tab_data = {
@@ -521,36 +521,34 @@ class AnoraEditor:
                     '.html': 'html',
                     '.css': 'css',
                     '.json': 'json',
-                    '.xml': 'xml'
+                    '.xml': 'xml',
+                    '.php': 'php',
+                    '.java': 'java',
+                    '.rb': 'ruby',
+                    '.sql': 'sql',
+                    '.sh': 'bash',
+                    '.bat': 'batch',
+                    '.ps1': 'powershell',
+                    '.md': 'markdown'
                 }
                 tab['syntax'] = syntax_map.get(ext, 'text')
             
-            # FAST syntax highlighting - only visible lines
+            # BULLETPROOF syntax highlighting - full file for accuracy
             try:
-                # Get visible line range
-                first_visible = text_widget.index("@0,0")
-                last_visible = text_widget.index("@0,%d" % text_widget.winfo_height())
-                
-                start_line = int(first_visible.split('.')[0])
-                end_line = int(last_visible.split('.')[0]) + 5  # Buffer
-                
-                # Get content for visible lines only
-                start_idx = f"{start_line}.0"
-                end_idx = f"{end_line}.0"
-                visible_content = text_widget.get(start_idx, end_idx)
-                
-                if not visible_content.strip():
+                # Get full content for accurate highlighting
+                content = text_widget.get("1.0", tk.END)
+                if not content.strip():
                     return
                 
                 lexer = get_lexer_by_name(tab['syntax'])
-                tokens = list(lexer.get_tokens(visible_content))
+                tokens = list(lexer.get_tokens(content))
 
-                # Clear tags only for visible area
+                # Clear all existing tags
                 for tag in ["keyword", "string", "comment", "number", "function"]:
-                    text_widget.tag_remove(tag, start_idx, end_idx)
+                    text_widget.tag_remove(tag, "1.0", tk.END)
 
-                # Simple token processing - no complex offset calculations
-                current_pos = start_idx
+                # Professional token processing with precise positioning
+                current_pos = "1.0"
                 for tt, val in tokens:
                     if val.strip():  # Only highlight non-whitespace
                         tag_name = None
