@@ -12,14 +12,14 @@ import shutil
 def build_executable_alternative():
     """Build the Anora Editor executable using alternative PyInstaller settings"""
     
-    print("🚀 Building Anora Editor executable (Alternative Method)...")
+    print("🚀 Building Nexus Code executable (Alternative Method)...")
     
     # Alternative PyInstaller command - more compatible
     cmd = [
         'pyinstaller',
         '--onedir',                     # Directory mode instead of onefile
         '--windowed',                   # No console window
-        '--name=AnoraEditor',           # Executable name
+        '--name=NexusCode',           # Executable name
         '--distpath=dist_alt',          # Different output directory
         '--workpath=build_alt',         # Different build directory
         '--specpath=build_alt',         # Different spec directory
@@ -48,7 +48,7 @@ def build_executable_alternative():
         '--exclude-module=PIL',
         '--exclude-module=cv2',
         '--clean',
-        'anora_editor.py'
+        'nexus_code.py'
     ]
     
     try:
@@ -57,10 +57,10 @@ def build_executable_alternative():
         print("✅ Build completed successfully!")
         
         # Check if executable was created
-        exe_path = os.path.join('dist_alt', 'AnoraEditor', 'AnoraEditor.exe')
+        exe_path = os.path.join('dist_alt', 'NexusCode', 'NexusCode.exe')
         if os.path.exists(exe_path):
             print(f"📁 Executable created: {exe_path}")
-            print(f"📏 Directory size: {get_dir_size('dist_alt/AnoraEditor') / (1024*1024):.1f} MB")
+            print(f"📏 Directory size: {get_dir_size('dist_alt/NexusCode') / (1024*1024):.1f} MB")
             
             # Create a simple launcher batch file
             create_launcher_bat()
@@ -82,16 +82,16 @@ def build_executable_alternative():
 def build_executable_simple():
     """Build using the simplest possible PyInstaller command"""
     
-    print("🚀 Building Anora Editor executable (Simple Method)...")
+    print("🚀 Building Nexus Code executable (Simple Method)...")
     
     # Simple PyInstaller command
     cmd = [
         'pyinstaller',
         '--onefile',
         '--windowed',
-        '--name=AnoraEditor_Simple',
+        '--name=NexusCode_Simple',
         '--distpath=dist_simple',
-        'anora_editor.py'
+        'nexus_code.py'
     ]
     
     try:
@@ -100,7 +100,7 @@ def build_executable_simple():
         print("✅ Simple build completed successfully!")
         
         # Check if executable was created
-        exe_path = os.path.join('dist_simple', 'AnoraEditor_Simple.exe')
+        exe_path = os.path.join('dist_simple', 'NexusCode_Simple.exe')
         if os.path.exists(exe_path):
             print(f"📁 Simple executable created: {exe_path}")
             print(f"📏 File size: {os.path.getsize(exe_path) / (1024*1024):.1f} MB")
@@ -127,18 +127,18 @@ def create_launcher_bat():
     """Create a launcher batch file for the directory version"""
     
     launcher_content = '''@echo off
-echo Starting Anora Editor...
+echo Starting Nexus Code...
 cd /d "%~dp0"
-AnoraEditor.exe
+NexusCode.exe
 if errorlevel 1 (
     echo.
-    echo Error: Anora Editor failed to start.
+    echo Error: Nexus Code failed to start.
     echo Please check if all files are present in this directory.
     pause
 )
 '''
     
-    launcher_path = os.path.join('dist_alt', 'AnoraEditor', 'launch_anora.bat')
+    launcher_path = os.path.join('dist_alt', 'NexusCode', 'launch_nexus.bat')
     with open(launcher_path, 'w') as f:
         f.write(launcher_content)
     
@@ -202,8 +202,8 @@ def main():
     print("=" * 60)
     
     # Check if main file exists
-    if not os.path.exists('anora_editor.py'):
-        print("❌ anora_editor.py not found!")
+    if not os.path.exists('nexus_code.py'):
+    print("❌ nexus_code.py not found!")
         return
     
     # Install dependencies if needed

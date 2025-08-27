@@ -15,10 +15,10 @@ import json
 import pickle
 from datetime import datetime
 
-class NovaEditor:
+class NexusCode:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Nova Editor - Professional Code Editor for Unity")
+        self.root.title("Nexus Code - Professional Dark Code Editor")
         self.root.geometry("800x600")
         self.root.minsize(400, 300)
         
@@ -764,15 +764,21 @@ class NovaEditor:
                 
     def setup_windows_drag_drop(self):
         """Setup Windows native drag and drop using shell32"""
+        print("🔥 Setting up Windows native drag and drop...")
         try:
             import ctypes
             from ctypes import wintypes
             import win32gui
             import win32con
             import win32api
+            import win32clipboard
             
             # Get the window handle
             hwnd = self.root.winfo_id()
+            
+            # Set window to accept files
+            win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, 
+                                 win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE) | win32con.WS_EX_ACCEPTFILES)
             
             # Register the window as a drop target
             self.root.bind('<Configure>', lambda e: self.register_drop_target(hwnd))
@@ -781,14 +787,105 @@ class NovaEditor:
             self.root.bind('<Enter>', self.on_drag_enter)
             self.root.bind('<Leave>', self.on_drag_leave)
             
-            print("✅ Windows drag and drop setup complete")
+            # Windows message monitoring
+            self.setup_windows_message_hook()
             
-        except ImportError:
-            # Fallback to basic drag and drop
+            # Shell32 drag and drop
+            self.setup_shell32_drag_drop()
+            
+            print("✅ Windows native drag and drop setup complete")
+            
+        except ImportError as e:
+            print(f"❌ Windows API not available: {e}")
             self.setup_basic_drag_drop()
         except Exception as e:
-            print(f"Windows drag and drop setup failed: {e}")
+            print(f"❌ Windows drag and drop setup failed: {e}")
             self.setup_basic_drag_drop()
+            
+    def setup_windows_message_hook(self):
+        """Setup Windows message hook for drag and drop"""
+        try:
+            import win32gui
+            import win32con
+            import win32api
+            
+            def message_handler(hwnd, msg, wparam, lparam):
+                if msg == win32con.WM_DROPFILES:
+                    print("🔥 WM_DROPFILES message received!")
+                    # Get dropped files
+                    files = self.get_dropped_files(lparam)
+                    for file_path in files:
+                        if os.path.isfile(file_path):
+                            print(f"🔥 Windows dropped file: {file_path}")
+                            self.create_new_tab_with_filename(file_path)
+                    return 0
+                return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
+            
+            # Set up message hook
+            self.message_hook = message_handler
+            
+        except Exception as e:
+            print(f"❌ Windows message hook failed: {e}")
+            
+    def setup_shell32_drag_drop(self):
+        """Setup Shell32 drag and drop"""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            
+            # Load shell32
+            shell32 = ctypes.windll.shell32
+            
+            # Define structures
+            class DROPFILES(ctypes.Structure):
+                _fields_ = [
+                    ("pFiles", wintypes.DWORD),
+                    ("pt", wintypes.POINT),
+                    ("fNC", wintypes.BOOL),
+                    ("fWide", wintypes.BOOL)
+                ]
+            
+            # Set up drag and drop
+            hwnd = self.root.winfo_id()
+            shell32.DragAcceptFiles(hwnd, True)
+            
+            print("✅ Shell32 drag and drop setup complete")
+            
+        except Exception as e:
+            print(f"❌ Shell32 drag and drop failed: {e}")
+            
+    def get_dropped_files(self, lparam):
+        """Get dropped files from Windows message"""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            
+            shell32 = ctypes.windll.shell32
+            
+            # Get number of files
+            file_count = shell32.DragQueryFile(lparam, 0xFFFFFFFF, None, 0)
+            
+            files = []
+            for i in range(file_count):
+                # Get file path length
+                path_len = shell32.DragQueryFile(lparam, i, None, 0)
+                
+                # Get file path
+                buffer = ctypes.create_unicode_buffer(path_len + 1)
+                shell32.DragQueryFile(lparam, i, buffer, path_len + 1)
+                
+                file_path = buffer.value
+                if file_path:
+                    files.append(file_path)
+            
+            # Release memory
+            shell32.DragFinish(lparam)
+            
+            return files
+            
+        except Exception as e:
+            print(f"❌ Get dropped files failed: {e}")
+            return []
             
     def setup_basic_drag_drop(self):
         """Setup basic drag and drop using file dialog fallback"""
@@ -2018,13 +2115,13 @@ class NovaEditor:
     def setup_professional_behavior(self):
         """Setup professional window behavior"""
         # Set window properties for professional appearance
-        self.root.title("Nova Editor - Professional Code Editor for Unity")
-        self.root.iconname("Nova Editor")
+        self.root.title("Nexus Code - Professional Dark Code Editor")
+        self.root.iconname("Nexus Code")
         
         # Professional window hints
         try:
             # Set window class for proper taskbar grouping
-            self.root.wm_class("NovaEditor", "Nova Editor")
+            self.root.wm_class("NexusCode", "Nexus Code")
         except:
             pass
             
@@ -2091,5 +2188,5 @@ class NovaEditor:
             pass
 
 if __name__ == "__main__":
-    app = NovaEditor()
+    app = NexusCode()
     app.run()
