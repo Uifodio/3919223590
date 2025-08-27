@@ -21,32 +21,55 @@ Before running this application, you need to install Python and Kivy on your Win
 
 ### Installing Kivy
 
-There are several ways to install Kivy on Windows:
+**Important**: This project requires Python 3.8+ and Kivy 2.3.0+ for compatibility.
 
-#### Method 1: Using pip (Recommended)
+#### Method 1: Using the provided setup scripts (Recommended)
 ```bash
-pip install kivy
+# On Windows, run one of these:
+setup_windows.bat
+# OR
+powershell -ExecutionPolicy Bypass -File setup_windows.ps1
 ```
 
-#### Method 2: Using conda
+#### Method 2: Manual installation with virtual environment
+```bash
+# Create virtual environment
+python -m venv kivy_env
+
+# Activate on Windows
+kivy_env\Scripts\activate.bat
+# OR on Linux/Mac
+source kivy_env/bin/activate
+
+# Install Kivy
+pip install kivy>=2.3.0
+```
+
+#### Method 3: Using conda
 ```bash
 conda install kivy -c conda-forge
 ```
 
-#### Method 3: Using the official Kivy installer
-1. Download the Kivy installer from [kivy.org](https://kivy.org/doc/stable/installation/installation-windows.html)
-2. Run the installer and follow the instructions
-
 ## Running the Application
 
-### Method 1: Direct Python execution
+### Method 1: Using virtual environment (Recommended)
 ```bash
+# Activate virtual environment
+# On Windows:
+kivy_env\Scripts\activate.bat
+# OR on Linux/Mac:
+source kivy_env/bin/activate
+
+# Run the app
 python main.py
 ```
 
-### Method 2: Using the requirements file
+### Method 2: Test installation first
 ```bash
-pip install -r requirements.txt
+# Make sure everything is working
+python test_installation.py
+
+# Then run the app
 python main.py
 ```
 
