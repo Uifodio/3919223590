@@ -1,0 +1,14 @@
+# Anora Editor Dependencies
+# These packages are required for full functionality
+
+# For syntax highlighting (essential)
+pygments>=2.17.0
+
+# For image handling (optional - only if you need icon support)
+# Pillow>=10.0.0
+
+# Note: tkinter is included with Python by default
+# If you get tkinter errors, install python3-tk package:
+# Ubuntu/Debian: sudo apt install python3-tk
+# CentOS/RHEL: sudo yum install python3-tkinter
+# macOS: brew install python-tk
