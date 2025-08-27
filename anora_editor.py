@@ -13,6 +13,7 @@ import wx.grid
 import wx.richtext
 import os
 import sys
+import traceback
 import re
 import time
 import threading
@@ -1523,4 +1524,15 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        # Always write exceptions to a log file for Windows users
+        log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'anora_editor.log')
+        try:
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write('\n=== Unhandled exception ===\n')
+                traceback.print_exc(file=f)
+        except Exception:
+            pass
+        raise
