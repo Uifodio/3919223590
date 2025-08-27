@@ -351,12 +351,7 @@ class NovaEditor:
         text_widget.bind('<Control-Shift-Tab>', self.previous_tab)
         
         # Drag and drop bindings for text widget
-        try:
-            text_widget.drop_target_register('DND_Files')
-            text_widget.dnd_bind('<<Drop>>', self.on_text_drop)
-        except:
-            # Drag and drop not available
-            pass
+        self.setup_reliable_drag_drop(text_widget)
         
         # Load file if provided
         if file_path:
@@ -385,23 +380,134 @@ class NovaEditor:
             # Try to use tkinterdnd2 if available
             self.root.drop_target_register('DND_Files')
             self.root.dnd_bind('<<Drop>>', self.on_drop)
+            print("✅ Main window drag and drop enabled")
         except:
-            # Fallback to native Windows drag and drop
-            try:
-                import win32com.client
-                self.setup_windows_drag_drop()
-            except:
-                # If all else fails, disable drag and drop
-                self.drag_drop_enabled = False
-                print("Drag and drop not available")
+            # If all else fails, disable drag and drop
+            self.drag_drop_enabled = False
+            print("Main window drag and drop not available")
+            
+    def setup_reliable_drag_drop(self, text_widget):
+        """Setup reliable drag and drop for text widget"""
+        try:
+            # Method 1: Try tkinterdnd2 on text widget
+            text_widget.drop_target_register('DND_Files')
+            text_widget.dnd_bind('<<Drop>>', self.on_text_drop)
+            print("✅ Text widget drag and drop enabled")
+            return
+        except:
+            pass
+            
+        try:
+            # Method 2: Try tkinterdnd2 on main window
+            self.root.drop_target_register('DND_Files')
+            self.root.dnd_bind('<<Drop>>', self.on_drop)
+            print("✅ Main window drag and drop enabled")
+            return
+        except:
+            pass
+            
+        try:
+            # Method 3: Try Windows API
+            self.setup_windows_drag_drop()
+            return
+        except:
+            pass
+            
+        # Method 4: Fallback - add a button
+        print("Using fallback drag and drop")
+        self.add_drag_drop_fallback()
+        
+    def add_drag_drop_fallback(self):
+        """Add fallback drag and drop using buttons"""
+        try:
+            # Add a toolbar button for opening files
+            if hasattr(self, 'toolbar'):
+                open_button = tk.Button(
+                    self.toolbar, 
+                    text="📁 Open File", 
+                    command=self.open_file,
+                    bg=self.colors['button_bg'],
+                    fg=self.colors['button_fg'],
+                    relief=tk.FLAT,
+                    padx=10
+                )
+                open_button.pack(side=tk.LEFT, padx=5)
+                
+            # Add keyboard shortcut
+            self.root.bind('<Control-o>', lambda e: self.open_file())
+            
+            print("✅ Fallback drag and drop added")
+        except Exception as e:
+            print(f"Failed to add fallback: {e}")
                 
     def setup_windows_drag_drop(self):
-        """Setup Windows native drag and drop"""
+        """Setup Windows native drag and drop using shell32"""
         try:
-            # Bind to the main window
-            self.root.bind('<Button-1>', self.on_drag_start)
-            self.root.bind('<B1-Motion>', self.on_drag_motion)
-            self.root.bind('<ButtonRelease-1>', self.on_drag_release)
+            import ctypes
+            from ctypes import wintypes
+            import win32gui
+            import win32con
+            import win32api
+            
+            # Get the window handle
+            hwnd = self.root.winfo_id()
+            
+            # Register the window as a drop target
+            self.root.bind('<Configure>', lambda e: self.register_drop_target(hwnd))
+            
+            # Bind to mouse events for visual feedback
+            self.root.bind('<Enter>', self.on_drag_enter)
+            self.root.bind('<Leave>', self.on_drag_leave)
+            
+            print("✅ Windows drag and drop setup complete")
+            
+        except ImportError:
+            # Fallback to basic drag and drop
+            self.setup_basic_drag_drop()
+        except Exception as e:
+            print(f"Windows drag and drop setup failed: {e}")
+            self.setup_basic_drag_drop()
+            
+    def setup_basic_drag_drop(self):
+        """Setup basic drag and drop using file dialog fallback"""
+        print("Using basic drag and drop fallback")
+        
+        # Add a button to open files
+        self.root.bind('<Control-o>', lambda e: self.open_file())
+        
+        # Add visual indicator
+        self.root.bind('<Enter>', self.on_drag_enter)
+        self.root.bind('<Leave>', self.on_drag_leave)
+        
+    def register_drop_target(self, hwnd):
+        """Register window as drop target"""
+        try:
+            import win32gui
+            import win32con
+            
+            # Set window to accept drops
+            win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, 
+                                 win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE) | win32con.WS_EX_ACCEPTFILES)
+        except:
+            pass
+            
+    def on_drag_enter(self, event):
+        """Handle drag enter"""
+        try:
+            event.widget.config(cursor="hand2")
+            # Change background color to indicate drop zone
+            if hasattr(event.widget, 'configure'):
+                event.widget.configure(bg='#3e3e42')
+        except:
+            pass
+        
+    def on_drag_leave(self, event):
+        """Handle drag leave"""
+        try:
+            event.widget.config(cursor="")
+            # Restore background color
+            if hasattr(event.widget, 'configure'):
+                event.widget.configure(bg=self.colors['bg'])
         except:
             pass
         
