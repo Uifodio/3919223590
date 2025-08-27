@@ -5,6 +5,7 @@ import os
 import sys
 from pygments import highlight
 from pygments.lexers import get_lexer_by_name, TextLexer
+from pygments.token import Token
 from pygments.formatters import HtmlFormatter
 import re
 from typing import Dict, List, Optional
@@ -296,6 +297,11 @@ class AnoraEditor:
         text_widget.bind('<Button-1>', self.update_line_numbers)
         text_widget.bind('<Key>', self.update_line_numbers)
         text_widget.bind('<MouseWheel>', self.update_line_numbers)
+
+        # Editing helpers
+        text_widget.bind('<Return>', self.handle_auto_indent)
+        for ch in ['(', '{', '[', '"', "'"]:
+            text_widget.bind(ch, self.handle_bracket_autoclose)
         
         # Load file if provided
         if file_path:
@@ -395,27 +401,116 @@ class AnoraEditor:
             content = text_widget.get("1.0", tk.END)
             try:
                 lexer = get_lexer_by_name(tab['syntax'])
-                tokens = lexer.get_tokens(content)
-                
+                tokens = list(lexer.get_tokens(content))
+
                 # Clear existing tags
                 for tag in ["keyword", "string", "comment", "number", "function"]:
                     text_widget.tag_remove(tag, "1.0", tk.END)
-                
-                # Apply highlighting
-                for token_type, value in tokens:
-                    if token_type in ['Keyword', 'Name.Builtin']:
-                        text_widget.tag_add("keyword", "1.0", tk.END)
-                    elif token_type in ['String', 'String.Single', 'String.Double']:
-                        text_widget.tag_add("string", "1.0", tk.END)
-                    elif token_type in ['Comment', 'Comment.Single', 'Comment.Multiline']:
-                        text_widget.tag_add("comment", "1.0", tk.END)
-                    elif token_type in ['Literal.Number']:
-                        text_widget.tag_add("number", "1.0", tk.END)
-                    elif token_type in ['Name.Function']:
-                        text_widget.tag_add("function", "1.0", tk.END)
-                        
+
+                # Pre-compute line start offsets for fast conversion
+                # Exclude the very last trailing newline Pygments may append tokens for
+                raw = content
+                line_starts = [0]
+                for i, ch in enumerate(raw):
+                    if ch == '\n':
+                        line_starts.append(i + 1)
+
+                def offset_to_index(offset: int) -> str:
+                    # Binary search for line
+                    lo, hi = 0, len(line_starts) - 1
+                    while lo <= hi:
+                        mid = (lo + hi) // 2
+                        if line_starts[mid] <= offset:
+                            lo = mid + 1
+                        else:
+                            hi = mid - 1
+                    line = hi
+                    col = offset - line_starts[line]
+                    # Tk indices are 1-based lines and 0-based columns
+                    return f"{line + 1}.{col}"
+
+                def should_tag(tt) -> Optional[str]:
+                    # Map pygments token types to our tags
+                    if tt in Token.Keyword or tt in Token.Name.Builtin:
+                        return "keyword"
+                    if tt in Token.String:
+                        return "string"
+                    if tt in Token.Comment:
+                        return "comment"
+                    if tt in Token.Literal.Number:
+                        return "number"
+                    if tt in Token.Name.Function:
+                        return "function"
+                    return None
+
+                # Walk tokens and tag precise ranges
+                offset = 0
+                for tt, val in tokens:
+                    length = len(val)
+                    tag_name = should_tag(tt)
+                    if tag_name and length > 0:
+                        start_idx = offset_to_index(offset)
+                        end_idx = offset_to_index(offset + length)
+                        try:
+                            text_widget.tag_add(tag_name, start_idx, end_idx)
+                        except Exception:
+                            pass
+                    offset += length
+
             except Exception:
                 pass  # Ignore highlighting errors
+
+    def handle_auto_indent(self, event):
+        if self.current_tab is None or not self.tabs:
+            return
+        tab = self.tabs[self.current_tab]
+        text_widget = tab['text']
+        # Get current line content
+        current_index = text_widget.index(tk.INSERT)
+        line_start = f"{current_index.split('.')[0]}.0"
+        line_text = text_widget.get(line_start, current_index)
+        leading_ws = re.match(r"^[ \t]*", line_text).group(0)
+
+        # Insert newline + same indent
+        text_widget.insert(tk.INSERT, "\n" + leading_ws)
+        # Prevent default newline since we inserted our own
+        return "break"
+
+    def handle_bracket_autoclose(self, event):
+        if self.current_tab is None or not self.tabs:
+            return
+        tab = self.tabs[self.current_tab]
+        text_widget = tab['text']
+
+        pairs = {
+            '(': ')',
+            '{': '}',
+            '[': ']',
+            '"': '"',
+            "'": "'"
+        }
+
+        ch = event.char
+        close_ch = pairs.get(ch)
+        if not close_ch:
+            return
+
+        try:
+            # If there is a selection, wrap it
+            if text_widget.tag_ranges("sel"):
+                sel_start = text_widget.index("sel.first")
+                sel_end = text_widget.index("sel.last")
+                text_widget.insert(sel_start, ch)
+                text_widget.insert(sel_end + "+1c", close_ch)
+                text_widget.mark_set(tk.INSERT, sel_end + "+1c")
+            else:
+                text_widget.insert(tk.INSERT, ch + close_ch)
+                # Move cursor back between the pair
+                text_widget.mark_set(tk.INSERT, text_widget.index(tk.INSERT + "-1c"))
+        except Exception:
+            pass
+
+        return "break"
                 
     def open_file(self):
         file_path = filedialog.askopenfilename(
