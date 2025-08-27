@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Anora Editor Launcher (wxPython Version)
+Anora Editor Launcher
 Professional Code Editor with Native Windows Integration
 """
 
 import os
 import sys
 import subprocess
-import wx
+import platform
 
 def check_dependencies():
     """Check if required dependencies are installed"""
@@ -39,22 +39,43 @@ def install_dependencies():
         return True
     except subprocess.CalledProcessError:
         print("❌ Failed to install wxPython via pip")
-        print("💡 Trying system package manager...")
         
-        try:
-            # Try system package manager
-            subprocess.check_call(['sudo', 'apt', 'update'])
-            subprocess.check_call(['sudo', 'apt', 'install', '-y', 'python3-wxgtk4.0'])
-            print("✅ wxPython installed via system package manager")
-            return True
-        except subprocess.CalledProcessError:
-            print("❌ Failed to install wxPython")
-            return False
+        # Try alternative installation methods
+        if platform.system() == "Windows":
+            print("💡 Trying alternative Windows installation...")
+            try:
+                # Try installing with --user flag
+                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--user', 'wxPython'])
+                print("✅ wxPython installed with --user flag")
+                return True
+            except subprocess.CalledProcessError:
+                print("❌ Failed to install with --user flag")
+                
+            try:
+                # Try installing from wheel
+                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip'])
+                subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'wxPython'])
+                print("✅ wxPython installed after pip upgrade")
+                return True
+            except subprocess.CalledProcessError:
+                print("❌ Failed to install after pip upgrade")
+        else:
+            print("💡 Trying system package manager...")
+            try:
+                # Try system package manager
+                subprocess.check_call(['sudo', 'apt', 'update'])
+                subprocess.check_call(['sudo', 'apt', 'install', '-y', 'python3-wxgtk4.0'])
+                print("✅ wxPython installed via system package manager")
+                return True
+            except subprocess.CalledProcessError:
+                print("❌ Failed to install via system package manager")
+        
+        return False
 
 def show_welcome():
     """Show welcome message"""
     print("=" * 60)
-    print("🌟 Welcome to Anora Editor (wxPython)!")
+    print("🌟 Welcome to Anora Editor!")
     print("=" * 60)
     print("A professional code editor with native Windows integration")
     print()
@@ -70,9 +91,9 @@ def show_welcome():
     print("🚀 Starting Anora Editor...")
     print("=" * 60)
 
-def launch_anora_wx():
-    """Launch Anora Editor (wxPython version)"""
-    print("🚀 Launching Anora Editor (wxPython)...")
+def launch_anora():
+    """Launch Anora Editor"""
+    print("🚀 Launching Anora Editor...")
     
     # Check if anora_editor.py exists
     if not os.path.exists('anora_editor.py'):
@@ -90,12 +111,16 @@ def launch_anora_wx():
 
 def show_error_dialog(message):
     """Show error dialog"""
-    app = wx.App()
-    dlg = wx.MessageDialog(None, message, "Anora Editor Launcher", 
-                          wx.OK | wx.ICON_ERROR)
-    dlg.ShowModal()
-    dlg.Destroy()
-    app.Destroy()
+    try:
+        import wx
+        app = wx.App()
+        dlg = wx.MessageDialog(None, message, "Anora Editor Launcher", 
+                              wx.OK | wx.ICON_ERROR)
+        dlg.ShowModal()
+        dlg.Destroy()
+        app.Destroy()
+    except:
+        print(f"❌ Error: {message}")
 
 def main():
     """Main launcher function"""
@@ -111,13 +136,19 @@ def main():
             print("\n📦 Installing wxPython...")
             if not install_dependencies():
                 print("\n💡 Manual installation required:")
-                print("   On Ubuntu/Debian: sudo apt install python3-wxgtk4.0")
-                print("   On Windows: pip install wxPython")
-                print("   On macOS: pip install wxPython")
+                if platform.system() == "Windows":
+                    print("   On Windows:")
+                    print("   1. Open Command Prompt as Administrator")
+                    print("   2. Run: pip install wxPython")
+                    print("   3. If that fails, try: pip install --user wxPython")
+                    print("   4. Or download from: https://www.wxpython.org/download.php")
+                else:
+                    print("   On Ubuntu/Debian: sudo apt install python3-wxgtk4.0")
+                    print("   On macOS: pip install wxPython")
                 return False
     
     # Launch Anora Editor
-    if not launch_anora_wx():
+    if not launch_anora():
         show_error_dialog("Failed to launch Anora Editor.\nPlease check the console for details.")
         return 1
     
