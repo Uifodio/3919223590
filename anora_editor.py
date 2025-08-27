@@ -15,10 +15,10 @@ import json
 import pickle
 from datetime import datetime
 
-class AnoraEditor:
+class NovaEditor:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Anora Editor - Professional Code Editor for Unity")
+        self.root.title("Nova Editor - Professional Code Editor for Unity")
         self.root.geometry("800x600")
         self.root.minsize(400, 300)
         
@@ -350,12 +350,12 @@ class AnoraEditor:
         text_widget.bind('<Control-Tab>', self.next_tab)
         text_widget.bind('<Control-Shift-Tab>', self.previous_tab)
         
-        # Drag and drop bindings (if available)
+        # Drag and drop bindings for text widget
         try:
             text_widget.drop_target_register('DND_Files')
-            text_widget.dnd_bind('<<Drop>>', self.on_drop)
+            text_widget.dnd_bind('<<Drop>>', self.on_text_drop)
         except:
-            # Drag and drop not available, skip
+            # Drag and drop not available
             pass
         
         # Load file if provided
@@ -379,33 +379,91 @@ class AnoraEditor:
         self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
         
     def setup_drag_drop(self):
-        # Enable drag and drop for the main window (if available)
+        # Enable drag and drop for the main window
+        self.drag_drop_enabled = True
         try:
+            # Try to use tkinterdnd2 if available
             self.root.drop_target_register('DND_Files')
             self.root.dnd_bind('<<Drop>>', self.on_drop)
         except:
-            # Drag and drop not available, disable feature
-            self.drag_drop_enabled = False
+            # Fallback to native Windows drag and drop
+            try:
+                import win32com.client
+                self.setup_windows_drag_drop()
+            except:
+                # If all else fails, disable drag and drop
+                self.drag_drop_enabled = False
+                print("Drag and drop not available")
+                
+    def setup_windows_drag_drop(self):
+        """Setup Windows native drag and drop"""
+        try:
+            # Bind to the main window
+            self.root.bind('<Button-1>', self.on_drag_start)
+            self.root.bind('<B1-Motion>', self.on_drag_motion)
+            self.root.bind('<ButtonRelease-1>', self.on_drag_release)
+        except:
+            pass
         
     def on_drop(self, event):
         """Handle file drops on the editor"""
         if not self.drag_drop_enabled:
             return
             
-        files = event.data
-        if isinstance(files, str):
-            files = [files]
+        try:
+            files = event.data
+            if isinstance(files, str):
+                files = [files]
+            
+            for file_path in files:
+                if os.path.isfile(file_path):
+                    # Check if file is already open
+                    existing_tab = self.find_tab_by_path(file_path)
+                    if existing_tab is not None:
+                        # Switch to existing tab
+                        self.notebook.select(existing_tab)
+                    else:
+                        # Create new tab
+                        self.create_new_tab(file_path)
+        except Exception as e:
+            print(f"Drop error: {e}")
+            
+    def on_drag_start(self, event):
+        """Handle drag start"""
+        pass
         
-        for file_path in files:
-            if os.path.isfile(file_path):
-                # Check if file is already open
-                existing_tab = self.find_tab_by_path(file_path)
-                if existing_tab is not None:
-                    # Switch to existing tab
-                    self.notebook.select(existing_tab)
+    def on_drag_motion(self, event):
+        """Handle drag motion"""
+        pass
+        
+    def on_drag_release(self, event):
+        """Handle drag release"""
+        pass
+        
+    def on_text_drop(self, event):
+        """Handle drops on text widget"""
+        try:
+            # Get the dropped data
+            data = event.data
+            if data:
+                # Handle file paths
+                if isinstance(data, str):
+                    files = [data]
                 else:
-                    # Create new tab
-                    self.create_new_tab(file_path)
+                    files = data
+                
+                for file_path in files:
+                    if os.path.isfile(file_path):
+                        # Check if file is already open
+                        existing_tab = self.find_tab_by_path(file_path)
+                        if existing_tab is not None:
+                            # Switch to existing tab
+                            self.notebook.select(existing_tab)
+                        else:
+                            # Create new tab
+                            self.create_new_tab(file_path)
+        except Exception as e:
+            print(f"Text drop error: {e}")
                     
     def find_tab_by_path(self, file_path):
         """Find tab index by file path"""
@@ -501,56 +559,135 @@ class AnoraEditor:
                     }
                     tab['syntax'] = syntax_map.get(ext, 'text')
             
-            # Apply enhanced syntax highlighting
+            # Always use simple syntax highlighting that works
+            self.simple_highlight_syntax(tab, text_widget)
+                
+    def simple_highlight_syntax(self, tab, text_widget):
+        """Simple syntax highlighting as fallback"""
+        try:
             content = text_widget.get("1.0", tk.END)
-            try:
-                lexer = get_lexer_by_name(tab['syntax'])
-                tokens = lexer.get_tokens(content)
+            syntax = tab.get('syntax', 'text')
+            
+            # Simple keyword highlighting for common languages
+            if syntax == 'python':
+                keywords = ['def', 'class', 'import', 'from', 'if', 'else', 'elif', 'for', 'while', 'try', 'except', 'finally', 'with', 'as', 'return', 'yield', 'break', 'continue', 'pass', 'True', 'False', 'None', 'and', 'or', 'not', 'in', 'is', 'lambda', 'global', 'nonlocal']
                 
-                # Clear existing tags
-                tags_to_clear = ["keyword", "string", "comment", "number", "function", 
-                               "class", "operator", "variable", "constant", "type", 
-                               "decorator", "error", "warning"]
-                for tag in tags_to_clear:
-                    text_widget.tag_remove(tag, "1.0", tk.END)
+                # Highlight keywords
+                for keyword in keywords:
+                    start = "1.0"
+                    while True:
+                        pos = text_widget.search(keyword, start, tk.END)
+                        if not pos:
+                            break
+                        end = f"{pos}+{len(keyword)}c"
+                        text_widget.tag_add("keyword", pos, end)
+                        start = end
                 
-                # Apply enhanced highlighting with proper positioning
-                pos = "1.0"
-                for token_type, value in tokens:
-                    if value:  # Only process non-empty tokens
-                        # Calculate end position
-                        lines = value.split('\n')
-                        if len(lines) == 1:
-                            # Single line token
-                            end_pos = f"{pos}+{len(value)}c"
-                            text_widget.tag_add(self.get_tag_for_token(token_type), pos, end_pos)
-                            pos = end_pos
-                        else:
-                            # Multi-line token
-                            current_pos = pos
-                            for i, line in enumerate(lines):
-                                if i == 0:
-                                    # First line
-                                    end_pos = f"{current_pos}+{len(line)}c"
-                                    text_widget.tag_add(self.get_tag_for_token(token_type), current_pos, end_pos)
-                                    current_pos = end_pos
-                                elif i == len(lines) - 1:
-                                    # Last line
-                                    if line:
-                                        end_pos = f"{current_pos}+{len(line)}c"
-                                        text_widget.tag_add(self.get_tag_for_token(token_type), current_pos, end_pos)
-                                        current_pos = end_pos
-                                else:
-                                    # Middle lines
-                                    if line:
-                                        end_pos = f"{current_pos}+{len(line)}c"
-                                        text_widget.tag_add(self.get_tag_for_token(token_type), current_pos, end_pos)
-                                        current_pos = end_pos
-                            pos = current_pos
-                        
-            except Exception as e:
-                print(f"Syntax highlighting error: {e}")
-                pass  # Ignore highlighting errors
+                # Highlight strings
+                start = "1.0"
+                while True:
+                    pos = text_widget.search('"', start, tk.END)
+                    if not pos:
+                        break
+                    # Find the end quote
+                    end_pos = text_widget.search('"', f"{pos}+1c", tk.END)
+                    if end_pos:
+                        end = f"{end_pos}+1c"
+                        text_widget.tag_add("string", pos, end)
+                        start = end
+                    else:
+                        start = f"{pos}+1c"
+                
+                # Highlight comments
+                start = "1.0"
+                while True:
+                    pos = text_widget.search('#', start, tk.END)
+                    if not pos:
+                        break
+                    # Find end of line
+                    line_end = text_widget.index(f"{pos} lineend")
+                    text_widget.tag_add("comment", pos, line_end)
+                    start = line_end
+                    
+            elif syntax == 'csharp':
+                keywords = ['public', 'private', 'protected', 'internal', 'class', 'struct', 'interface', 'enum', 'namespace', 'using', 'static', 'readonly', 'const', 'virtual', 'override', 'abstract', 'sealed', 'partial', 'async', 'await', 'var', 'void', 'int', 'string', 'bool', 'float', 'double', 'if', 'else', 'for', 'while', 'foreach', 'switch', 'case', 'default', 'break', 'continue', 'return', 'throw', 'try', 'catch', 'finally', 'new', 'this', 'base', 'null', 'true', 'false']
+                
+                # Highlight keywords
+                for keyword in keywords:
+                    start = "1.0"
+                    while True:
+                        pos = text_widget.search(keyword, start, tk.END)
+                        if not pos:
+                            break
+                        end = f"{pos}+{len(keyword)}c"
+                        text_widget.tag_add("keyword", pos, end)
+                        start = end
+                
+                # Highlight strings
+                start = "1.0"
+                while True:
+                    pos = text_widget.search('"', start, tk.END)
+                    if not pos:
+                        break
+                    end_pos = text_widget.search('"', f"{pos}+1c", tk.END)
+                    if end_pos:
+                        end = f"{end_pos}+1c"
+                        text_widget.tag_add("string", pos, end)
+                        start = end
+                    else:
+                        start = f"{pos}+1c"
+                
+                # Highlight comments
+                start = "1.0"
+                while True:
+                    pos = text_widget.search('//', start, tk.END)
+                    if not pos:
+                        break
+                    line_end = text_widget.index(f"{pos} lineend")
+                    text_widget.tag_add("comment", pos, line_end)
+                    start = line_end
+                    
+            elif syntax == 'javascript':
+                keywords = ['function', 'var', 'let', 'const', 'if', 'else', 'for', 'while', 'switch', 'case', 'default', 'break', 'continue', 'return', 'try', 'catch', 'finally', 'throw', 'new', 'this', 'null', 'undefined', 'true', 'false', 'class', 'extends', 'super', 'import', 'export', 'async', 'await']
+                
+                # Highlight keywords
+                for keyword in keywords:
+                    start = "1.0"
+                    while True:
+                        pos = text_widget.search(keyword, start, tk.END)
+                        if not pos:
+                            break
+                        end = f"{pos}+{len(keyword)}c"
+                        text_widget.tag_add("keyword", pos, end)
+                        start = end
+                
+                # Highlight strings
+                start = "1.0"
+                while True:
+                    pos = text_widget.search('"', start, tk.END)
+                    if not pos:
+                        break
+                    end_pos = text_widget.search('"', f"{pos}+1c", tk.END)
+                    if end_pos:
+                        end = f"{end_pos}+1c"
+                        text_widget.tag_add("string", pos, end)
+                        start = end
+                    else:
+                        start = f"{pos}+1c"
+                
+                # Highlight comments
+                start = "1.0"
+                while True:
+                    pos = text_widget.search('//', start, tk.END)
+                    if not pos:
+                        break
+                    line_end = text_widget.index(f"{pos} lineend")
+                    text_widget.tag_add("comment", pos, line_end)
+                    start = line_end
+                    
+        except Exception as e:
+            print(f"Simple highlighting error: {e}")
+            pass
                 
     def get_tag_for_token(self, token_type):
         """Get the appropriate tag for a token type"""
@@ -1131,5 +1268,5 @@ class AnoraEditor:
         self.root.mainloop()
 
 if __name__ == "__main__":
-    app = AnoraEditor()
+    app = NovaEditor()
     app.run()

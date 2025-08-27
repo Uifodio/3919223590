@@ -33,12 +33,12 @@ def test_editor_creation():
     print("\n🔍 Testing editor creation...")
     
     try:
-        from anora_editor import AnoraEditor
-        print("✅ AnoraEditor class imported successfully")
+        from anora_editor import NovaEditor
+        print("✅ NovaEditor class imported successfully")
         
         # Create editor instance (but don't run it)
-        editor = AnoraEditor()
-        print("✅ AnoraEditor instance created successfully")
+        editor = NovaEditor()
+        print("✅ NovaEditor instance created successfully")
         
         # Test basic properties
         assert hasattr(editor, 'root'), "Editor should have root window"
