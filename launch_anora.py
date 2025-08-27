@@ -8,222 +8,186 @@ import os
 import sys
 import subprocess
 import platform
+import shutil
+import time
+from datetime import datetime
 
-def check_dependencies():
-    """Check if required dependencies are installed"""
-    required_modules = [
-        'wx',
-        'wx.stc',
-        'wx.aui',
-        'wx.adv',
-        'wx.html',
-        'wx.grid',
-        'wx.richtext'
-    ]
-    
-    optional_modules = [
-        'winreg',
-        'win32gui',
-        'win32con',
-        'win32api',
-        'win32clipboard',
-        'ctypes',
-        'pygments'
-    ]
-    
-    missing_modules = []
-    missing_optional = []
-    
-    for module in required_modules:
-        try:
-            __import__(module)
-            print(f"✅ {module} available")
-        except ImportError:
-            missing_modules.append(module)
-            print(f"❌ {module} not found")
-    
-    for module in optional_modules:
-        try:
-            __import__(module)
-            print(f"✅ {module} available")
-        except ImportError:
-            missing_optional.append(module)
-            print(f"⚠️ {module} not found (optional)")
-    
-    return missing_modules, missing_optional
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'anora_launcher.log')
 
-def install_dependencies():
-    """Install missing dependencies"""
-    print("📦 Installing dependencies...")
-    
-    # Install wxPython first
+
+def log(message: str) -> None:
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    line = f"[{timestamp}] {message}"
     try:
-        print("📦 Installing wxPython...")
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'wxPython'])
-        print("✅ wxPython installed successfully")
-    except subprocess.CalledProcessError:
-        print("❌ Failed to install wxPython via pip")
-        
-        # Try alternative installation methods
-        if platform.system() == "Windows":
-            print("💡 Trying alternative Windows installation...")
-            try:
-                # Try installing with --user flag
-                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--user', 'wxPython'])
-                print("✅ wxPython installed with --user flag")
-            except subprocess.CalledProcessError:
-                print("❌ Failed to install with --user flag")
-                
-            try:
-                # Try installing from wheel
-                subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip'])
-                subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'wxPython'])
-                print("✅ wxPython installed after pip upgrade")
-            except subprocess.CalledProcessError:
-                print("❌ Failed to install after pip upgrade")
+        with open(LOG_FILE, 'a', encoding='utf-8') as f:
+            f.write(line + '\n')
+    except Exception:
+        pass
+    print(line, flush=True)
+
+
+def pause_if_headless():
+    try:
+        if not sys.stdout.isatty():
+            # Likely double-clicked; keep window open to show error
+            input("\nPress Enter to close this window...")
+    except Exception:
+        pass
+
+
+def run_cmd(args, check=True) -> int:
+    log(f"Running: {' '.join(args)}")
+    try:
+        return subprocess.check_call(args)
+    except subprocess.CalledProcessError as e:
+        log(f"Command failed with exit code {e.returncode}")
+        if check:
+            raise
+        return e.returncode
+
+
+def py_version_tag() -> str:
+    return f"{sys.version_info.major}.{sys.version_info.minor}"
+
+
+def try_imports(modules):
+    missing = []
+    for mod in modules:
+        try:
+            __import__(mod)
+            log(f"✅ {mod} available")
+        except ImportError:
+            log(f"❌ {mod} missing")
+            missing.append(mod)
+    return missing
+
+
+def ensure_pip() -> None:
+    try:
+        import pip  # noqa: F401
+        return
+    except Exception:
+        log("pip not found; bootstrapping ensurepip...")
+        try:
+            import ensurepip
+            ensurepip.bootstrap()
+            log("✅ ensurepip bootstrap completed")
+        except Exception as e:
+            log(f"⚠️ ensurepip failed: {e}")
+
+
+def pip_install(packages, user_fallback=True) -> bool:
+    ensure_pip()
+    pyexe = sys.executable
+
+    cmds = [
+        [pyexe, '-m', 'pip', 'install', '-U'] + packages,
+    ]
+
+    # On Windows, add fallback attempts
+    if platform.system() == 'Windows' and user_fallback:
+        cmds.append([pyexe, '-m', 'pip', 'install', '--user', '-U'] + packages)
+        cmds.append([pyexe, '-m', 'pip', 'install', '-U', '--only-binary', ':all:'] + packages)
+
+    for cmd in cmds:
+        try:
+            run_cmd(cmd)
+            return True
+        except Exception as e:
+            log(f"Install attempt failed: {e}")
+            continue
+    return False
+
+
+def install_wxpython() -> bool:
+    log("📦 Installing wxPython...")
+    # Prefer official extras wheels index when available
+    index_url = 'https://extras.wxpython.org/wxPython4/extras/index.html'
+    ok = pip_install([f"wxPython>=4.2.1", '-f', index_url], user_fallback=True)
+    if not ok:
+        # Retry without extras index
+        ok = pip_install(["wxPython>=4.2.1"], user_fallback=True)
+    return ok
+
+
+def install_optional_windows_features():
+    if platform.system() == 'Windows':
+        log("📦 Installing Windows optional packages (pywin32, pygments)...")
+        pip_install(["pywin32", "pygments"], user_fallback=True)
+    else:
+        log("Skipping Windows optional packages on non-Windows platform")
+
+
+def check_and_install_dependencies() -> bool:
+    required = ['wx', 'wx.stc', 'wx.aui', 'wx.adv', 'wx.html', 'wx.grid', 'wx.richtext']
+    missing = try_imports(required)
+    if not missing:
+        return True
+
+    log(f"Missing required modules: {', '.join(missing)}")
+    if 'wx' in missing or any(m.startswith('wx') for m in missing):
+        if not install_wxpython():
+            log("❌ Failed to install wxPython. See log for details.")
+            return False
+        # Re-check after install
+        missing = try_imports(required)
+        if not missing:
+            return True
         else:
-            print("💡 Trying system package manager...")
-            try:
-                # Try system package manager
-                subprocess.check_call(['sudo', 'apt', 'update'])
-                subprocess.check_call(['sudo', 'apt', 'install', '-y', 'python3-wxgtk4.0'])
-                print("✅ wxPython installed via system package manager")
-            except subprocess.CalledProcessError:
-                print("❌ Failed to install via system package manager")
-                return False
-    
-    # Install pywin32 for Windows features
-    if platform.system() == "Windows":
-        try:
-            print("📦 Installing pywin32...")
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pywin32'])
-            print("✅ pywin32 installed successfully")
-        except subprocess.CalledProcessError:
-            print("⚠️ Failed to install pywin32 - Windows features will be limited")
-    
-    # Install pygments for advanced syntax highlighting
-    try:
-        print("📦 Installing pygments...")
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pygments'])
-        print("✅ pygments installed successfully")
-    except subprocess.CalledProcessError:
-        print("⚠️ Failed to install pygments - using built-in highlighting")
-    
+            log(f"Still missing after install: {', '.join(missing)}")
+            return False
     return True
 
+
 def show_welcome():
-    """Show welcome message"""
-    print("=" * 70)
-    print("🌟 Welcome to Anora Editor - Professional Code Editor!")
-    print("=" * 70)
-    print("A professional code editor with native Windows integration")
+    print("=" * 80)
+    print(f"🌟 Welcome to Anora Editor Launcher (Python {py_version_tag()})")
+    print("=" * 80)
+    print("This launcher will verify and install dependencies automatically, then run the editor.")
     print()
-    print("✨ ALL Features Included:")
-    print("   • Native Windows drag and drop")
-    print("   • Professional dark theme")
-    print("   • Advanced syntax highlighting (8+ languages)")
-    print("   • Tabbed interface for multiple files")
-    print("   • Search and replace functionality")
-    print("   • Professional window behavior")
-    print("   • Auto-save and file monitoring")
-    print("   • Advanced keyboard shortcuts")
-    print("   • Windows registry integration")
-    print("   • Clipboard monitoring")
-    print("   • File associations")
-    print("   • Professional menus and toolbars")
-    print("   • Line operations (delete, duplicate, move)")
-    print("   • Multiple cursors and selections")
-    print("   • Code folding and bracket matching")
-    print("   • Settings persistence")
-    print()
-    print("🚀 Starting Anora Editor...")
-    print("=" * 70)
 
-def launch_anora():
-    """Launch Anora Editor"""
-    print("🚀 Launching Anora Editor...")
-    
-    # Check if anora_editor.py exists
+
+def launch_anora() -> int:
     if not os.path.exists('anora_editor.py'):
-        print("❌ anora_editor.py not found!")
-        print("💡 Make sure anora_editor.py is in the same directory")
-        return False
-    
-    try:
-        # Launch Anora Editor
-        subprocess.run([sys.executable, 'anora_editor.py'] + sys.argv[1:])
-        return True
-    except Exception as e:
-        print(f"❌ Failed to launch Anora Editor: {e}")
-        return False
-
-def show_error_dialog(message):
-    """Show error dialog"""
-    try:
-        import wx
-        app = wx.App()
-        dlg = wx.MessageDialog(None, message, "Anora Editor Launcher", 
-                              wx.OK | wx.ICON_ERROR)
-        dlg.ShowModal()
-        dlg.Destroy()
-        app.Destroy()
-    except:
-        print(f"❌ Error: {message}")
-
-def main():
-    """Main launcher function"""
-    show_welcome()
-    
-    # Check dependencies
-    missing_modules, missing_optional = check_dependencies()
-    
-    if missing_modules:
-        print(f"\n❌ Missing required modules: {', '.join(missing_modules)}")
-        
-        if 'wx' in missing_modules:
-            print("\n📦 Installing dependencies...")
-            if not install_dependencies():
-                print("\n💡 Manual installation required:")
-                if platform.system() == "Windows":
-                    print("   On Windows:")
-                    print("   1. Open Command Prompt as Administrator")
-                    print("   2. Run: pip install wxPython")
-                    print("   3. Run: pip install pywin32")
-                    print("   4. Run: pip install pygments")
-                    print("   5. If that fails, try: pip install --user wxPython")
-                    print("   6. Or download from: https://www.wxpython.org/download.php")
-                else:
-                    print("   On Ubuntu/Debian: sudo apt install python3-wxgtk4.0")
-                    print("   On macOS: pip install wxPython")
-                return False
-    
-    if missing_optional:
-        print(f"\n⚠️ Missing optional modules: {', '.join(missing_optional)}")
-        print("   Some advanced features may be limited")
-        
-        # Try to install optional modules
-        if platform.system() == "Windows" and 'win32gui' in missing_optional:
-            try:
-                print("📦 Installing pywin32 for Windows features...")
-                subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pywin32'])
-                print("✅ pywin32 installed successfully")
-            except:
-                print("⚠️ Failed to install pywin32 - Windows features will be limited")
-        
-        if 'pygments' in missing_optional:
-            try:
-                print("📦 Installing pygments for advanced highlighting...")
-                subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pygments'])
-                print("✅ pygments installed successfully")
-            except:
-                print("⚠️ Failed to install pygments - using built-in highlighting")
-    
-    # Launch Anora Editor
-    if not launch_anora():
-        show_error_dialog("Failed to launch Anora Editor.\nPlease check the console for details.")
+        log("❌ anora_editor.py not found in current directory")
         return 1
-    
-    return 0
+
+    # Re-exec the editor with the same interpreter to guarantee same environment
+    args = [sys.executable, 'anora_editor.py'] + sys.argv[1:]
+    log(f"Launching editor: {args}")
+    return subprocess.call(args)
+
+
+def main() -> int:
+    show_welcome()
+    log(f"Launcher started with Python {sys.version}")
+    log(f"Platform: {platform.platform()} | Arch: {platform.machine()}")
+
+    ok = check_and_install_dependencies()
+    if not ok:
+        log("Attempting optional Windows packages to help resolve environment...")
+        install_optional_windows_features()
+        ok = check_and_install_dependencies()
+        if not ok:
+            log("❌ Could not satisfy required dependencies. See anora_launcher.log for details.")
+            pause_if_headless()
+            return 2
+
+    # All good; launch editor
+    rc = launch_anora()
+    if rc != 0:
+        log(f"Editor exited with code {rc}")
+    else:
+        log("Editor closed normally")
+
+    pause_if_headless()
+    return rc
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as e:
+        log(f"Launcher crashed: {e}")
+        pause_if_headless()
+        raise
