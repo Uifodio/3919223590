@@ -1,0 +1,53 @@
+# Ultimate Floating Joystick
+
+Drag-and-drop, professional floating joystick for Unity UI. Appears at first touch, supports full/half-screen activation, dead zone, smooth handle motion, glow/fade visuals, and a configurable instructional placeholder.
+
+## Quick Start
+
+1. Open your Unity project.
+2. Copy the `Assets/UltimateFloatingJoystick` folder into your project's `Assets/`.
+3. From the Unity menu: GameObject → UI → Ultimate Floating Joystick. This creates a Canvas (if needed), EventSystem, and the joystick rig.
+4. Enter Play: touch/click anywhere to spawn the joystick at your finger. Release to hide (configurable). In the editor, visuals are previewed so you can style without entering Play.
+
+## Structure
+
+- FloatingJoystick (script on a full-screen transparent Image, the activation area)
+  - JoystickContainer (CanvasGroup)
+    - Background (Image)
+    - Handle (Image)
+  - Placeholder (CanvasGroup)
+ - Joystick (Adapter for compatibility; optional)
+
+## Inspector Parameters
+
+- Handle Range: Max handle distance in pixels.
+- Dead Zone Radius: Ignore small touches within this radius.
+- Renormalize After Dead Zone: Rescale input so values remain [0..1] beyond dead zone.
+- Handle Smooth Time: SmoothDamp time for handle motion.
+- Axis Options: Both, HorizontalOnly, VerticalOnly.
+- Snap Mode: None, 4-way, 8-way.
+- Output Smooth Time: Additional smoothing of `Direction`.
+- Hide On Release: Fade joystick out when finger lifts.
+- Joystick Fade Speed: Alpha change speed.
+- Activation Restriction: FullScreen, LeftHalf, RightHalf, TopHalf, BottomHalf.
+- Glow: Enable glow on press, with intensity and fade speed.
+- Placeholder: Enable, timed visibility, duration, fade speed, and reappear on release.
+- Placeholder Reappear Delay: Delay before the placeholder shows after release.
+- Keyboard Fallback: Use Horizontal/Vertical axes when not touching.
+- Images: Assign your own sprites for Background and Handle.
+
+## API
+
+- Properties: `Horizontal`, `Vertical`, `Direction`, `Magnitude`, `AngleDegrees`, `IsPressed`.
+- Static: `FloatingJoystick.ActiveInstance`.
+- Events: `onPress`, `onRelease`, `onValueChanged(Vector2)`.
+- Methods: `SetSprites(Sprite background, Sprite handle)`, `SetRange(float)`, `SetDeadZone(float)`, `SetHideOnRelease(bool)`, `SetAxisOptions(AxisOptions)`, `SetActivationRestriction(ActivationRestriction)`.
+ - Interfaces: `IJoystick` for generic joystick consumers; `Joystick` adapter component forwards to `FloatingJoystick`.
+
+## Notes
+
+- The activation area image is invisible but raycast-enabled to capture touches.
+- Input values are normalized to [-1, 1]. With renormalization on, small offsets within the dead zone output zero, then smoothly scale to full range.
+- For camera/world movement, read `Direction` every frame.
+- Unity 6 font change: the creator uses a safe fallback font (LegacyRuntime.ttf if present).
+
