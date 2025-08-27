@@ -253,10 +253,7 @@ class AnoraEditor:
                             relief=tk.FLAT, padx=10)
         prev_btn.pack(side=tk.LEFT, padx=2)
 
-        skip_btn = tk.Button(self.search_frame, text="Skip", command=self.skip_current,
-                            bg=self.colors['button_bg'], fg=self.colors['button_fg'],
-                            relief=tk.FLAT, padx=10)
-        skip_btn.pack(side=tk.LEFT, padx=2)
+        # Skip removed; Next/Prev cover navigation
 
         # Initially hidden
         self.search_frame.pack_forget()
@@ -850,25 +847,32 @@ class AnoraEditor:
         self.goto_search_result()
             
     def replace_text(self):
-        if self.current_tab is not None and self.tabs and self.search_results:
-            tab = self.tabs[self.current_tab]
-            text_widget = tab['text']
-            replace_term = self.replace_var.get()
-            
-            # Replace current selection
-            if text_widget.tag_ranges("sel"):
-                text_widget.delete("sel.first", "sel.last")
-                text_widget.insert("insert", replace_term)
-                
-            # Move to next result
-            self.current_search_index = (self.current_search_index + 1) % len(self.search_results)
-            self.goto_search_result()
-
-    def skip_current(self):
-        if not self.search_results:
+        if self.current_tab is None or not self.tabs or not self.search_results:
             return
-        self.current_search_index = (self.current_search_index + 1) % len(self.search_results)
-        self.goto_search_result()
+        tab = self.tabs[self.current_tab]
+        text_widget = tab['text']
+        replace_term = self.replace_var.get()
+
+        # Replace the currently focused match range
+        start, end = self.search_results[self.current_search_index]
+        try:
+            text_widget.delete(start, end)
+            text_widget.insert(start, replace_term)
+            # Place cursor at end of inserted text
+            after_idx = text_widget.index(f"{start} + {len(replace_term)}c")
+            text_widget.mark_set(tk.INSERT, after_idx)
+        except Exception:
+            pass
+
+        # Recompute matches and focus the next one logically
+        prev_index = self.current_search_index
+        self.find_text()
+        if self.search_results:
+            if prev_index >= len(self.search_results):
+                self.current_search_index = 0
+            else:
+                self.current_search_index = prev_index
+            self.goto_search_result()
             
     def replace_all(self):
         if self.current_tab is not None and self.tabs:
