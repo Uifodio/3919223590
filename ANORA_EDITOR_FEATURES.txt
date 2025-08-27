@@ -1,0 +1,170 @@
+ANORA EDITOR - PROFESSIONAL CODE EDITOR FOR UNITY
+==================================================
+
+VISUAL DESIGN
+------------
+Dark theme with VS Code-style colors:
+- Background: #1e1e1e (dark gray)
+- Text: #d4d4d4 (light gray)
+- Selection: #264f78 (blue)
+- Current line: #33415e (darker blue highlight)
+- Tabs: #2d2d30 (subtle gray)
+- Buttons: #3e3e42 (medium gray)
+- Syntax colors: Blue keywords, Orange strings, Green comments, Yellow functions
+
+WINDOW LAYOUT
+-------------
+800x600 default size, minimum 400x300
+Top: Menu bar (File, Edit, View, Window, Navigate)
+Below: Toolbar with icon buttons
+Center: Tabbed notebook with line numbers
+Bottom: Status bar showing position and messages
+Right-click: Context menu on text area
+
+MENU BAR
+--------
+File:
+- New (Ctrl+N)
+- Open (Ctrl+O) 
+- Save (Ctrl+S)
+- Save As (Ctrl+Shift+S)
+- Open Recent (submenu with last 10 files)
+- Exit (Ctrl+Q)
+
+Edit:
+- Undo (Ctrl+Z)
+- Redo (Ctrl+Y)
+- Cut (Ctrl+X)
+- Copy (Ctrl+C)
+- Paste (Ctrl+V)
+- Select All (Ctrl+A)
+- Find (Ctrl+F)
+- Replace (Ctrl+H)
+
+View:
+- Always on Top (toggle)
+- Fullscreen (toggle)
+
+Window:
+- New Tab (Ctrl+T)
+- Close Tab (Ctrl+W)
+- Close Others
+- Reopen Closed Tab (Ctrl+Shift+T)
+
+Navigate:
+- Go To Line (Ctrl+G)
+
+TOOLBAR BUTTONS
+---------------
+📄 New | 📂 Open | 💾 Save | 🔍 Find | 🔄 Replace | 📌 Pin | ⛶ Full
+
+SEARCH & REPLACE PANEL
+---------------------
+Hidden by default, shows when Find/Replace activated
+Left to right: Find input, Replace input, Find button, Replace button, Replace All button, Next, Prev, Close (✕)
+All matches highlighted yellow, current match highlighted green
+F3 = Next match, Shift+F3 = Previous match
+
+TEXT EDITOR FEATURES
+-------------------
+- Line numbers on left (4-digit format, scrolls with text)
+- Syntax highlighting for Python, C#, JavaScript, HTML, CSS, JSON, C/C++
+- Current line highlighted in darker blue
+- Matching brackets highlighted in green
+- Auto-indent on Enter (preserves leading whitespace)
+- Auto-close brackets/quotes: (, {, [, ", '
+- Right-click context menu: Cut, Copy, Paste, Select All
+- Status bar shows "Line X, Col Y" position
+
+TAB MANAGEMENT
+--------------
+- Multiple tabs with file names
+- Modified tabs show "*" indicator
+- Close tab with Ctrl+W (prompts to save if modified)
+- Close Others: keeps current tab, closes all others
+- Reopen Closed Tab: Ctrl+Shift+T restores last closed tab
+- Tab switching with mouse or keyboard
+
+SYNTAX HIGHLIGHTING
+------------------
+Real-time highlighting with Pygments:
+- Keywords: Blue (#569cd6)
+- Strings: Orange (#ce9178) 
+- Comments: Green (#6a9955)
+- Numbers: Light green (#b5cea8)
+- Functions: Yellow (#dcdcaa)
+Only highlights visible lines for performance
+
+SESSION PERSISTENCE
+------------------
+- Saves all open tabs and content to ~/.anora_editor_session.json
+- Restores session on startup
+- Autosaves every 500ms after changes
+- Recent files list (last 10)
+
+FILE ASSOCIATIONS
+----------------
+Linux: install_linux_default_editor.sh creates .desktop entry
+Windows: install_windows_default_editor.ps1 registers file types
+Supported: .py, .cs, .js, .html, .css, .json, .txt, .c, .cpp, .h
+Double-click files to open in Anora
+
+KEYBOARD SHORTCUTS
+-----------------
+Ctrl+N: New file
+Ctrl+O: Open file
+Ctrl+S: Save
+Ctrl+Shift+S: Save As
+Ctrl+F: Find
+Ctrl+H: Replace
+Ctrl+T: New tab
+Ctrl+W: Close tab
+Ctrl+Shift+T: Reopen closed tab
+Ctrl+A: Select all
+Ctrl+Z: Undo
+Ctrl+Y: Redo
+Ctrl+X: Cut
+Ctrl+C: Copy
+Ctrl+V: Paste
+Ctrl+G: Go to line
+F3: Next search result
+Shift+F3: Previous search result
+Ctrl+Q: Exit
+
+WINDOW CONTROLS
+--------------
+Always on Top: Pin button keeps editor floating above other windows
+Fullscreen: Full button maximizes editor
+Both buttons turn green when active
+
+PERFORMANCE FEATURES
+-------------------
+- Syntax highlighting only processes visible lines
+- 200ms delay on typing to prevent lag
+- Efficient line number updates
+- Session autosave with debouncing
+- Fast file operations
+
+UNITY INTEGRATION
+----------------
+Designed specifically for Unity development:
+- C# syntax highlighting
+- Fast tab switching between scripts
+- Always-on-top for overlay editing
+- Compact design to fit alongside Unity
+- Professional appearance matching modern IDEs
+
+PROFESSIONAL TOUCHES
+-------------------
+- Clean, modern interface
+- Responsive UI with proper feedback
+- Error handling throughout
+- Cross-platform compatibility
+- File association support
+- Session persistence
+- Recent files tracking
+- Professional color scheme
+- Intuitive keyboard shortcuts
+- Context-sensitive menus
+
+This is a lightweight, fast, professional code editor that replaces Visual Studio for Unity development with a focus on speed, efficiency, and professional workflow.
