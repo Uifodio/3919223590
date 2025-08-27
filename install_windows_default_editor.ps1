@@ -1,4 +1,4 @@
-# Requires: Run in PowerShell (preferably as Administrator)
+# Requires: Run in PowerShell as Administrator
 $ErrorActionPreference = 'Stop'
 
 # Resolve paths
@@ -33,4 +33,11 @@ Set-ItemProperty -Path $menuPath -Name '(Default)' -Value 'Open with Anora Edito
 New-Item -Path "$menuPath\command" -Force | Out-Null
 Set-ItemProperty -Path "$menuPath\command" -Name '(Default)' -Value $cmd
 
+# Set as default for text files in Windows
+$textProgId = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.txt\UserChoice"
+if (Test-Path $textProgId) {
+    Set-ItemProperty -Path $textProgId -Name "Progid" -Value $progId -Force
+}
+
 Write-Host "Registered Anora Editor as default/editor option for current user."
+Write-Host "You may need to restart File Explorer or log out/in for changes to take effect."

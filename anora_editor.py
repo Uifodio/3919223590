@@ -403,13 +403,30 @@ class AnoraEditor:
         self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
         
     def setup_drag_drop(self):
-        # Drag and drop functionality will be implemented with native tkinter
-        # For now, we'll use file dialogs for opening files
-        pass
+        # Enable drag and drop for the main window
+        self.root.drop_target_register('DND_Files')
+        self.root.dnd_bind('<<Drop>>', self.on_drop)
+        
+        # Enable drag and drop for the notebook (tab area)
+        self.notebook.drop_target_register('DND_Files')
+        self.notebook.dnd_bind('<<Drop>>', self.on_drop)
         
     def on_drop(self, event):
-        # Placeholder for drag and drop functionality
-        pass
+        # Handle dropped files
+        try:
+            files = event.data
+            if isinstance(files, str):
+                files = [files]
+            
+            for file_path in files:
+                # Remove any extra quotes or brackets
+                file_path = file_path.strip('{}').strip('"')
+                if os.path.exists(file_path):
+                    self.create_new_tab(file_path)
+                    self.add_recent_file(file_path)
+                    self.schedule_session_save()
+        except Exception as e:
+            print(f"Drop error: {e}")
                 
     def on_tab_changed(self, event):
         if self.tabs:
@@ -1095,10 +1112,13 @@ class AnoraEditor:
 
 if __name__ == "__main__":
     app = AnoraEditor()
-    # Open files passed via command-line args
+    # Open files passed via command-line args (Windows file association)
     try:
         args = sys.argv[1:]
         for fp in args:
+            # Handle Windows file association format
+            if fp.startswith('"') and fp.endswith('"'):
+                fp = fp[1:-1]
             if os.path.exists(fp):
                 app.create_new_tab(fp)
                 app.add_recent_file(fp)
