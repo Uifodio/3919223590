@@ -300,11 +300,23 @@ class AnoraEditor:
         )
         text_widget.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-        # Keep line numbers scrolled with text
+        # Sync line numbers with text widget scrolling
         def sync_scroll(*args):
+            # Update text widget scroll
             text_widget.yview(*args)
+            # Sync line numbers to same position
             self.line_numbers.yview_moveto(text_widget.yview()[0])
-        text_widget.configure(yscrollcommand=lambda *args: [sync_scroll(*args), None])
+        text_widget.configure(yscrollcommand=sync_scroll)
+
+        # Also sync line numbers when text widget scrolls
+        def on_text_scroll(*args):
+            self.line_numbers.yview_moveto(text_widget.yview()[0])
+        text_widget.bind('<Configure>', lambda e: self.update_line_numbers())
+        text_widget.bind('<KeyRelease>', lambda e: self.update_line_numbers())
+        text_widget.bind('<ButtonRelease-1>', lambda e: self.update_line_numbers())
+        text_widget.bind('<MouseWheel>', lambda e: self.update_line_numbers())
+        text_widget.bind('<Button-4>', lambda e: self.update_line_numbers())
+        text_widget.bind('<Button-5>', lambda e: self.update_line_numbers())
         
         # Configure tags for syntax highlighting
         text_widget.tag_configure("keyword", foreground="#569cd6")
@@ -337,10 +349,8 @@ class AnoraEditor:
         self.notebook.select(self.current_tab)
         
         # Bind events
-        text_widget.bind('<KeyRelease>', self.on_text_change)
         text_widget.bind('<Button-1>', self.update_line_numbers)
         text_widget.bind('<Key>', self.update_line_numbers)
-        text_widget.bind('<MouseWheel>', self.update_line_numbers)
         # Linux touchpad scroll
         text_widget.bind('<Button-4>', self.update_line_numbers)
         text_widget.bind('<Button-5>', self.update_line_numbers)
@@ -349,8 +359,16 @@ class AnoraEditor:
         text_widget.bind('<Return>', self.handle_auto_indent)
         for ch in ['(', '{', '[', '"', "'"]:
             text_widget.bind(ch, self.handle_bracket_autoclose)
-        text_widget.bind('<KeyRelease>', self.update_current_line_highlight)
-        text_widget.bind('<KeyRelease>', self.update_bracket_match)
+        # Combined event handler for multiple updates
+        def on_text_change(event):
+            self.on_text_change(event)
+            self.update_current_line_highlight()
+            self.update_bracket_match()
+            self.update_line_numbers()
+        text_widget.bind('<KeyRelease>', on_text_change)
+        
+        # Ensure line numbers update on any scroll
+        text_widget.bind('<MouseWheel>', lambda e: self.update_line_numbers())
 
         # Context menu
         context_menu = tk.Menu(text_widget, tearoff=0, bg=self.colors['menu_bg'], fg=self.colors['menu_fg'])
@@ -411,7 +429,8 @@ class AnoraEditor:
             tab = self.tabs[self.current_tab]
             tab['modified'] = True
             self.update_tab_title()
-            self.highlight_syntax()
+            # Delay syntax highlighting to avoid performance issues
+            self.root.after(100, self.highlight_syntax)
             self.schedule_session_save()
             
     def update_tab_title(self):
@@ -444,8 +463,12 @@ class AnoraEditor:
             for i in range(1, lines + 1):
                 line_numbers.insert(tk.END, f"{i}\n")
             line_numbers.config(state='disabled')
-            self.update_current_line_highlight()
-            self.update_bracket_match()
+            
+            # Sync scroll position
+            try:
+                line_numbers.yview_moveto(text_widget.yview()[0])
+            except Exception:
+                pass
             
     def highlight_syntax(self):
         if self.current_tab is not None and self.tabs:
@@ -480,7 +503,6 @@ class AnoraEditor:
                     text_widget.tag_remove(tag, "1.0", tk.END)
 
                 # Pre-compute line start offsets for fast conversion
-                # Exclude the very last trailing newline Pygments may append tokens for
                 raw = content
                 line_starts = [0]
                 for i, ch in enumerate(raw):
