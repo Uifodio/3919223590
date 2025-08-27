@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unity Code Editor</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1><i class="fas fa-code"></i> Unity Code Editor</h1>
+            </div>
+            <div class="header-right">
+                <button id="newFileBtn" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> New File
+                </button>
+                <button id="openFileBtn" class="btn btn-secondary">
+                    <i class="fas fa-folder-open"></i> Open File
+                </button>
+                <button id="saveFileBtn" class="btn btn-success" disabled>
+                    <i class="fas fa-save"></i> Save
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- File Explorer Sidebar -->
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3><i class="fas fa-folder"></i> File Explorer</h3>
+                    <div class="sidebar-actions">
+                        <button id="refreshExplorerBtn" class="btn-icon" title="Refresh">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button id="newFolderBtn" class="btn-icon" title="New Folder">
+                            <i class="fas fa-folder-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="explorer-container">
+                    <div id="fileTree" class="file-tree">
+                        <div class="loading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor Area -->
+            <div class="editor-area">
+                <div class="editor-tabs">
+                    <div id="tabContainer" class="tab-container">
+                        <div class="tab-placeholder">
+                            <i class="fas fa-file-code"></i>
+                            <p>Open a file to start editing</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="editor-container">
+                    <div id="editor" class="monaco-editor"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span id="currentFile">No file open</span>
+            </div>
+            <div class="status-right">
+                <span id="lineInfo">Line 1, Column 1</span>
+                <span id="encoding">UTF-8</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="contextMenu" class="context-menu">
+        <div class="context-item" data-action="open">
+            <i class="fas fa-folder-open"></i> Open
+        </div>
+        <div class="context-item" data-action="rename">
+            <i class="fas fa-edit"></i> Rename
+        </div>
+        <div class="context-item" data-action="delete">
+            <i class="fas fa-trash"></i> Delete
+        </div>
+        <div class="context-separator"></div>
+        <div class="context-item" data-action="copy-path">
+            <i class="fas fa-copy"></i> Copy Path
+        </div>
+    </div>
+
+    <!-- Modal for file operations -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Modal Title</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modalContent">
+                    <!-- Modal content will be inserted here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="modalCancel" class="btn btn-secondary">Cancel</button>
+                <button id="modalConfirm" class="btn btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <script src="renderer.js"></script>
+</body>
+</html>
