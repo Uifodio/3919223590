@@ -15,10 +15,10 @@ import json
 import pickle
 from datetime import datetime
 
-class NexusCode:
+class AnoraEditor:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Nexus Code - Professional Dark Code Editor")
+        self.root.title("Anora Editor - Professional Code Editor")
         self.root.geometry("800x600")
         self.root.minsize(400, 300)
         
@@ -451,9 +451,9 @@ class NexusCode:
             # Add keyboard shortcut
             self.root.bind('<Control-o>', lambda e: self.open_file())
             
-                    print("✅ Fallback drag and drop added")
-    except Exception as e:
-        print(f"Failed to add fallback: {e}")
+            print("✅ Fallback drag and drop added")
+        except Exception as e:
+            print(f"Failed to add fallback: {e}")
         
     def setup_brute_force_drag_drop(self):
         """ABSOLUTE BRUTE FORCE drag and drop - NO BACKING DOWN"""
@@ -2115,13 +2115,13 @@ class NexusCode:
     def setup_professional_behavior(self):
         """Setup professional window behavior"""
         # Set window properties for professional appearance
-        self.root.title("Nexus Code - Professional Dark Code Editor")
-        self.root.iconname("Nexus Code")
+        self.root.title("Anora Editor - Professional Code Editor")
+        self.root.iconname("Anora Editor")
         
         # Professional window hints
         try:
             # Set window class for proper taskbar grouping
-            self.root.wm_class("NexusCode", "Nexus Code")
+            self.root.wm_class("AnoraEditor", "Anora Editor")
         except:
             pass
             
@@ -2188,5 +2188,5 @@ class NexusCode:
             pass
 
 if __name__ == "__main__":
-    app = NexusCode()
+    app = AnoraEditor()
     app.run()

@@ -52,7 +52,7 @@ def install_dependencies():
 def show_welcome():
     """Show welcome message"""
     print("=" * 60)
-    print("🌟 Welcome to Nova Editor!")
+    print("🌟 Welcome to Anora Editor!")
     print("=" * 60)
     print("A professional code editor designed for Unity development")
     print()
@@ -64,7 +64,7 @@ def show_welcome():
     print("   • Always on top mode for Unity workflow")
     print("   • Compact design for overlay editing")
     print()
-    print("🚀 Starting Nova Editor...")
+    print("🚀 Starting Anora Editor...")
     print("=" * 60)
 
 def main():
@@ -96,20 +96,20 @@ def main():
     
     # Launch the editor
     try:
-        print("\n🎯 Launching Nova Editor...")
+        print("\n🎯 Launching Anora Editor...")
         
         # Import and run the editor
-        from anora_editor import NovaEditor
+        from anora_editor import AnoraEditor
         
-        app = NovaEditor()
+        app = AnoraEditor()
         app.run()
         
     except ImportError as e:
-        print(f"❌ Failed to import Nova Editor: {e}")
+        print(f"❌ Failed to import Anora Editor: {e}")
         print("💡 Make sure anora_editor.py is in the same directory")
         return False
     except Exception as e:
-        print(f"❌ Failed to start Nova Editor: {e}")
+        print(f"❌ Failed to start Anora Editor: {e}")
         return False
     
     return True
@@ -117,5 +117,5 @@ def main():
 if __name__ == "__main__":
     success = main()
     if not success:
-        print("\n❌ Failed to launch Nova Editor")
+        print("\n❌ Failed to launch Anora Editor")
         sys.exit(1)

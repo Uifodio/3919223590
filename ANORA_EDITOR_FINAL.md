@@ -1,54 +1,30 @@
-# 🔥 Nexus Code - Professional Dark Code Editor
+# 🔥 Anora Editor - Professional Code Editor
 
-**Nexus Code** is a professional, dark-themed code editor built with Python and Tkinter, featuring advanced drag and drop capabilities, syntax highlighting, and Windows integration.
+**Anora Editor** is a professional, dark-themed code editor built with Python and Tkinter, featuring advanced drag and drop capabilities, syntax highlighting, and Windows integration.
 
-## 🎯 Features
+## 🎯 **5 Essential Files**
 
-### 🔥 **Absolute Brute Force Drag & Drop**
-- **8 different drag and drop methods** for maximum compatibility
-- **Windows API integration** with native drag and drop
-- **Multiple drop zones** visible on screen
-- **File system monitoring** for automatic file detection
-- **Clipboard monitoring** for file path detection
-- **Windows message hook** for WM_DROPFILES handling
+1. **`anora_editor.py`** - Main application (90KB)
+2. **`launch_anora.py`** - Professional launcher script
+3. **`build_exe_alternative.py`** - Executable builder
+4. **`test_editor.py`** - Basic functionality test
+5. **`test_drag_drop_simple.py`** - Simple drag and drop test
 
-### 🎨 **Professional Dark Theme**
-- **Dark color scheme** optimized for long coding sessions
-- **Syntax highlighting** for multiple languages
-- **Professional window behavior** with Alt+Tab support
-- **Always-on-top** and fullscreen modes
-- **Tabbed interface** for multiple files
+## 🚀 **How to Launch**
 
-### 💻 **Advanced Code Editing**
-- **Syntax highlighting** for Python, C#, JavaScript, HTML, CSS
-- **Search and replace** with skip functionality
-- **Line numbers** and status bar
-- **Undo/redo** functionality
-- **Auto-indent** and code formatting
-- **Multiple language support**
-
-### 🪟 **Windows Integration**
-- **Native Windows drag and drop** using Shell32
-- **Professional window appearance** with taskbar integration
-- **File association support** for common file types
-- **Windows message handling** for system integration
-- **Professional keyboard shortcuts** (Alt+Tab, F11, Escape)
-
-## 🚀 Quick Start
-
-### **Method 1: Using the Launcher**
+### **Method 1: Using the Launcher (Recommended)**
 ```bash
-python3 launch_nexus.py
+python3 launch_anora.py
 ```
 
 ### **Method 2: Direct Launch**
 ```bash
-python3 nexus_code.py
+python3 anora_editor.py
 ```
 
 ### **Method 3: With File**
 ```bash
-python3 nexus_code.py your_file.py
+python3 anora_editor.py your_file.py
 ```
 
 ### **Method 4: Build Executable**
@@ -56,21 +32,39 @@ python3 nexus_code.py your_file.py
 python3 build_exe_alternative.py
 ```
 
-## 🔧 Installation
+## 🔥 **Features**
 
-### **Dependencies**
-```bash
-pip install tkinterdnd2
-pip install pywin32
-pip install pygments
-```
+### **Absolute Brute Force Drag & Drop**
+- **8 different drag and drop methods** for maximum compatibility
+- **Windows API integration** with native drag and drop
+- **Multiple drop zones** visible on screen
+- **File system monitoring** for automatic file detection
+- **Clipboard monitoring** for file path detection
+- **Windows message hook** for WM_DROPFILES handling
 
-### **Optional Dependencies**
-```bash
-pip install pyinstaller  # For building executables
-```
+### **Professional Dark Theme**
+- **Dark color scheme** optimized for long coding sessions
+- **Syntax highlighting** for multiple languages
+- **Professional window behavior** with Alt+Tab support
+- **Always-on-top** and fullscreen modes
+- **Tabbed interface** for multiple files
 
-## 🎯 Drag & Drop Methods
+### **Advanced Code Editing**
+- **Syntax highlighting** for Python, C#, JavaScript, HTML, CSS
+- **Search and replace** with skip functionality
+- **Line numbers** and status bar
+- **Undo/redo** functionality
+- **Auto-indent** and code formatting
+- **Multiple language support**
+
+### **Windows Integration**
+- **Native Windows drag and drop** using Shell32
+- **Professional window appearance** with taskbar integration
+- **File association support** for common file types
+- **Windows message handling** for system integration
+- **Professional keyboard shortcuts** (Alt+Tab, F11, Escape)
+
+## 🎯 **Drag & Drop Methods**
 
 ### **Method 1: tkinterdnd2**
 - Primary drag and drop library
@@ -112,7 +106,7 @@ pip install pyinstaller  # For building executables
 - File dialog integration
 - Error handling and recovery
 
-## 🎨 Syntax Highlighting
+## 🎨 **Syntax Highlighting**
 
 ### **Supported Languages**
 - **Python** (.py) - Keywords, strings, comments
@@ -130,7 +124,7 @@ pip install pyinstaller  # For building executables
 - **Line-by-line** analysis
 - **Generic fallback** for unknown languages
 
-## 🪟 Windows Features
+## 🪟 **Windows Features**
 
 ### **Professional Window Behavior**
 - **Alt+Tab** - Professional window switching
@@ -150,7 +144,7 @@ pip install pyinstaller  # For building executables
 - **Visual feedback** during drag operations
 - **File path parsing** and validation
 
-## 🔥 Advanced Features
+## 🔥 **Advanced Features**
 
 ### **Professional Code Editing**
 - **Tabbed interface** for multiple files
@@ -173,7 +167,7 @@ pip install pyinstaller  # For building executables
 - **File monitoring** for changes
 - **Professional file dialogs**
 
-## 🚀 Building Executables
+## 🚀 **Building Executables**
 
 ### **Alternative Build Method**
 ```bash
@@ -188,17 +182,16 @@ python3 build_exe_alternative.py
 - **Error handling** and recovery
 
 ### **Executable Features**
-- **NexusCode.exe** - Main executable
-- **launch_nexus.bat** - Launcher script
+- **AnoraEditor.exe** - Main executable
+- **launch_anora.bat** - Launcher script
 - **Professional appearance** with icon
 - **Windows integration** and taskbar support
 
-## 🎯 Testing
+## 🎯 **Testing**
 
 ### **Test Files**
-- **test_nexus_windows_drag.py** - Windows drag and drop test
-- **test_absolute_brute_force.py** - Absolute brute force test
-- **test_brute_force.py** - General functionality test
+- **test_editor.py** - Basic functionality test
+- **test_drag_drop_simple.py** - Simple drag and drop test
 
 ### **Test Features**
 - **Multiple drag and drop methods**
@@ -207,7 +200,7 @@ python3 build_exe_alternative.py
 - **Professional window behavior**
 - **Error handling** and recovery
 
-## 🔧 Troubleshooting
+## 🔧 **Troubleshooting**
 
 ### **Common Issues**
 1. **Drag and drop not working** - Try different drop zones or use Ctrl+O
@@ -221,7 +214,7 @@ python3 build_exe_alternative.py
 - **Error handling** prevents crashes
 - **Professional recovery** mechanisms
 
-## 🎉 Why Nexus Code?
+## 🎉 **Why Anora Editor?**
 
 ### **Unique Features**
 - **Absolute brute force drag and drop** - 8 different methods
@@ -237,12 +230,12 @@ python3 build_exe_alternative.py
 - **Windows integration** - Professional system behavior
 - **Professional appearance** - Dark theme with modern UI
 
-## 🔥 Get Started
+## 🔥 **Get Started**
 
-1. **Download** the files
+1. **Download** the 5 essential files
 2. **Install dependencies** with pip
 3. **Run the launcher** or main file
 4. **Drag and drop** files to test
 5. **Enjoy professional** code editing!
 
-**Nexus Code** - Where professional coding meets absolute reliability! 🔥
+**Anora Editor** - Where professional coding meets absolute reliability! 🔥
