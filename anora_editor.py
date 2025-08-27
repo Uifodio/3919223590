@@ -456,8 +456,8 @@ class NovaEditor:
         print(f"Failed to add fallback: {e}")
         
     def setup_brute_force_drag_drop(self):
-        """BRUTE FORCE drag and drop using multiple methods"""
-        print("🔧 Setting up BRUTE FORCE drag and drop...")
+        """ABSOLUTE BRUTE FORCE drag and drop - NO BACKING DOWN"""
+        print("🔥 ABSOLUTE BRUTE FORCE drag and drop setup...")
         
         # Method 1: Monitor mouse events for drag detection
         self.root.bind('<Button-1>', self.on_mouse_down)
@@ -474,7 +474,19 @@ class NovaEditor:
         # Method 4: Add visual drop zones
         self.create_drop_zones()
         
-        print("✅ BRUTE FORCE drag and drop methods added")
+        # Method 5: ABSOLUTE BRUTE FORCE - Monitor file system changes
+        self.setup_file_system_monitoring()
+        
+        # Method 6: ABSOLUTE BRUTE FORCE - Monitor clipboard continuously
+        self.setup_clipboard_monitoring()
+        
+        # Method 7: ABSOLUTE BRUTE FORCE - Monitor Windows messages
+        self.setup_windows_message_monitoring()
+        
+        # Method 8: ABSOLUTE BRUTE FORCE - Create multiple drop targets
+        self.create_multiple_drop_targets()
+        
+        print("🔥 ABSOLUTE BRUTE FORCE drag and drop methods added - NO BACKING DOWN!")
         
     def on_mouse_down(self, event):
         """Handle mouse down for drag detection"""
@@ -573,23 +585,182 @@ class NovaEditor:
     def create_drop_zones(self):
         """Create visual drop zones"""
         try:
-            # Create a drop zone label
-            drop_label = tk.Label(
-                self.root,
-                text="📁 Drop files here",
-                bg='#3e3e42',
-                fg='#ffffff',
-                font=('Arial', 12, 'bold'),
-                relief=tk.RAISED,
-                borderwidth=2
-            )
-            drop_label.place(relx=0.5, rely=0.1, anchor=tk.CENTER)
+            # Create multiple drop zones
+            drop_zones = [
+                ("📁 Drop files here", 0.5, 0.1),
+                ("📄 Drop files here", 0.2, 0.3),
+                ("📂 Drop files here", 0.8, 0.3),
+                ("📋 Drop files here", 0.5, 0.8)
+            ]
             
-            # Make it clickable to open file dialog
-            drop_label.bind('<Button-1>', lambda e: self.open_file())
+            for text, relx, rely in drop_zones:
+                drop_label = tk.Label(
+                    self.root,
+                    text=text,
+                    bg='#3e3e42',
+                    fg='#ffffff',
+                    font=('Arial', 12, 'bold'),
+                    relief=tk.RAISED,
+                    borderwidth=2
+                )
+                drop_label.place(relx=relx, rely=rely, anchor=tk.CENTER)
+                
+                # Make it clickable to open file dialog
+                drop_label.bind('<Button-1>', lambda e: self.open_file())
+                
+                # Try to make it a drop target
+                try:
+                    drop_label.drop_target_register('DND_Files')
+                    drop_label.dnd_bind('<<Drop>>', self.on_drop)
+                    print(f"✅ Drop zone created: {text}")
+                except:
+                    pass
+                    
+        except Exception as e:
+            print(f"❌ Drop zones failed: {e}")
             
+    def setup_file_system_monitoring(self):
+        """ABSOLUTE BRUTE FORCE - Monitor file system for new files"""
+        print("🔥 Setting up file system monitoring...")
+        try:
+            import glob
+            import time
+            
+            # Store initial file list
+            self.initial_files = set()
+            for pattern in ['*.py', '*.cs', '*.js', '*.html', '*.css', '*.json', '*.txt', '*.md']:
+                for file_path in glob.glob(pattern):
+                    self.initial_files.add(file_path)
+            
+            # Start monitoring timer
+            self.monitor_file_system()
+            
+        except Exception as e:
+            print(f"❌ File system monitoring failed: {e}")
+            
+    def monitor_file_system(self):
+        """Monitor file system for new files"""
+        try:
+            import glob
+            import time
+            
+            current_files = set()
+            for pattern in ['*.py', '*.cs', '*.js', '*.html', '*.css', '*.json', '*.txt', '*.md']:
+                for file_path in glob.glob(pattern):
+                    current_files.add(file_path)
+            
+            # Check for new files
+            new_files = current_files - self.initial_files
+            for file_path in new_files:
+                if os.path.isfile(file_path):
+                    print(f"🔥 NEW FILE DETECTED: {file_path}")
+                    self.create_new_tab_with_filename(file_path)
+                    self.initial_files.add(file_path)
+            
+            # Continue monitoring
+            self.root.after(1000, self.monitor_file_system)
+            
+        except Exception as e:
+            print(f"❌ File system monitoring error: {e}")
+            
+    def setup_clipboard_monitoring(self):
+        """ABSOLUTE BRUTE FORCE - Monitor clipboard continuously"""
+        print("🔥 Setting up clipboard monitoring...")
+        try:
+            self.last_clipboard = ""
+            self.monitor_clipboard()
+        except Exception as e:
+            print(f"❌ Clipboard monitoring failed: {e}")
+            
+    def monitor_clipboard(self):
+        """Monitor clipboard for file paths"""
+        try:
+            import win32clipboard
+            win32clipboard.OpenClipboard()
+            try:
+                data = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
+                if data and data != self.last_clipboard:
+                    self.last_clipboard = data
+                    # Check if it's a file path
+                    if os.path.isfile(data):
+                        print(f"🔥 FILE PATH IN CLIPBOARD: {data}")
+                        self.create_new_tab_with_filename(data)
+            except:
+                pass
+            finally:
+                win32clipboard.CloseClipboard()
         except:
             pass
+        
+        # Continue monitoring
+        self.root.after(500, self.monitor_clipboard)
+        
+    def setup_windows_message_monitoring(self):
+        """ABSOLUTE BRUTE FORCE - Monitor Windows messages"""
+        print("🔥 Setting up Windows message monitoring...")
+        try:
+            import win32gui
+            import win32con
+            
+            # Set up message hook
+            def message_handler(hwnd, msg, wparam, lparam):
+                if msg == win32con.WM_DROPFILES:
+                    print("🔥 WM_DROPFILES message received!")
+                    # Handle dropped files
+                    return 0
+                return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
+            
+            # Set window to accept files
+            hwnd = self.root.winfo_id()
+            win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, 
+                                 win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE) | win32con.WS_EX_ACCEPTFILES)
+            
+        except Exception as e:
+            print(f"❌ Windows message monitoring failed: {e}")
+            
+    def create_multiple_drop_targets(self):
+        """ABSOLUTE BRUTE FORCE - Create multiple drop targets"""
+        print("🔥 Creating multiple drop targets...")
+        try:
+            # Create drop targets on every widget
+            widgets_to_target = [self.root, self.notebook]
+            if hasattr(self, 'search_frame'):
+                widgets_to_target.append(self.search_frame)
+            if hasattr(self, 'status_bar'):
+                widgets_to_target.append(self.status_bar)
+                
+            for widget in widgets_to_target:
+                try:
+                    widget.drop_target_register('DND_Files')
+                    widget.dnd_bind('<<Drop>>', self.on_drop)
+                    print(f"✅ Drop target created on {widget}")
+                except:
+                    pass
+                    
+        except Exception as e:
+            print(f"❌ Multiple drop targets failed: {e}")
+            
+    def create_new_tab_with_filename(self, file_path):
+        """ABSOLUTE BRUTE FORCE - Create new tab with file name"""
+        try:
+            print(f"🔥 CREATING NEW TAB WITH FILENAME: {file_path}")
+            
+            # Get file name
+            file_name = os.path.basename(file_path)
+            
+            # Create new tab
+            tab_data = self.create_new_tab(file_path)
+            
+            # Update tab title with file name
+            if tab_data and self.tabs:
+                tab_index = len(self.tabs) - 1
+                self.notebook.tab(tab_index, text=file_name)
+                print(f"🔥 TAB CREATED WITH NAME: {file_name}")
+                
+        except Exception as e:
+            print(f"❌ CREATE TAB ERROR: {e}")
+            import traceback
+            traceback.print_exc()
                 
     def setup_windows_drag_drop(self):
         """Setup Windows native drag and drop using shell32"""
@@ -643,17 +814,9 @@ class NovaEditor:
             pass
             
     def on_drag_enter(self, event):
-        """Handle drag enter - only when actually dragging files"""
-        try:
-            # Only change cursor and background when actually dragging files
-            # This prevents highlighting when just moving the mouse
-            if hasattr(event, 'data') and event.data:
-                event.widget.config(cursor="hand2")
-                # Change background color to indicate drop zone
-                if hasattr(event.widget, 'configure'):
-                    event.widget.configure(bg='#3e3e42')
-        except:
-            pass
+        """Handle drag enter - DISABLED to prevent unwanted highlighting"""
+        # DISABLED - No highlighting when just moving mouse
+        pass
         
     def on_drag_leave(self, event):
         """Handle drag leave"""
@@ -666,9 +829,9 @@ class NovaEditor:
             pass
         
     def on_drop(self, event):
-        """Handle file drops on the editor"""
-        print(f"Drop event received: {event}")
-        print(f"Drop data: {event.data}")
+        """ABSOLUTE BRUTE FORCE drop handler"""
+        print(f"🔥 ABSOLUTE BRUTE FORCE DROP EVENT: {event}")
+        print(f"🔥 DROP DATA: {event.data}")
         
         try:
             files = event.data
@@ -680,7 +843,7 @@ class NovaEditor:
                 else:
                     files = [files]
             
-            print(f"Processing files: {files}")
+            print(f"🔥 PROCESSING FILES: {files}")
             
             for file_path in files:
                 # Clean up the file path
@@ -688,25 +851,18 @@ class NovaEditor:
                 if file_path.startswith('"') and file_path.endswith('"'):
                     file_path = file_path[1:-1]
                 
-                print(f"Processing file: {file_path}")
+                print(f"🔥 PROCESSING FILE: {file_path}")
                 
                 if os.path.isfile(file_path):
-                    print(f"File exists: {file_path}")
-                    # Check if file is already open
-                    existing_tab = self.find_tab_by_path(file_path)
-                    if existing_tab is not None:
-                        # Switch to existing tab
-                        print(f"Switching to existing tab for: {file_path}")
-                        self.notebook.select(existing_tab)
-                    else:
-                        # Create new tab
-                        print(f"Creating new tab for: {file_path}")
-                        self.create_new_tab(file_path)
+                    print(f"🔥 FILE EXISTS: {file_path}")
+                    # ABSOLUTE BRUTE FORCE - Create new tab with file name
+                    self.create_new_tab_with_filename(file_path)
+                    break
                 else:
-                    print(f"File does not exist: {file_path}")
+                    print(f"❌ FILE DOES NOT EXIST: {file_path}")
                     
         except Exception as e:
-            print(f"Drop error: {e}")
+            print(f"❌ ABSOLUTE BRUTE FORCE DROP ERROR: {e}")
             import traceback
             traceback.print_exc()
             
@@ -723,9 +879,9 @@ class NovaEditor:
         pass
         
     def on_text_drop(self, event):
-        """Handle drops on text widget"""
-        print(f"Text drop event received: {event}")
-        print(f"Text drop data: {event.data}")
+        """ABSOLUTE BRUTE FORCE text drop handler"""
+        print(f"🔥 ABSOLUTE BRUTE FORCE TEXT DROP EVENT: {event}")
+        print(f"🔥 TEXT DROP DATA: {event.data}")
         
         try:
             # Get the dropped data
@@ -742,7 +898,7 @@ class NovaEditor:
                 else:
                     files = data
                 
-                print(f"Processing text drop files: {files}")
+                print(f"🔥 PROCESSING TEXT DROP FILES: {files}")
                 
                 for file_path in files:
                     # Clean up the file path
@@ -750,24 +906,17 @@ class NovaEditor:
                     if file_path.startswith('"') and file_path.endswith('"'):
                         file_path = file_path[1:-1]
                     
-                    print(f"Processing text drop file: {file_path}")
+                    print(f"🔥 PROCESSING TEXT DROP FILE: {file_path}")
                     
                     if os.path.isfile(file_path):
-                        print(f"Text drop file exists: {file_path}")
-                        # Check if file is already open
-                        existing_tab = self.find_tab_by_path(file_path)
-                        if existing_tab is not None:
-                            # Switch to existing tab
-                            print(f"Switching to existing tab for text drop: {file_path}")
-                            self.notebook.select(existing_tab)
-                        else:
-                            # Create new tab
-                            print(f"Creating new tab for text drop: {file_path}")
-                            self.create_new_tab(file_path)
+                        print(f"🔥 TEXT DROP FILE EXISTS: {file_path}")
+                        # ABSOLUTE BRUTE FORCE - Create new tab with file name
+                        self.create_new_tab_with_filename(file_path)
+                        break
                     else:
-                        print(f"Text drop file does not exist: {file_path}")
+                        print(f"❌ TEXT DROP FILE DOES NOT EXIST: {file_path}")
         except Exception as e:
-            print(f"Text drop error: {e}")
+            print(f"❌ ABSOLUTE BRUTE FORCE TEXT DROP ERROR: {e}")
             import traceback
             traceback.print_exc()
                     
