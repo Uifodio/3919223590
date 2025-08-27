@@ -3,6 +3,8 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 from tkinter import font as tkfont
 import os
 import sys
+import json
+from pathlib import Path
 from pygments import highlight
 from pygments.lexers import get_lexer_by_name, TextLexer
 from pygments.token import Token
@@ -42,6 +44,11 @@ class AnoraEditor:
         # Variables
         self.tabs = []
         self.current_tab = None
+        self.closed_tabs_stack: List[dict] = []
+        self.recent_files: List[str] = []
+        self.recent_menu = None
+        self.session_path = str(Path.home() / ".anora_editor_session.json")
+        self.autosave_after_id = None
         self.always_on_top = tk.BooleanVar()
         self.fullscreen = tk.BooleanVar()
         self.search_var = tk.StringVar()
@@ -52,6 +59,8 @@ class AnoraEditor:
         self.setup_ui()
         self.setup_bindings()
         self.setup_drag_drop()
+        self.load_session()
+        self.root.protocol("WM_DELETE_WINDOW", self.on_app_close)
         
     def setup_ui(self):
         # Menu bar
@@ -95,8 +104,12 @@ class AnoraEditor:
         file_menu.add_command(label="Open", command=self.open_file, accelerator="Ctrl+O")
         file_menu.add_command(label="Save", command=self.save_file, accelerator="Ctrl+S")
         file_menu.add_command(label="Save As", command=self.save_file_as, accelerator="Ctrl+Shift+S")
+        # Recent files submenu
+        self.recent_menu = tk.Menu(file_menu, tearoff=0, bg=self.colors['menu_bg'], fg=self.colors['menu_fg'])
+        file_menu.add_cascade(label="Open Recent", menu=self.recent_menu)
+        self.refresh_recent_menu()
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.quit, accelerator="Ctrl+Q")
+        file_menu.add_command(label="Exit", command=self.on_app_close, accelerator="Ctrl+Q")
         
         # Edit menu
         edit_menu = tk.Menu(menubar, tearoff=0, bg=self.colors['menu_bg'], fg=self.colors['menu_fg'])
@@ -125,6 +138,16 @@ class AnoraEditor:
         menubar.add_cascade(label="Window", menu=window_menu)
         window_menu.add_command(label="New Tab", command=self.create_new_tab, accelerator="Ctrl+T")
         window_menu.add_command(label="Close Tab", command=self.close_current_tab, accelerator="Ctrl+W")
+        window_menu.add_separator()
+        window_menu.add_command(label="Close Others", command=self.close_other_tabs)
+        window_menu.add_command(label="Keep First 5 Tabs", command=lambda: self.keep_n_tabs(5))
+        window_menu.add_command(label="Keep Last 5 Tabs", command=lambda: self.keep_n_tabs(5, from_end=True))
+        window_menu.add_command(label="Reopen Closed Tab", command=self.reopen_closed_tab, accelerator="Ctrl+Shift+T")
+
+        # Navigate menu
+        nav_menu = tk.Menu(menubar, tearoff=0, bg=self.colors['menu_bg'], fg=self.colors['menu_fg'])
+        menubar.add_cascade(label="Navigate", menu=nav_menu)
+        nav_menu.add_command(label="Go To Line...", command=self.go_to_line, accelerator="Ctrl+G")
         
     def create_toolbar(self):
         toolbar = tk.Frame(self.root, bg=self.colors['bg'], height=40)
@@ -272,6 +295,8 @@ class AnoraEditor:
         text_widget.tag_configure("comment", foreground="#6a9955")
         text_widget.tag_configure("number", foreground="#b5cea8")
         text_widget.tag_configure("function", foreground="#dcdcaa")
+        text_widget.tag_configure("current_line", background="#2a2a2a")
+        text_widget.tag_configure("bracket_match", background="#4b5632")
         
         # Tab data
         tab_data = {
@@ -302,6 +327,8 @@ class AnoraEditor:
         text_widget.bind('<Return>', self.handle_auto_indent)
         for ch in ['(', '{', '[', '"', "'"]:
             text_widget.bind(ch, self.handle_bracket_autoclose)
+        text_widget.bind('<KeyRelease>', self.update_current_line_highlight)
+        text_widget.bind('<KeyRelease>', self.update_bracket_match)
         
         # Load file if provided
         if file_path:
@@ -319,6 +346,8 @@ class AnoraEditor:
         self.root.bind('<Control-t>', lambda e: self.create_new_tab())
         self.root.bind('<Control-w>', lambda e: self.close_current_tab())
         self.root.bind('<Control-a>', lambda e: self.select_all())
+        self.root.bind('<Control-g>', lambda e: self.go_to_line())
+        self.root.bind('<Control-Shift-T>', lambda e: self.reopen_closed_tab())
         
         # Tab change binding
         self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
@@ -343,6 +372,7 @@ class AnoraEditor:
             tab['modified'] = True
             self.update_tab_title()
             self.highlight_syntax()
+            self.schedule_session_save()
             
     def update_tab_title(self):
         if self.current_tab is not None and self.tabs:
@@ -374,6 +404,8 @@ class AnoraEditor:
             for i in range(1, lines + 1):
                 line_numbers.insert(tk.END, f"{i}\n")
             line_numbers.config(state='disabled')
+            self.update_current_line_highlight()
+            self.update_bracket_match()
             
     def highlight_syntax(self):
         if self.current_tab is not None and self.tabs:
@@ -527,6 +559,8 @@ class AnoraEditor:
         )
         if file_path:
             self.create_new_tab(file_path)
+            self.add_recent_file(file_path)
+            self.schedule_session_save()
             
     def load_file(self, file_path):
         try:
@@ -542,6 +576,8 @@ class AnoraEditor:
                 self.update_tab_title()
                 self.highlight_syntax()
                 self.update_status(f"Loaded {file_path}")
+                self.add_recent_file(file_path)
+                self.schedule_session_save()
                 
         except Exception as e:
             messagebox.showerror("Error", f"Could not open file: {str(e)}")
@@ -579,6 +615,8 @@ class AnoraEditor:
             if self.current_tab is not None and self.tabs:
                 tab = self.tabs[self.current_tab]
                 content = tab['text'].get("1.0", tk.END)
+                # Trim trailing whitespace per line
+                content = "\n".join([re.sub(r"[ \t]+$", "", ln) for ln in content.splitlines()]) + "\n"
                 
                 with open(file_path, 'w', encoding='utf-8') as file:
                     file.write(content)
@@ -586,6 +624,8 @@ class AnoraEditor:
                 tab['modified'] = False
                 self.update_tab_title()
                 self.update_status(f"Saved {file_path}")
+                self.add_recent_file(file_path)
+                self.schedule_session_save()
                 
         except Exception as e:
             messagebox.showerror("Error", f"Could not save file: {str(e)}")
@@ -601,6 +641,11 @@ class AnoraEditor:
                 elif result:  # Yes
                     self.save_file()
                     
+            # Push to closed stack for reopen
+            self.closed_tabs_stack.append({
+                'file_path': tab.get('file_path'),
+                'content': tab['text'].get('1.0', tk.END)
+            })
             self.notebook.forget(self.current_tab)
             self.tabs.pop(self.current_tab)
             
@@ -609,6 +654,68 @@ class AnoraEditor:
                 self.notebook.select(self.current_tab)
             else:
                 self.create_new_tab()
+            self.schedule_session_save()
+
+    def close_other_tabs(self):
+        if self.current_tab is None or not self.tabs:
+            return
+        keep_index = self.current_tab
+        new_tabs = [self.tabs[keep_index]]
+        # Save closed to stack
+        for i, t in enumerate(self.tabs):
+            if i == keep_index:
+                continue
+            self.closed_tabs_stack.append({
+                'file_path': t.get('file_path'),
+                'content': t['text'].get('1.0', tk.END)
+            })
+        # Rebuild notebook
+        for i in range(len(self.tabs) - 1, -1, -1):
+            if i != keep_index:
+                self.notebook.forget(i)
+        self.tabs = new_tabs
+        self.current_tab = 0
+        self.notebook.select(0)
+        self.schedule_session_save()
+
+    def keep_n_tabs(self, n: int, from_end: bool = False):
+        if not self.tabs or n <= 0:
+            return
+        total = len(self.tabs)
+        if n >= total:
+            return
+        if from_end:
+            keep_indices = set(range(total - n, total))
+        else:
+            keep_indices = set(range(0, n))
+        # Save closed
+        for i in range(total):
+            if i not in keep_indices:
+                t = self.tabs[i]
+                self.closed_tabs_stack.append({
+                    'file_path': t.get('file_path'),
+                    'content': t['text'].get('1.0', tk.END)
+                })
+        # Remove from notebook in reverse order
+        for i in range(total - 1, -1, -1):
+            if i not in keep_indices:
+                self.notebook.forget(i)
+        self.tabs = [self.tabs[i] for i in sorted(keep_indices)]
+        self.current_tab = min(self.current_tab, len(self.tabs) - 1)
+        self.notebook.select(self.current_tab)
+        self.schedule_session_save()
+
+    def reopen_closed_tab(self, event=None):
+        if not self.closed_tabs_stack:
+            return
+        last = self.closed_tabs_stack.pop()
+        tab = self.create_new_tab(last.get('file_path'))
+        if last.get('content'):
+            tab['text'].delete('1.0', tk.END)
+            tab['text'].insert('1.0', last['content'])
+            tab['modified'] = True
+            self.update_tab_title()
+        self.schedule_session_save()
                 
     def show_search(self):
         self.search_frame.pack(fill=tk.X, padx=5, pady=2)
@@ -620,6 +727,24 @@ class AnoraEditor:
         
     def hide_search(self):
         self.search_frame.pack_forget()
+
+    def go_to_line(self):
+        if self.current_tab is None or not self.tabs:
+            return
+        try:
+            from tkinter.simpledialog import askinteger
+            tab = self.tabs[self.current_tab]
+            text_widget = tab['text']
+            total_lines = int(text_widget.index('end-1c').split('.')[0])
+            line_no = askinteger("Go To Line", f"Enter line number (1-{total_lines}):")
+            if line_no is None:
+                return
+            line_no = max(1, min(total_lines, line_no))
+            text_widget.see(f"{line_no}.0")
+            text_widget.mark_set(tk.INSERT, f"{line_no}.0")
+            self.update_line_numbers()
+        except Exception:
+            pass
         
     def find_text(self):
         if self.current_tab is not None and self.tabs:
@@ -747,9 +872,145 @@ class AnoraEditor:
             
     def update_status(self, message="Ready"):
         self.status_label.config(text=message)
+    
+    # --- UX helpers ---
+    def update_current_line_highlight(self, event=None):
+        if self.current_tab is None or not self.tabs:
+            return
+        tab = self.tabs[self.current_tab]
+        text_widget = tab['text']
+        try:
+            text_widget.tag_remove("current_line", "1.0", tk.END)
+            index = text_widget.index(tk.INSERT)
+            line = index.split('.')[0]
+            text_widget.tag_add("current_line", f"{line}.0", f"{line}.0 lineend")
+        except Exception:
+            pass
+
+    def update_bracket_match(self, event=None):
+        if self.current_tab is None or not self.tabs:
+            return
+        tab = self.tabs[self.current_tab]
+        text_widget = tab['text']
+        try:
+            text_widget.tag_remove("bracket_match", "1.0", tk.END)
+            pairs = {')': '(', ']': '[', '}': '{'}
+            idx = text_widget.index(tk.INSERT)
+            prev_idx = text_widget.index(f"{idx} -1c")
+            char = text_widget.get(prev_idx)
+            target_open = pairs.get(char)
+            if target_open:
+                depth = 0
+                pos = prev_idx
+                while True:
+                    pos = text_widget.index(f"{pos} -1c")
+                    if pos == '1.0':
+                        break
+                    c = text_widget.get(pos)
+                    if c == char:
+                        depth += 1
+                    elif c == target_open:
+                        if depth == 0:
+                            text_widget.tag_add("bracket_match", pos, f"{pos} +1c")
+                            text_widget.tag_add("bracket_match", prev_idx, f"{prev_idx} +1c")
+                            break
+                        else:
+                            depth -= 1
+        except Exception:
+            pass
         
     def run(self):
         self.root.mainloop()
+
+    # --- Session persistence ---
+    def schedule_session_save(self):
+        try:
+            if self.autosave_after_id:
+                self.root.after_cancel(self.autosave_after_id)
+            self.autosave_after_id = self.root.after(500, self.save_session)
+        except Exception:
+            pass
+
+    def save_session(self):
+        try:
+            data = {
+                'tabs': [
+                    {
+                        'file_path': t.get('file_path'),
+                        'content': t['text'].get('1.0', tk.END)
+                    } for t in self.tabs
+                ],
+                'current_index': self.current_tab,
+                'recent_files': self.recent_files[-10:],
+            }
+            with open(self.session_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f)
+        except Exception:
+            pass
+
+    def load_session(self):
+        try:
+            if not os.path.exists(self.session_path):
+                return
+            with open(self.session_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            # Close default initial tab
+            if self.tabs:
+                self.notebook.forget(0)
+                self.tabs.clear()
+            for entry in data.get('tabs', []):
+                file_path = entry.get('file_path')
+                content = entry.get('content')
+                tab = self.create_new_tab(file_path)
+                if content is not None:
+                    tab['text'].delete('1.0', tk.END)
+                    tab['text'].insert('1.0', content)
+                    tab['modified'] = bool(file_path is None)
+                    self.update_tab_title()
+            self.recent_files = data.get('recent_files', [])
+            self.refresh_recent_menu()
+            idx = data.get('current_index')
+            if idx is not None and 0 <= idx < len(self.tabs):
+                self.current_tab = idx
+                self.notebook.select(idx)
+        except Exception:
+            pass
+
+    def on_app_close(self):
+        self.save_session()
+        self.root.quit()
+
+    # --- Recent files ---
+    def add_recent_file(self, path: str):
+        try:
+            path = os.path.abspath(path)
+            if path in self.recent_files:
+                self.recent_files.remove(path)
+            self.recent_files.append(path)
+            self.recent_files = self.recent_files[-10:]
+            self.refresh_recent_menu()
+        except Exception:
+            pass
+
+    def refresh_recent_menu(self):
+        if not self.recent_menu:
+            return
+        self.recent_menu.delete(0, tk.END)
+        if not self.recent_files:
+            self.recent_menu.add_command(label="(Empty)", state='disabled')
+            return
+        for p in reversed(self.recent_files):
+            self.recent_menu.add_command(label=p, command=lambda fp=p: self.open_recent(fp))
+
+    def open_recent(self, file_path: str):
+        if not file_path:
+            return
+        if os.path.exists(file_path):
+            self.create_new_tab(file_path)
+            self.add_recent_file(file_path)
+            self.schedule_session_save()
+        else:
+            messagebox.showwarning("File Missing", f"File not found: {file_path}")
 
 if __name__ == "__main__":
     app = AnoraEditor()
