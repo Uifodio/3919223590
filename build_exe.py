@@ -14,7 +14,7 @@ def build_executable():
     
     print("🚀 Building Anora Editor executable...")
     
-    # PyInstaller command
+    # PyInstaller command with better compatibility
     cmd = [
         'pyinstaller',
         '--onefile',                    # Single executable file
@@ -23,11 +23,29 @@ def build_executable():
         '--icon=icon.ico',              # Icon (if available)
         '--add-data=requirements.txt;.', # Include requirements
         '--hidden-import=tkinter',
-        '--hidden-import=pygments',
         '--hidden-import=tkinter.ttk',
         '--hidden-import=tkinter.filedialog',
         '--hidden-import=tkinter.messagebox',
         '--hidden-import=tkinter.scrolledtext',
+        '--hidden-import=tkinter.font',
+        '--hidden-import=pygments',
+        '--hidden-import=pygments.lexers',
+        '--hidden-import=pygments.formatters',
+        '--hidden-import=pygments.lexers.python',
+        '--hidden-import=pygments.lexers.csharp',
+        '--hidden-import=pygments.lexers.javascript',
+        '--hidden-import=pygments.lexers.html',
+        '--hidden-import=pygments.lexers.css',
+        '--hidden-import=pygments.lexers.json',
+        '--hidden-import=pygments.lexers.xml',
+        '--collect-all=tkinter',
+        '--collect-all=pygments',
+        '--exclude-module=matplotlib',
+        '--exclude-module=numpy',
+        '--exclude-module=pandas',
+        '--exclude-module=scipy',
+        '--exclude-module=PIL',
+        '--exclude-module=cv2',
         '--clean',                      # Clean cache
         'anora_editor.py'
     ]
