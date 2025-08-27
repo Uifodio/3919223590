@@ -279,12 +279,21 @@ class AnoraEditor:
         text_frame = tk.Frame(tab_frame, bg=self.colors['bg'])
         text_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Line numbers
-        self.line_numbers = tk.Text(text_frame, width=6, padx=6, takefocus=0,
+        # Line numbers with scrollbar
+        line_frame = tk.Frame(text_frame, bg=self.colors['bg'])
+        line_frame.pack(side=tk.LEFT, fill=tk.Y)
+        
+        self.line_numbers = tk.Text(line_frame, width=6, padx=6, takefocus=0,
                                    border=0, background=self.colors['tab_bg'],
                                    foreground=self.colors['tab_fg'],
-                                   state='disabled', font=('Consolas', 10))
+                                   state='disabled', font=('Consolas', 10),
+                                   wrap=tk.NONE)
         self.line_numbers.pack(side=tk.LEFT, fill=tk.Y)
+        
+        # Add scrollbar to line numbers
+        line_scrollbar = tk.Scrollbar(line_frame, orient=tk.VERTICAL, command=self.line_numbers.yview)
+        line_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.line_numbers.configure(yscrollcommand=line_scrollbar.set)
         
         # Main text editor
         text_widget = scrolledtext.ScrolledText(
@@ -300,23 +309,37 @@ class AnoraEditor:
         )
         text_widget.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-        # Sync line numbers with text widget scrolling
+        # BULLETPROOF line number synchronization
         def sync_scroll(*args):
             # Update text widget scroll
             text_widget.yview(*args)
-            # Sync line numbers to same position
-            self.line_numbers.yview_moveto(text_widget.yview()[0])
+            # Force line numbers to exact same position
+            try:
+                self.line_numbers.yview_moveto(text_widget.yview()[0])
+            except Exception:
+                pass
+        
+        # Configure scrollbar to sync both widgets
         text_widget.configure(yscrollcommand=sync_scroll)
-
-        # Also sync line numbers when text widget scrolls
-        def on_text_scroll(*args):
-            self.line_numbers.yview_moveto(text_widget.yview()[0])
-        text_widget.bind('<Configure>', lambda e: self.update_line_numbers())
-        text_widget.bind('<KeyRelease>', lambda e: self.update_line_numbers())
-        text_widget.bind('<ButtonRelease-1>', lambda e: self.update_line_numbers())
-        text_widget.bind('<MouseWheel>', lambda e: self.update_line_numbers())
-        text_widget.bind('<Button-4>', lambda e: self.update_line_numbers())
-        text_widget.bind('<Button-5>', lambda e: self.update_line_numbers())
+        # Line numbers scrollbar is handled separately to avoid conflicts
+        
+        # Comprehensive event binding for all scroll scenarios
+        def force_sync(*args):
+            try:
+                self.line_numbers.yview_moveto(text_widget.yview()[0])
+            except Exception:
+                pass
+        
+        # Bind to all possible scroll events
+        text_widget.bind('<Configure>', force_sync)
+        text_widget.bind('<KeyRelease>', force_sync)
+        text_widget.bind('<ButtonRelease-1>', force_sync)
+        text_widget.bind('<MouseWheel>', force_sync)
+        text_widget.bind('<Button-4>', force_sync)
+        text_widget.bind('<Button-5>', force_sync)
+        text_widget.bind('<Key>', force_sync)
+        text_widget.bind('<Button-1>', force_sync)
+        text_widget.bind('<B1-Motion>', force_sync)
         
         # Configure tags for syntax highlighting
         text_widget.tag_configure("keyword", foreground="#569cd6")
@@ -366,9 +389,6 @@ class AnoraEditor:
             self.update_bracket_match()
             self.update_line_numbers()
         text_widget.bind('<KeyRelease>', on_text_change)
-        
-        # Ensure line numbers update on any scroll
-        text_widget.bind('<MouseWheel>', lambda e: self.update_line_numbers())
 
         # Context menu
         context_menu = tk.Menu(text_widget, tearoff=0, bg=self.colors['menu_bg'], fg=self.colors['menu_fg'])
@@ -429,8 +449,8 @@ class AnoraEditor:
             tab = self.tabs[self.current_tab]
             tab['modified'] = True
             self.update_tab_title()
-            # Delay syntax highlighting to avoid performance issues
-            self.root.after(100, self.highlight_syntax)
+            # Immediate syntax highlighting for responsiveness
+            self.highlight_syntax()
             self.schedule_session_save()
             
     def update_tab_title(self):
@@ -454,19 +474,24 @@ class AnoraEditor:
             # Update position label
             self.position_label.config(text=f"Line {line}, Col {int(col) + 1}")
             
-            # Update line numbers
+            # BULLETPROOF line number update
             content = text_widget.get("1.0", tk.END)
             lines = content.count('\n')
             
+            # Store current scroll position
+            current_scroll = text_widget.yview()[0]
+            
             line_numbers.config(state='normal')
             line_numbers.delete("1.0", tk.END)
+            
+            # Add line numbers with proper formatting
             for i in range(1, lines + 1):
-                line_numbers.insert(tk.END, f"{i}\n")
+                line_numbers.insert(tk.END, f"{i:4d}\n")
             line_numbers.config(state='disabled')
             
-            # Sync scroll position
+            # Force scroll sync
             try:
-                line_numbers.yview_moveto(text_widget.yview()[0])
+                line_numbers.yview_moveto(current_scroll)
             except Exception:
                 pass
             
