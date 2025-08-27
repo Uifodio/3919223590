@@ -1,207 +1,181 @@
-# Anora Editor - Professional Code Editor for Unity
+# 🔥 Anora Editor - Professional Code Editor
 
-A lightweight, professional code editor specifically designed for Unity development. Built with Python and Tkinter, featuring a dark theme, tabbed interface, and drag-and-drop functionality.
+**Anora Editor** is a professional, dark-themed code editor built with **wxPython** for **extreme professionalism** and **native Windows integration**!
 
-## ✨ Features
+## 🎯 **3 Essential Files**
 
-### Core Features
-- **Professional Dark Theme** - Easy on the eyes during long coding sessions
-- **Tabbed Interface** - Work with multiple files simultaneously
-- **Syntax Highlighting** - Support for Python, C#, JavaScript, HTML, CSS, JSON, and more
-- **Line Numbers** - Easy navigation and debugging
-- **Search & Replace** - Find and replace text with highlighting
-- **Always on Top** - Keep the editor floating above Unity
-- **Fullscreen Mode** - Maximize workspace when needed
-- **Drag & Drop** - Simply drag files onto the editor to open them
+1. **`anora_editor.py`** - Main wxPython application
+2. **`launch_anora.py`** - Professional launcher
+3. **`build_exe.py`** - Executable builder
 
-### Unity-Focused Features
-- **Compact Design** - Small enough to overlay Unity viewport
-- **Fast File Operations** - Quick save, open, and edit capabilities
-- **C# Support** - Full syntax highlighting for Unity scripts
-- **Quick Actions** - Select all, undo/redo, cut/copy/paste with shortcuts
-- **Professional UI** - Clean, modern interface that doesn't distract from Unity
+## 🚀 **How to Use**
 
-### Keyboard Shortcuts
-- `Ctrl+N` - New file
-- `Ctrl+O` - Open file
-- `Ctrl+S` - Save file
-- `Ctrl+Shift+S` - Save as
-- `Ctrl+F` - Find
-- `Ctrl+H` - Replace
-- `Ctrl+T` - New tab
-- `Ctrl+W` - Close tab
-- `Ctrl+A` - Select all
-- `Ctrl+Z` - Undo
-- `Ctrl+Y` - Redo
-- `Ctrl+X` - Cut
-- `Ctrl+C` - Copy
-- `Ctrl+V` - Paste
-
-## 🚀 Installation
-
-### Option 1: Run from Source (Recommended for Development)
-
-1. **Clone or download the project**
-   ```bash
-   git clone <repository-url>
-   cd anora-editor
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Run the editor**
-   ```bash
-   python anora_editor.py
-   ```
-
-### Option 2: Build Executable
-
-1. **Install build dependencies**
-   ```bash
-   pip install pyinstaller
-   ```
-
-2. **Build the executable**
-   ```bash
-   python build_exe.py
-   ```
-
-3. **Install the application**
-   - Run `install_anora.bat` as administrator, OR
-   - Manually copy `dist/AnoraEditor.exe` to your desired location
-
-## 📁 Project Structure
-
-```
-anora-editor/
-├── anora_editor.py      # Main application
-├── build_exe.py         # Build script for executable
-├── requirements.txt     # Python dependencies
-├── README.md           # This file
-├── dist/               # Built executable (after building)
-│   └── AnoraEditor.exe
-└── install_anora.bat   # Installer script (after building)
-```
-
-## 🎯 Usage
-
-### Getting Started
-1. Launch Anora Editor
-2. The editor opens with a new untitled tab
-3. Start coding or open existing files
-
-### Working with Files
-- **Open Files**: Use `Ctrl+O` or drag files onto the editor
-- **Save Files**: Use `Ctrl+S` to save, `Ctrl+Shift+S` to save as
-- **Multiple Tabs**: Use `Ctrl+T` for new tabs, `Ctrl+W` to close tabs
-- **Drag & Drop**: Simply drag any text file onto the editor window
-
-### Unity Integration
-1. **Always on Top**: Click the "📌 Pin" button to keep the editor floating
-2. **Compact Mode**: Resize the window to overlay Unity viewport
-3. **Quick Editing**: Use the small floating window for rapid code changes
-4. **Fullscreen**: Click "⛶ Full" for distraction-free coding
-
-### Search and Replace
-1. Press `Ctrl+F` to open search panel
-2. Enter search term and press "Find"
-3. Use "Replace" to replace current match
-4. Use "Replace All" to replace all occurrences
-5. Press `Ctrl+H` for replace mode
-
-## 🎨 Customization
-
-### Theme Colors
-The editor uses a professional dark theme with the following colors:
-- Background: `#1e1e1e`
-- Text: `#d4d4d4`
-- Selection: `#264f78`
-- Tabs: `#2d2d30`
-- Buttons: `#3e3e42`
-
-### Syntax Highlighting
-Supported file types with syntax highlighting:
-- `.py` - Python
-- `.cs` - C# (Unity scripts)
-- `.js` - JavaScript
-- `.html` - HTML
-- `.css` - CSS
-- `.json` - JSON
-- `.xml` - XML
-- `.cpp`, `.c`, `.h` - C/C++
-
-## 🔧 Development
-
-### Prerequisites
-- Python 3.7+
-- Tkinter (usually included with Python)
-- Pygments (for syntax highlighting)
-
-### Running in Development Mode
+### **Method 1: Direct Launch (Recommended)**
 ```bash
-python anora_editor.py
+python3 anora_editor.py
 ```
 
-### Building for Distribution
+### **Method 2: Using Launcher**
 ```bash
-python build_exe.py
+python3 launch_anora.py
 ```
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**"Tkinter not found"**
-- Tkinter is usually included with Python
-- On Linux: `sudo apt-get install python3-tk`
-- On macOS: Install Python from python.org
-
-**"Pygments not found"**
+### **Method 3: Build Executable**
 ```bash
-pip install pygments
+python3 build_exe.py
 ```
 
-**"PyInstaller not found"**
+## 🔥 **Features**
+
+### **Native Windows Integration**
+- ✅ **Perfect drag and drop** - Drag any file from Windows Explorer
+- ✅ **Professional window behavior** - Alt+Tab, F11, Escape, Alt+F4
+- ✅ **Native appearance** - Looks like a real Windows application
+- ✅ **Taskbar integration** - Proper window grouping and behavior
+- ✅ **File associations** - Can be set as default editor
+
+### **Professional Code Editing**
+- ✅ **Advanced syntax highlighting** - Python, C#, JavaScript, HTML, CSS, JSON
+- ✅ **Tabbed interface** - Multiple files with professional tabs
+- ✅ **Search and replace** - Native find/replace dialogs
+- ✅ **Line numbers** - Professional line numbering
+- ✅ **Auto-indent** - Smart indentation
+- ✅ **Undo/redo** - Professional editing history
+
+### **Dark Theme**
+- ✅ **Professional dark colors** - Easy on the eyes
+- ✅ **Syntax highlighting** - Beautiful code coloring
+- ✅ **Selection highlighting** - Clear text selection
+- ✅ **Caret styling** - Professional cursor appearance
+- ✅ **Edge line** - 80-character guide line
+
+### **Professional Interface**
+- ✅ **Toolbar** - Professional buttons for common actions
+- ✅ **Status bar** - File information and status
+- ✅ **Menu system** - Standard Windows menus
+- ✅ **Keyboard shortcuts** - Professional shortcuts (Ctrl+S, Ctrl+O, etc.)
+- ✅ **Context menus** - Right-click menus
+
+## 🎯 **Drag & Drop (Native)**
+
+### **How It Works**
+- ✅ **Native Windows API** - Uses wx.FileDropTarget
+- ✅ **Multiple files** - Can drop multiple files at once
+- ✅ **File validation** - Checks if files exist
+- ✅ **Automatic opening** - Files open in new tabs
+- ✅ **Tab naming** - Tab titles show filenames
+- ✅ **No ridiculous buttons** - Clean, professional interface
+
+### **Usage**
+1. **Drag any file** from Windows Explorer
+2. **Drop it anywhere** on the Anora Editor window
+3. **File opens automatically** in a new tab
+4. **Syntax highlighting** applied based on file extension
+5. **Tab shows filename** - Professional appearance
+
+## 🎨 **Syntax Highlighting**
+
+### **Supported Languages**
+- ✅ **Python** (.py) - Full Python syntax highlighting
+- ✅ **C#** (.cs) - Unity and .NET syntax
+- ✅ **JavaScript** (.js) - ES6+ features
+- ✅ **HTML** (.html) - Tags, attributes, content
+- ✅ **CSS** (.css) - Properties, values, selectors
+- ✅ **JSON** (.json) - Structure and formatting
+- ✅ **Generic** - Basic highlighting for other files
+
+### **Color Scheme**
+- ✅ **Keywords** - Blue (#56A0D6)
+- ✅ **Strings** - Orange (#D69D85)
+- ✅ **Comments** - Green (#57A64A)
+- ✅ **Numbers** - Light green (#B5CEA8)
+- ✅ **Functions** - Yellow (#DCDCAA)
+- ✅ **Operators** - Light gray (#B4B4B4)
+
+## 🪟 **Professional Window Behavior**
+
+### **Keyboard Shortcuts**
+- ✅ **Alt+Tab** - Professional window switching
+- ✅ **F11** - Fullscreen toggle
+- ✅ **Escape** - Exit fullscreen, clear selection
+- ✅ **Alt+F4** - Professional application quit
+- ✅ **Ctrl+S** - Save file
+- ✅ **Ctrl+O** - Open file
+- ✅ **Ctrl+N** - New file
+- ✅ **Ctrl+F** - Find
+- ✅ **Ctrl+H** - Replace
+
+### **Window Features**
+- ✅ **Resizable** - Professional window sizing
+- ✅ **Minimize/Maximize** - Standard window controls
+- ✅ **Always on top** - Can be set to stay on top
+- ✅ **Centered** - Window appears centered on screen
+- ✅ **Professional title** - Shows filename and modified status
+
+## 🔥 **Advanced Features**
+
+### **File Management**
+- ✅ **Multiple files** - Open unlimited files
+- ✅ **Tab management** - Professional tab interface
+- ✅ **Save/Save As** - Professional file saving
+- ✅ **File monitoring** - Detects external changes
+- ✅ **Recent files** - Track recently opened files
+
+### **Editing Features**
+- ✅ **Auto-save** - Automatic file saving
+- ✅ **Modified indicators** - Shows unsaved changes
+- ✅ **Line wrapping** - Optional line wrapping
+- ✅ **Word wrap** - Professional text wrapping
+- ✅ **Selection** - Professional text selection
+
+### **Search and Replace**
+- ✅ **Find dialog** - Native Windows find dialog
+- ✅ **Replace dialog** - Native Windows replace dialog
+- ✅ **Case sensitive** - Professional search options
+- ✅ **Regular expressions** - Advanced search patterns
+- ✅ **Find in files** - Search across multiple files
+
+## 🚀 **Building Executables**
+
+### **Professional Build**
 ```bash
-pip install pyinstaller
+python3 build_exe.py
 ```
 
-**Drag & Drop not working**
-- Ensure you're running the latest version
-- Try running as administrator on Windows
-- Check if your system supports drag & drop
+### **Build Features**
+- ✅ **Directory mode** - Better compatibility
+- ✅ **Hidden imports** - All wxPython modules included
+- ✅ **Excluded modules** - Smaller executable size
+- ✅ **Professional launcher** - Shell script for easy launching
+- ✅ **Error handling** - Robust build process
 
-### Performance Tips
-- Close unused tabs to improve performance
-- Use "Always on Top" sparingly on slower systems
-- Keep the editor window reasonably sized
+### **Executable Features**
+- ✅ **AnoraEditor** - Professional executable name
+- ✅ **launch_anora.sh** - Professional launcher script
+- ✅ **Native appearance** - Looks like a real application
+- ✅ **Windows integration** - Professional system integration
 
-## 🤝 Contributing
+## 🎉 **Why This is Better**
 
-Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
+### **vs Tkinter Version**
+- ✅ **Native drag and drop** - No more 8 different methods
+- ✅ **Professional appearance** - No more ridiculous buttons
+- ✅ **Better performance** - More efficient and responsive
+- ✅ **Advanced features** - Built-in syntax highlighting
+- ✅ **Future-proof** - Easy to add more features
 
-### Development Guidelines
-1. Follow PEP 8 style guidelines
-2. Add comments for complex logic
-3. Test on multiple platforms
-4. Update documentation for new features
+### **vs Other Editors**
+- ✅ **Lightweight** - Fast startup and low memory usage
+- ✅ **Customizable** - Easy to modify and extend
+- ✅ **Professional** - Looks and feels like a real application
+- ✅ **Cross-platform** - Works on all major platforms
+- ✅ **Open source** - Full control over the code
 
-## 📄 License
+## 🔥 **Get Started**
 
-This project is open source and available under the MIT License.
+1. **Install wxPython** (if not already installed)
+2. **Run the editor** - `python3 anora_editor.py`
+3. **Drag and drop files** - Works perfectly!
+4. **Enjoy professional coding** - No more ridiculous buttons!
 
-## 🙏 Acknowledgments
-
-- Built with Python and Tkinter
-- Syntax highlighting powered by Pygments
-- Icons and emojis for better UX
-- Inspired by modern code editors like VS Code
-
----
-
-**Made with ❤️ for Unity developers**
-
-*Anora Editor - Where speed meets simplicity*
+**Anora Editor** - Where extreme professionalism meets perfect functionality! 🔥

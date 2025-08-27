@@ -12,17 +12,17 @@ import shutil
 def build_executable():
     """Build the Anora Editor executable using PyInstaller"""
     
-    print("🚀 Building Anora Editor (wxPython) executable...")
+    print("🚀 Building Anora Editor executable...")
     
     # PyInstaller command for wxPython
     cmd = [
         'pyinstaller',
         '--onedir',                     # Directory mode for better compatibility
         '--windowed',                   # No console window
-        '--name=AnoraEditor_WX',        # Executable name
-        '--distpath=dist_wx',           # Output directory
-        '--workpath=build_wx',          # Build directory
-        '--specpath=build_wx',          # Spec directory
+        '--name=AnoraEditor',        # Executable name
+        '--distpath=dist',           # Output directory
+        '--workpath=build',          # Build directory
+        '--specpath=build',          # Spec directory
         '--hidden-import=wx',
         '--hidden-import=wx.stc',
         '--hidden-import=wx.aui',
@@ -38,7 +38,7 @@ def build_executable():
         '--exclude-module=PIL',
         '--exclude-module=cv2',
         '--clean',
-        'anora_editor_wx.py'
+        'anora_editor.py'
     ]
     
     try:
@@ -47,10 +47,10 @@ def build_executable():
         print("✅ Build completed successfully!")
         
         # Check if executable was created
-        exe_path = os.path.join('dist_wx', 'AnoraEditor_WX', 'anora_editor_wx')
+        exe_path = os.path.join('dist', 'AnoraEditor', 'anora_editor')
         if os.path.exists(exe_path):
             print(f"📁 Executable created: {exe_path}")
-            print(f"📏 Directory size: {get_dir_size('dist_wx/AnoraEditor_WX') / (1024*1024):.1f} MB")
+            print(f"📏 Directory size: {get_dir_size('dist/AnoraEditor') / (1024*1024):.1f} MB")
             
             # Create a launcher script
             create_launcher_script()
@@ -72,16 +72,16 @@ def build_executable():
 def build_simple_executable():
     """Build using the simplest possible PyInstaller command"""
     
-    print("🚀 Building Anora Editor (wxPython) simple executable...")
+    print("🚀 Building Anora Editor simple executable...")
     
     # Simple PyInstaller command
     cmd = [
         'pyinstaller',
         '--onefile',
         '--windowed',
-        '--name=AnoraEditor_WX_Simple',
-        '--distpath=dist_wx_simple',
-        'anora_editor_wx.py'
+        '--name=AnoraEditor_Simple',
+        '--distpath=dist_simple',
+        'anora_editor.py'
     ]
     
     try:
@@ -90,7 +90,7 @@ def build_simple_executable():
         print("✅ Simple build completed successfully!")
         
         # Check if executable was created
-        exe_path = os.path.join('dist_wx_simple', 'anora_editor_wx')
+        exe_path = os.path.join('dist_simple', 'anora_editor')
         if os.path.exists(exe_path):
             print(f"📁 Simple executable created: {exe_path}")
             print(f"📏 File size: {os.path.getsize(exe_path) / (1024*1024):.1f} MB")
@@ -128,7 +128,7 @@ if [ $? -ne 0 ]; then
 fi
 '''
     
-    launcher_path = os.path.join('dist_wx', 'AnoraEditor_WX', 'launch_anora_wx.sh')
+    launcher_path = os.path.join('dist', 'AnoraEditor', 'launch_anora.sh')
     with open(launcher_path, 'w') as f:
         f.write(launcher_content)
     
@@ -142,8 +142,8 @@ def check_dependencies():
     print("🔍 Checking dependencies...")
     
     # Check if main file exists
-    if not os.path.exists('anora_editor_wx.py'):
-        print("❌ anora_editor_wx.py not found!")
+    if not os.path.exists('anora_editor.py'):
+        print("❌ anora_editor.py not found!")
         return False
     
     # Check if wxPython is available
@@ -172,7 +172,7 @@ def check_dependencies():
 
 def main():
     """Main build function"""
-    print("🔥 Anora Editor (wxPython) Build Script")
+    print("🔥 Anora Editor Build Script")
     print("=" * 60)
     
     # Check dependencies
@@ -194,21 +194,21 @@ def main():
     # Build executable
     if build_executable():
         print("\n✅ Build completed successfully!")
-        print(f"📁 Executable location: dist_wx/AnoraEditor_WX/")
-        print(f"🚀 Run: ./dist_wx/AnoraEditor_WX/anora_editor_wx")
+        print(f"📁 Executable location: dist/AnoraEditor/")
+        print(f"🚀 Run: ./dist/AnoraEditor/anora_editor")
     else:
         print("\n❌ Build failed!")
         print("💡 Trying simple build method...")
         
         if build_simple_executable():
             print("\n✅ Simple build completed!")
-            print(f"📁 Executable location: dist_wx_simple/")
-            print(f"🚀 Run: ./dist_wx_simple/anora_editor_wx")
+            print(f"📁 Executable location: dist_simple/")
+            print(f"🚀 Run: ./dist_simple/anora_editor")
         else:
             print("\n❌ All build methods failed!")
             return 1
     
-    print("\n🎉 Anora Editor (wxPython) build complete!")
+    print("\n🎉 Anora Editor build complete!")
     return 0
 
 if __name__ == "__main__":
