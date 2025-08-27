@@ -514,38 +514,74 @@ class AnoraEditor:
                 for tag in tags_to_clear:
                     text_widget.tag_remove(tag, "1.0", tk.END)
                 
-                # Apply enhanced highlighting
+                # Apply enhanced highlighting with proper positioning
+                pos = "1.0"
                 for token_type, value in tokens:
-                    if token_type in ['Keyword', 'Name.Builtin']:
-                        text_widget.tag_add("keyword", "1.0", tk.END)
-                    elif token_type in ['String', 'String.Single', 'String.Double', 'String.Triple']:
-                        text_widget.tag_add("string", "1.0", tk.END)
-                    elif token_type in ['Comment', 'Comment.Single', 'Comment.Multiline']:
-                        text_widget.tag_add("comment", "1.0", tk.END)
-                    elif token_type in ['Literal.Number', 'Literal.Number.Integer', 'Literal.Number.Float']:
-                        text_widget.tag_add("number", "1.0", tk.END)
-                    elif token_type in ['Name.Function', 'Name.Function.Magic']:
-                        text_widget.tag_add("function", "1.0", tk.END)
-                    elif token_type in ['Name.Class']:
-                        text_widget.tag_add("class", "1.0", tk.END)
-                    elif token_type in ['Operator', 'Punctuation']:
-                        text_widget.tag_add("operator", "1.0", tk.END)
-                    elif token_type in ['Name.Variable', 'Name.Variable.Instance']:
-                        text_widget.tag_add("variable", "1.0", tk.END)
-                    elif token_type in ['Name.Constant']:
-                        text_widget.tag_add("constant", "1.0", tk.END)
-                    elif token_type in ['Name.Builtin.Type', 'Name.Type']:
-                        text_widget.tag_add("type", "1.0", tk.END)
-                    elif token_type in ['Name.Decorator']:
-                        text_widget.tag_add("decorator", "1.0", tk.END)
-                    elif token_type in ['Generic.Error']:
-                        text_widget.tag_add("error", "1.0", tk.END)
-                    elif token_type in ['Generic.Warning']:
-                        text_widget.tag_add("warning", "1.0", tk.END)
+                    if value:  # Only process non-empty tokens
+                        # Calculate end position
+                        lines = value.split('\n')
+                        if len(lines) == 1:
+                            # Single line token
+                            end_pos = f"{pos}+{len(value)}c"
+                            text_widget.tag_add(self.get_tag_for_token(token_type), pos, end_pos)
+                            pos = end_pos
+                        else:
+                            # Multi-line token
+                            current_pos = pos
+                            for i, line in enumerate(lines):
+                                if i == 0:
+                                    # First line
+                                    end_pos = f"{current_pos}+{len(line)}c"
+                                    text_widget.tag_add(self.get_tag_for_token(token_type), current_pos, end_pos)
+                                    current_pos = end_pos
+                                elif i == len(lines) - 1:
+                                    # Last line
+                                    if line:
+                                        end_pos = f"{current_pos}+{len(line)}c"
+                                        text_widget.tag_add(self.get_tag_for_token(token_type), current_pos, end_pos)
+                                        current_pos = end_pos
+                                else:
+                                    # Middle lines
+                                    if line:
+                                        end_pos = f"{current_pos}+{len(line)}c"
+                                        text_widget.tag_add(self.get_tag_for_token(token_type), current_pos, end_pos)
+                                        current_pos = end_pos
+                            pos = current_pos
                         
             except Exception as e:
                 print(f"Syntax highlighting error: {e}")
                 pass  # Ignore highlighting errors
+                
+    def get_tag_for_token(self, token_type):
+        """Get the appropriate tag for a token type"""
+        if token_type in ['Keyword', 'Name.Builtin']:
+            return "keyword"
+        elif token_type in ['String', 'String.Single', 'String.Double', 'String.Triple']:
+            return "string"
+        elif token_type in ['Comment', 'Comment.Single', 'Comment.Multiline']:
+            return "comment"
+        elif token_type in ['Literal.Number', 'Literal.Number.Integer', 'Literal.Number.Float']:
+            return "number"
+        elif token_type in ['Name.Function', 'Name.Function.Magic']:
+            return "function"
+        elif token_type in ['Name.Class']:
+            return "class"
+        elif token_type in ['Operator', 'Punctuation']:
+            return "operator"
+        elif token_type in ['Name.Variable', 'Name.Variable.Instance']:
+            return "variable"
+        elif token_type in ['Name.Constant']:
+            return "constant"
+        elif token_type in ['Name.Builtin.Type', 'Name.Type']:
+            return "type"
+        elif token_type in ['Name.Decorator']:
+            return "decorator"
+        elif token_type in ['Generic.Error']:
+            return "error"
+        elif token_type in ['Generic.Warning']:
+            return "warning"
+        else:
+            return "normal"
                 
     def open_file(self):
         file_path = filedialog.askopenfilename(
@@ -1079,6 +1115,19 @@ class AnoraEditor:
         messagebox.showinfo("File Associations", "File associations dialog will be implemented in the next version!")
         
     def run(self):
+        # Handle command line arguments for opening files
+        if len(sys.argv) > 1:
+            file_path = sys.argv[1]
+            if os.path.isfile(file_path):
+                # Check if file is already open
+                existing_tab = self.find_tab_by_path(file_path)
+                if existing_tab is not None:
+                    # Switch to existing tab
+                    self.notebook.select(existing_tab)
+                else:
+                    # Create new tab
+                    self.create_new_tab(file_path)
+        
         self.root.mainloop()
 
 if __name__ == "__main__":
