@@ -492,12 +492,15 @@ class NovaEditor:
             pass
             
     def on_drag_enter(self, event):
-        """Handle drag enter"""
+        """Handle drag enter - only when actually dragging files"""
         try:
-            event.widget.config(cursor="hand2")
-            # Change background color to indicate drop zone
-            if hasattr(event.widget, 'configure'):
-                event.widget.configure(bg='#3e3e42')
+            # Only change cursor and background when actually dragging files
+            # This prevents highlighting when just moving the mouse
+            if hasattr(event, 'data') and event.data:
+                event.widget.config(cursor="hand2")
+                # Change background color to indicate drop zone
+                if hasattr(event.widget, 'configure'):
+                    event.widget.configure(bg='#3e3e42')
         except:
             pass
         
@@ -513,26 +516,48 @@ class NovaEditor:
         
     def on_drop(self, event):
         """Handle file drops on the editor"""
-        if not self.drag_drop_enabled:
-            return
-            
+        print(f"Drop event received: {event}")
+        print(f"Drop data: {event.data}")
+        
         try:
             files = event.data
             if isinstance(files, str):
-                files = [files]
+                # Handle single file path
+                if files.startswith('{'):
+                    # Handle multiple files in braces
+                    files = files.strip('{}').split('} {')
+                else:
+                    files = [files]
+            
+            print(f"Processing files: {files}")
             
             for file_path in files:
+                # Clean up the file path
+                file_path = file_path.strip()
+                if file_path.startswith('"') and file_path.endswith('"'):
+                    file_path = file_path[1:-1]
+                
+                print(f"Processing file: {file_path}")
+                
                 if os.path.isfile(file_path):
+                    print(f"File exists: {file_path}")
                     # Check if file is already open
                     existing_tab = self.find_tab_by_path(file_path)
                     if existing_tab is not None:
                         # Switch to existing tab
+                        print(f"Switching to existing tab for: {file_path}")
                         self.notebook.select(existing_tab)
                     else:
                         # Create new tab
+                        print(f"Creating new tab for: {file_path}")
                         self.create_new_tab(file_path)
+                else:
+                    print(f"File does not exist: {file_path}")
+                    
         except Exception as e:
             print(f"Drop error: {e}")
+            import traceback
+            traceback.print_exc()
             
     def on_drag_start(self, event):
         """Handle drag start"""
@@ -548,28 +573,52 @@ class NovaEditor:
         
     def on_text_drop(self, event):
         """Handle drops on text widget"""
+        print(f"Text drop event received: {event}")
+        print(f"Text drop data: {event.data}")
+        
         try:
             # Get the dropped data
             data = event.data
             if data:
                 # Handle file paths
                 if isinstance(data, str):
-                    files = [data]
+                    # Handle single file path
+                    if data.startswith('{'):
+                        # Handle multiple files in braces
+                        files = data.strip('{}').split('} {')
+                    else:
+                        files = [data]
                 else:
                     files = data
                 
+                print(f"Processing text drop files: {files}")
+                
                 for file_path in files:
+                    # Clean up the file path
+                    file_path = file_path.strip()
+                    if file_path.startswith('"') and file_path.endswith('"'):
+                        file_path = file_path[1:-1]
+                    
+                    print(f"Processing text drop file: {file_path}")
+                    
                     if os.path.isfile(file_path):
+                        print(f"Text drop file exists: {file_path}")
                         # Check if file is already open
                         existing_tab = self.find_tab_by_path(file_path)
                         if existing_tab is not None:
                             # Switch to existing tab
+                            print(f"Switching to existing tab for text drop: {file_path}")
                             self.notebook.select(existing_tab)
                         else:
                             # Create new tab
+                            print(f"Creating new tab for text drop: {file_path}")
                             self.create_new_tab(file_path)
+                    else:
+                        print(f"Text drop file does not exist: {file_path}")
         except Exception as e:
             print(f"Text drop error: {e}")
+            import traceback
+            traceback.print_exc()
                     
     def find_tab_by_path(self, file_path):
         """Find tab index by file path"""
@@ -665,135 +714,261 @@ class NovaEditor:
                     }
                     tab['syntax'] = syntax_map.get(ext, 'text')
             
-            # Always use simple syntax highlighting that works
-            self.simple_highlight_syntax(tab, text_widget)
+            # Force syntax highlighting to work
+            self.force_syntax_highlighting(tab, text_widget)
                 
-    def simple_highlight_syntax(self, tab, text_widget):
-        """Simple syntax highlighting as fallback"""
+    def force_syntax_highlighting(self, tab, text_widget):
+        """Brute force syntax highlighting that will definitely work"""
+        print(f"Force highlighting for syntax: {tab.get('syntax', 'text')}")
+        
         try:
+            # Clear all existing tags first
+            tags_to_clear = ["keyword", "string", "comment", "number", "function", 
+                           "class", "operator", "variable", "constant", "type", 
+                           "decorator", "error", "warning"]
+            for tag in tags_to_clear:
+                text_widget.tag_remove(tag, "1.0", tk.END)
+            
+            # Get the content
             content = text_widget.get("1.0", tk.END)
             syntax = tab.get('syntax', 'text')
             
-            # Simple keyword highlighting for common languages
+            print(f"Highlighting {len(content)} characters for {syntax}")
+            
+            # Force highlight based on syntax
             if syntax == 'python':
-                keywords = ['def', 'class', 'import', 'from', 'if', 'else', 'elif', 'for', 'while', 'try', 'except', 'finally', 'with', 'as', 'return', 'yield', 'break', 'continue', 'pass', 'True', 'False', 'None', 'and', 'or', 'not', 'in', 'is', 'lambda', 'global', 'nonlocal']
-                
-                # Highlight keywords
-                for keyword in keywords:
-                    start = "1.0"
-                    while True:
-                        pos = text_widget.search(keyword, start, tk.END)
-                        if not pos:
-                            break
-                        end = f"{pos}+{len(keyword)}c"
-                        text_widget.tag_add("keyword", pos, end)
-                        start = end
-                
-                # Highlight strings
-                start = "1.0"
-                while True:
-                    pos = text_widget.search('"', start, tk.END)
-                    if not pos:
-                        break
-                    # Find the end quote
-                    end_pos = text_widget.search('"', f"{pos}+1c", tk.END)
-                    if end_pos:
-                        end = f"{end_pos}+1c"
-                        text_widget.tag_add("string", pos, end)
-                        start = end
-                    else:
-                        start = f"{pos}+1c"
-                
-                # Highlight comments
-                start = "1.0"
-                while True:
-                    pos = text_widget.search('#', start, tk.END)
-                    if not pos:
-                        break
-                    # Find end of line
-                    line_end = text_widget.index(f"{pos} lineend")
-                    text_widget.tag_add("comment", pos, line_end)
-                    start = line_end
-                    
+                self.highlight_python_brute_force(text_widget)
             elif syntax == 'csharp':
-                keywords = ['public', 'private', 'protected', 'internal', 'class', 'struct', 'interface', 'enum', 'namespace', 'using', 'static', 'readonly', 'const', 'virtual', 'override', 'abstract', 'sealed', 'partial', 'async', 'await', 'var', 'void', 'int', 'string', 'bool', 'float', 'double', 'if', 'else', 'for', 'while', 'foreach', 'switch', 'case', 'default', 'break', 'continue', 'return', 'throw', 'try', 'catch', 'finally', 'new', 'this', 'base', 'null', 'true', 'false']
-                
-                # Highlight keywords
-                for keyword in keywords:
-                    start = "1.0"
-                    while True:
-                        pos = text_widget.search(keyword, start, tk.END)
-                        if not pos:
-                            break
-                        end = f"{pos}+{len(keyword)}c"
-                        text_widget.tag_add("keyword", pos, end)
-                        start = end
-                
-                # Highlight strings
-                start = "1.0"
-                while True:
-                    pos = text_widget.search('"', start, tk.END)
-                    if not pos:
-                        break
-                    end_pos = text_widget.search('"', f"{pos}+1c", tk.END)
-                    if end_pos:
-                        end = f"{end_pos}+1c"
-                        text_widget.tag_add("string", pos, end)
-                        start = end
-                    else:
-                        start = f"{pos}+1c"
-                
-                # Highlight comments
-                start = "1.0"
-                while True:
-                    pos = text_widget.search('//', start, tk.END)
-                    if not pos:
-                        break
-                    line_end = text_widget.index(f"{pos} lineend")
-                    text_widget.tag_add("comment", pos, line_end)
-                    start = line_end
-                    
+                self.highlight_csharp_brute_force(text_widget)
             elif syntax == 'javascript':
-                keywords = ['function', 'var', 'let', 'const', 'if', 'else', 'for', 'while', 'switch', 'case', 'default', 'break', 'continue', 'return', 'try', 'catch', 'finally', 'throw', 'new', 'this', 'null', 'undefined', 'true', 'false', 'class', 'extends', 'super', 'import', 'export', 'async', 'await']
+                self.highlight_javascript_brute_force(text_widget)
+            elif syntax == 'html':
+                self.highlight_html_brute_force(text_widget)
+            elif syntax == 'css':
+                self.highlight_css_brute_force(text_widget)
+            else:
+                # Default highlighting for any language
+                self.highlight_generic_brute_force(text_widget)
                 
-                # Highlight keywords
-                for keyword in keywords:
-                    start = "1.0"
-                    while True:
-                        pos = text_widget.search(keyword, start, tk.END)
-                        if not pos:
-                            break
-                        end = f"{pos}+{len(keyword)}c"
-                        text_widget.tag_add("keyword", pos, end)
-                        start = end
-                
-                # Highlight strings
-                start = "1.0"
-                while True:
-                    pos = text_widget.search('"', start, tk.END)
-                    if not pos:
-                        break
-                    end_pos = text_widget.search('"', f"{pos}+1c", tk.END)
-                    if end_pos:
-                        end = f"{end_pos}+1c"
-                        text_widget.tag_add("string", pos, end)
-                        start = end
-                    else:
-                        start = f"{pos}+1c"
-                
-                # Highlight comments
-                start = "1.0"
-                while True:
-                    pos = text_widget.search('//', start, tk.END)
-                    if not pos:
-                        break
-                    line_end = text_widget.index(f"{pos} lineend")
-                    text_widget.tag_add("comment", pos, line_end)
-                    start = line_end
-                    
+            print(f"✅ Force highlighting completed for {syntax}")
+            
         except Exception as e:
-            print(f"Simple highlighting error: {e}")
-            pass
+            print(f"Force highlighting error: {e}")
+            import traceback
+            traceback.print_exc()
+            
+    def highlight_python_brute_force(self, text_widget):
+        """Brute force Python highlighting"""
+        keywords = ['def', 'class', 'import', 'from', 'if', 'else', 'elif', 'for', 'while', 'try', 'except', 'finally', 'with', 'as', 'return', 'yield', 'break', 'continue', 'pass', 'True', 'False', 'None', 'and', 'or', 'not', 'in', 'is', 'lambda', 'global', 'nonlocal', 'print', 'len', 'range', 'list', 'dict', 'set', 'tuple']
+        
+        # Highlight keywords
+        for keyword in keywords:
+            start = "1.0"
+            while True:
+                pos = text_widget.search(keyword, start, tk.END)
+                if not pos:
+                    break
+                end = f"{pos}+{len(keyword)}c"
+                text_widget.tag_add("keyword", pos, end)
+                start = end
+        
+        # Highlight strings (both single and double quotes)
+        for quote in ['"', "'"]:
+            start = "1.0"
+            while True:
+                pos = text_widget.search(quote, start, tk.END)
+                if not pos:
+                    break
+                # Find the end quote
+                end_pos = text_widget.search(quote, f"{pos}+1c", tk.END)
+                if end_pos:
+                    end = f"{end_pos}+1c"
+                    text_widget.tag_add("string", pos, end)
+                    start = end
+                else:
+                    start = f"{pos}+1c"
+        
+        # Highlight comments
+        start = "1.0"
+        while True:
+            pos = text_widget.search('#', start, tk.END)
+            if not pos:
+                break
+            # Find end of line
+            line_end = text_widget.index(f"{pos} lineend")
+            text_widget.tag_add("comment", pos, line_end)
+            start = line_end
+            
+    def highlight_csharp_brute_force(self, text_widget):
+        """Brute force C# highlighting"""
+        keywords = ['public', 'private', 'protected', 'internal', 'class', 'struct', 'interface', 'enum', 'namespace', 'using', 'static', 'readonly', 'const', 'virtual', 'override', 'abstract', 'sealed', 'partial', 'async', 'await', 'var', 'void', 'int', 'string', 'bool', 'float', 'double', 'if', 'else', 'for', 'while', 'foreach', 'switch', 'case', 'default', 'break', 'continue', 'return', 'throw', 'try', 'catch', 'finally', 'new', 'this', 'base', 'null', 'true', 'false', 'UnityEngine', 'MonoBehaviour', 'Start', 'Update', 'Debug', 'Log']
+        
+        # Highlight keywords
+        for keyword in keywords:
+            start = "1.0"
+            while True:
+                pos = text_widget.search(keyword, start, tk.END)
+                if not pos:
+                    break
+                end = f"{pos}+{len(keyword)}c"
+                text_widget.tag_add("keyword", pos, end)
+                start = end
+        
+        # Highlight strings
+        start = "1.0"
+        while True:
+            pos = text_widget.search('"', start, tk.END)
+            if not pos:
+                break
+            end_pos = text_widget.search('"', f"{pos}+1c", tk.END)
+            if end_pos:
+                end = f"{end_pos}+1c"
+                text_widget.tag_add("string", pos, end)
+                start = end
+            else:
+                start = f"{pos}+1c"
+        
+        # Highlight comments
+        start = "1.0"
+        while True:
+            pos = text_widget.search('//', start, tk.END)
+            if not pos:
+                break
+            line_end = text_widget.index(f"{pos} lineend")
+            text_widget.tag_add("comment", pos, line_end)
+            start = line_end
+            
+    def highlight_javascript_brute_force(self, text_widget):
+        """Brute force JavaScript highlighting"""
+        keywords = ['function', 'var', 'let', 'const', 'if', 'else', 'for', 'while', 'switch', 'case', 'default', 'break', 'continue', 'return', 'try', 'catch', 'finally', 'throw', 'new', 'this', 'null', 'undefined', 'true', 'false', 'class', 'extends', 'super', 'import', 'export', 'async', 'await', 'console', 'log']
+        
+        # Highlight keywords
+        for keyword in keywords:
+            start = "1.0"
+            while True:
+                pos = text_widget.search(keyword, start, tk.END)
+                if not pos:
+                    break
+                end = f"{pos}+{len(keyword)}c"
+                text_widget.tag_add("keyword", pos, end)
+                start = end
+        
+        # Highlight strings
+        start = "1.0"
+        while True:
+            pos = text_widget.search('"', start, tk.END)
+            if not pos:
+                break
+            end_pos = text_widget.search('"', f"{pos}+1c", tk.END)
+            if end_pos:
+                end = f"{end_pos}+1c"
+                text_widget.tag_add("string", pos, end)
+                start = end
+            else:
+                start = f"{pos}+1c"
+        
+        # Highlight comments
+        start = "1.0"
+        while True:
+            pos = text_widget.search('//', start, tk.END)
+            if not pos:
+                break
+            line_end = text_widget.index(f"{pos} lineend")
+            text_widget.tag_add("comment", pos, line_end)
+            start = line_end
+            
+    def highlight_html_brute_force(self, text_widget):
+        """Brute force HTML highlighting"""
+        # Highlight HTML tags
+        start = "1.0"
+        while True:
+            pos = text_widget.search('<', start, tk.END)
+            if not pos:
+                break
+            end_pos = text_widget.search('>', pos, tk.END)
+            if end_pos:
+                end = f"{end_pos}+1c"
+                text_widget.tag_add("keyword", pos, end)
+                start = end
+            else:
+                start = f"{pos}+1c"
+        
+        # Highlight strings
+        start = "1.0"
+        while True:
+            pos = text_widget.search('"', start, tk.END)
+            if not pos:
+                break
+            end_pos = text_widget.search('"', f"{pos}+1c", tk.END)
+            if end_pos:
+                end = f"{end_pos}+1c"
+                text_widget.tag_add("string", pos, end)
+                start = end
+            else:
+                start = f"{pos}+1c"
+                
+    def highlight_css_brute_force(self, text_widget):
+        """Brute force CSS highlighting"""
+        keywords = ['color', 'background', 'margin', 'padding', 'border', 'font', 'display', 'position', 'width', 'height', 'top', 'left', 'right', 'bottom', 'float', 'clear', 'text', 'line', 'box', 'flex', 'grid']
+        
+        # Highlight keywords
+        for keyword in keywords:
+            start = "1.0"
+            while True:
+                pos = text_widget.search(keyword, start, tk.END)
+                if not pos:
+                    break
+                end = f"{pos}+{len(keyword)}c"
+                text_widget.tag_add("keyword", pos, end)
+                start = end
+        
+        # Highlight strings
+        start = "1.0"
+        while True:
+            pos = text_widget.search('"', start, tk.END)
+            if not pos:
+                break
+            end_pos = text_widget.search('"', f"{pos}+1c", tk.END)
+            if end_pos:
+                end = f"{end_pos}+1c"
+                text_widget.tag_add("string", pos, end)
+                start = end
+            else:
+                start = f"{pos}+1c"
+                
+    def highlight_generic_brute_force(self, text_widget):
+        """Generic highlighting for any language"""
+        # Highlight strings
+        start = "1.0"
+        while True:
+            pos = text_widget.search('"', start, tk.END)
+            if not pos:
+                break
+            end_pos = text_widget.search('"', f"{pos}+1c", tk.END)
+            if end_pos:
+                end = f"{end_pos}+1c"
+                text_widget.tag_add("string", pos, end)
+                start = end
+            else:
+                start = f"{pos}+1c"
+        
+        # Highlight comments
+        for comment_char in ['#', '//', '/*']:
+            start = "1.0"
+            while True:
+                pos = text_widget.search(comment_char, start, tk.END)
+                if not pos:
+                    break
+                if comment_char == '/*':
+                    end_pos = text_widget.search('*/', pos, tk.END)
+                    if end_pos:
+                        end = f"{end_pos}+2c"
+                    else:
+                        end = text_widget.index(f"{pos} lineend")
+                else:
+                    end = text_widget.index(f"{pos} lineend")
+                text_widget.tag_add("comment", pos, end)
+                start = end
                 
     def get_tag_for_token(self, token_type):
         """Get the appropriate tag for a token type"""
