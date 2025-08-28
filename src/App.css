@@ -214,33 +214,59 @@ body {
   overflow: hidden;
 }
 
-/* Monaco Editor Customization */
-.monaco-editor {
-  padding-top: 8px;
+/* Code Editor Textarea */
+.code-editor {
+  width: 100%;
+  height: 100%;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border: none;
+  outline: none;
+  font-family: 'Consolas', 'Courier New', 'Monaco', 'Menlo', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 16px;
+  resize: none;
+  tab-size: 4;
+  -moz-tab-size: 4;
+  -webkit-tab-size: 4;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+  overflow-y: auto;
 }
 
-.monaco-editor .margin {
-  background: #1e1e1e !important;
+.code-editor::placeholder {
+  color: #6a6a6a;
+  font-style: italic;
 }
 
-.monaco-editor .line-numbers {
-  color: #858585 !important;
+.code-editor:focus {
+  background: #1e1e1e;
 }
 
-.monaco-editor .current-line {
-  background: #2a2d2e !important;
+/* Custom Scrollbars for Editor */
+.code-editor::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
 }
 
-.monaco-editor .bracket-highlighting-0 {
-  color: #ffd700 !important;
+.code-editor::-webkit-scrollbar-track {
+  background: #1e1e1e;
 }
 
-.monaco-editor .bracket-highlighting-1 {
-  color: #da70d6 !important;
+.code-editor::-webkit-scrollbar-thumb {
+  background: #5a5a5a;
+  border-radius: 7px;
+  border: 2px solid #1e1e1e;
 }
 
-.monaco-editor .bracket-highlighting-2 {
-  color: #87ceeb !important;
+.code-editor::-webkit-scrollbar-thumb:hover {
+  background: #6a6a6a;
+}
+
+.code-editor::-webkit-scrollbar-corner {
+  background: #1e1e1e;
 }
 
 /* Status Bar */
@@ -354,7 +380,8 @@ body {
 .toolbar button:focus,
 .search-panel input:focus,
 .tab:focus,
-.tab-close:focus {
+.tab-close:focus,
+.code-editor:focus {
   outline: 2px solid #007acc;
   outline-offset: 2px;
 }
@@ -391,43 +418,50 @@ body {
   .search-panel input {
     border-width: 2px;
   }
+  
+  .code-editor {
+    border: 2px solid #5a5a5a;
+  }
 }
 
-/* Dark Theme Enhancements */
-.monaco-editor .monaco-editor-background {
-  background: #1e1e1e !important;
+/* Selection Styling */
+.code-editor::selection {
+  background: #264f78;
+  color: #ffffff;
 }
 
-.monaco-editor .monaco-editor .margin {
-  background: #1e1e1e !important;
+.code-editor::-moz-selection {
+  background: #264f78;
+  color: #ffffff;
 }
 
-.monaco-editor .monaco-editor .inputarea {
-  background: #1e1e1e !important;
+/* Line Highlighting */
+.code-editor:focus {
+  background: #1e1e1e;
 }
 
-/* Selection and Highlighting */
-.monaco-editor .monaco-editor .selection {
-  background: #264f78 !important;
+/* Syntax Highlighting Simulation */
+.code-editor {
+  color: #d4d4d4;
 }
 
-.monaco-editor .monaco-editor .findMatch {
-  background: #515c6a !important;
-}
-
-.monaco-editor .monaco-editor .currentFindMatch {
-  background: #f39c12 !important;
-}
+/* Keywords would be blue (#569cd6) */
+/* Strings would be orange (#ce9178) */
+/* Comments would be green (#6a9955) */
+/* Functions would be yellow (#dcdcaa) */
 
 /* Error and Warning Decorations */
-.monaco-editor .monaco-editor .squiggly-error {
-  border-bottom: 2px solid #f39c12 !important;
+.error-line {
+  border-left: 3px solid #f39c12;
+  padding-left: 13px;
 }
 
-.monaco-editor .monaco-editor .squiggly-warning {
-  border-bottom: 2px solid #f1c40f !important;
+.warning-line {
+  border-left: 3px solid #f1c40f;
+  padding-left: 13px;
 }
 
-.monaco-editor .monaco-editor .squiggly-info {
-  border-bottom: 2px solid #3498db !important;
+.info-line {
+  border-left: 3px solid #3498db;
+  padding-left: 13px;
 }

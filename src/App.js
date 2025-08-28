@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import MonacoEditor from 'react-monaco-editor';
 import './App.css';
 
 function App() {
@@ -21,28 +20,37 @@ function App() {
     loadRecentFiles();
     
     // Set up menu action listeners
-    window.electronAPI.onMenuAction((event, action, ...args) => {
-      handleMenuAction(action, ...args);
-    });
-    
-    window.electronAPI.onSaveSession(() => {
-      saveSession();
-    });
+    if (window.electronAPI) {
+      window.electronAPI.onMenuAction((event, action, ...args) => {
+        handleMenuAction(action, ...args);
+      });
+      
+      window.electronAPI.onSaveSession(() => {
+        saveSession();
+      });
+    } else {
+      console.log('Electron API not available - running in browser mode');
+    }
 
     return () => {
-      window.electronAPI.removeAllListeners('menu-action');
-      window.electronAPI.removeAllListeners('save-session');
+      if (window.electronAPI) {
+        window.electronAPI.removeAllListeners('menu-action');
+        window.electronAPI.removeAllListeners('save-session');
+      }
     };
   }, []);
 
   const loadSession = async () => {
     try {
-      const session = await window.electronAPI.loadSession();
-      if (session && session.length > 0) {
-        setTabs(session);
-        setActiveTab(session[0].id);
+      if (window.electronAPI) {
+        const session = await window.electronAPI.loadSession();
+        if (session && session.length > 0) {
+          setTabs(session);
+          setActiveTab(session[0].id);
+        } else {
+          createNewTab();
+        }
       } else {
-        // Create default untitled tab
         createNewTab();
       }
     } catch (error) {
@@ -53,8 +61,10 @@ function App() {
 
   const loadRecentFiles = async () => {
     try {
-      const files = await window.electronAPI.getRecentFiles();
-      setRecentFiles(files);
+      if (window.electronAPI) {
+        const files = await window.electronAPI.getRecentFiles();
+        setRecentFiles(files);
+      }
     } catch (error) {
       console.error('Failed to load recent files:', error);
     }
@@ -62,7 +72,9 @@ function App() {
 
   const saveSession = async () => {
     try {
-      await window.electronAPI.saveSession(tabs);
+      if (window.electronAPI) {
+        await window.electronAPI.saveSession(tabs);
+      }
     } catch (error) {
       console.error('Failed to save session:', error);
     }
@@ -162,22 +174,24 @@ function App() {
         saveFileAs(args[0]);
         break;
       case 'undo':
-        editorRef.current?.getAction('undo').run();
+        // TODO: Implement undo for textarea
         break;
       case 'redo':
-        editorRef.current?.getAction('redo').run();
+        // TODO: Implement redo for textarea
         break;
       case 'cut':
-        editorRef.current?.getAction('cut').run();
+        document.execCommand('cut');
         break;
       case 'copy':
-        editorRef.current?.getAction('copy').run();
+        document.execCommand('copy');
         break;
       case 'paste':
-        editorRef.current?.getAction('paste').run();
+        document.execCommand('paste');
         break;
       case 'select-all':
-        editorRef.current?.getAction('selectAll').run();
+        if (editorRef.current) {
+          editorRef.current.select();
+        }
         break;
       case 'find':
         setSearchPanel(prev => ({ ...prev, visible: true }));
@@ -217,13 +231,17 @@ function App() {
 
   const openFile = async (filePath) => {
     try {
-      const result = await window.electronAPI.readFile(filePath);
-      if (result.success) {
-        const newTab = createNewTab(filePath, result.content);
-        await window.electronAPI.addRecentFile(filePath);
-        setRecentFiles(prev => [filePath, ...prev.filter(f => f !== filePath)].slice(0, 10));
+      if (window.electronAPI) {
+        const result = await window.electronAPI.readFile(filePath);
+        if (result.success) {
+          const newTab = createNewTab(filePath, result.content);
+          await window.electronAPI.addRecentFile(filePath);
+          setRecentFiles(prev => [filePath, ...prev.filter(f => f !== filePath)].slice(0, 10));
+        } else {
+          setStatusMessage(`Error opening file: ${result.error}`);
+        }
       } else {
-        setStatusMessage(`Error opening file: ${result.error}`);
+        setStatusMessage('File operations not available in browser mode');
       }
     } catch (error) {
       setStatusMessage(`Error opening file: ${error.message}`);
@@ -236,15 +254,20 @@ function App() {
     const tab = tabs.find(t => t.id === activeTab);
     if (!tab.filePath) {
       // TODO: Show save as dialog
+      setStatusMessage('Save As not implemented in browser mode');
       return;
     }
     
     try {
-      await window.electronAPI.writeFile(tab.filePath, tab.content);
-      setTabs(prev => prev.map(t => 
-        t.id === activeTab ? { ...t, modified: false } : t
-      ));
-      setStatusMessage(`Saved: ${tab.name}`);
+      if (window.electronAPI) {
+        await window.electronAPI.writeFile(tab.filePath, tab.content);
+        setTabs(prev => prev.map(t => 
+          t.id === activeTab ? { ...t, modified: false } : t
+        ));
+        setStatusMessage(`Saved: ${tab.name}`);
+      } else {
+        setStatusMessage('File operations not available in browser mode');
+      }
     } catch (error) {
       setStatusMessage(`Error saving file: ${error.message}`);
     }
@@ -255,12 +278,16 @@ function App() {
     
     const tab = tabs.find(t => t.id === activeTab);
     try {
-      await window.electronAPI.writeFile(filePath, tab.content);
-      setTabs(prev => prev.map(t => 
-        t.id === activeTab ? { ...t, filePath, name: filePath.split(/[/\\]/).pop(), modified: false } : t
-      ));
-      await window.electronAPI.addRecentFile(filePath);
-      setStatusMessage(`Saved as: ${filePath.split(/[/\\]/).pop()}`);
+      if (window.electronAPI) {
+        await window.electronAPI.writeFile(filePath, tab.content);
+        setTabs(prev => prev.map(t => 
+          t.id === activeTab ? { ...t, filePath, name: filePath.split(/[/\\]/).pop(), modified: false } : t
+        ));
+        await window.electronAPI.addRecentFile(filePath);
+        setStatusMessage(`Saved as: ${filePath.split(/[/\\]/).pop()}`);
+      } else {
+        setStatusMessage('File operations not available in browser mode');
+      }
     } catch (error) {
       setStatusMessage(`Error saving file: ${error.message}`);
     }
@@ -269,23 +296,18 @@ function App() {
   const handleSearch = (findText, replaceText = '', replaceAll = false) => {
     if (!editorRef.current) return;
     
-    const model = editorRef.current.getModel();
-    if (!model) return;
+    const text = editorRef.current.value;
+    const findIndex = text.indexOf(findText);
     
-    const findMatches = model.findMatches(findText, false, false, true, null, false);
-    
-    if (replaceAll && replaceText !== '') {
-      // Replace all matches
-      const edits = findMatches.map(match => ({
-        range: match.range,
-        text: replaceText
-      }));
-      model.pushEditOperations([], edits, () => null);
-      setStatusMessage(`Replaced ${findMatches.length} occurrences`);
-    } else if (findMatches.length > 0) {
-      // Highlight matches
-      editorRef.current.setSelection(findMatches[0].range);
-      setStatusMessage(`Found ${findMatches.length} matches`);
+    if (findIndex !== -1) {
+      if (replaceAll && replaceText !== '') {
+        const newText = text.replace(new RegExp(findText, 'g'), replaceText);
+        handleEditorChange(newText);
+        setStatusMessage(`Replaced all occurrences of "${findText}"`);
+      } else {
+        editorRef.current.setSelectionRange(findIndex, findIndex + findText.length);
+        setStatusMessage(`Found "${findText}"`);
+      }
     } else {
       setStatusMessage('No matches found');
     }
@@ -385,36 +407,16 @@ function App() {
       {/* Editor */}
       <div className="editor-container">
         {currentTab && (
-          <MonacoEditor
+          <textarea
             ref={editorRef}
-            width="100%"
-            height="100%"
-            language={currentTab.language}
-            theme="vs-dark"
+            className="code-editor"
             value={currentTab.content}
-            onChange={handleEditorChange}
-            options={{
-              selectOnLineNumbers: true,
-              roundedSelection: false,
-              readOnly: false,
-              cursorStyle: 'line',
-              automaticLayout: true,
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              fontSize: 14,
-              fontFamily: 'Consolas, "Courier New", monospace',
-              lineNumbers: 'on',
-              glyphMargin: true,
-              folding: true,
-              lineDecorationsWidth: 10,
-              lineNumbersMinChars: 4,
-              renderLineHighlight: 'all',
-              bracketPairColorization: { enabled: true },
-              guides: {
-                bracketPairs: true,
-                indentation: true
-              }
-            }}
+            onChange={(e) => handleEditorChange(e.target.value)}
+            placeholder="Start coding here..."
+            spellCheck={false}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
           />
         )}
       </div>
@@ -424,8 +426,8 @@ function App() {
         <span className="status-message">{statusMessage}</span>
         {currentTab && (
           <span className="position-info">
-            Line {editorRef.current?.getPosition()?.lineNumber || 1}, 
-            Col {editorRef.current?.getPosition()?.column || 1}
+            Line {editorRef.current ? (editorRef.current.value.substring(0, editorRef.current.selectionStart).split('\n').length) : 1}, 
+            Col {editorRef.current ? (editorRef.current.selectionStart - editorRef.current.value.substring(0, editorRef.current.selectionStart).lastIndexOf('\n') - 1) : 1}
           </span>
         )}
       </div>
