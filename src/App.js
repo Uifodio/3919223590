@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './styles/App.css';
-import MenuBar from './components/MenuBar';
 import Toolbar from './components/Toolbar';
 import TabManager from './components/TabManager';
 import StatusBar from './components/StatusBar';
@@ -114,8 +113,8 @@ function App() {
       });
       setActiveTab(savedSession.activeTabIndex || 0);
     } else {
-      // Create default tab
-      createNewTab();
+      // Create only one clean default tab
+      createNewTab('');
     }
   }, []);
   
@@ -159,7 +158,6 @@ function App() {
   
   return (
     <div className="app">
-      <MenuBar />
       <Toolbar onAction={handleToolbarAction} alwaysOnTop={alwaysOnTop} fullscreen={fullscreen} />
       <div className="main-content">
         <TabManager

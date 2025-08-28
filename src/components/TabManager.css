@@ -30,36 +30,42 @@
 
 .tab-bar {
   display: flex;
-  background-color: #2d2d2d;
-  border-bottom: 1px solid #555;
+  background: linear-gradient(135deg, #252526 0%, #2d2d30 100%);
+  border-bottom: 2px solid #007acc;
   overflow-x: auto;
   overflow-y: hidden;
-  height: 36px;
+  height: 40px;
   align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .tab {
   display: flex;
   align-items: center;
-  background-color: #3c3c3c;
-  border-right: 1px solid #555;
-  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0 16px;
   height: 100%;
-  min-width: 120px;
-  max-width: 200px;
+  min-width: 140px;
+  max-width: 220px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
   position: relative;
   user-select: none;
+  backdrop-filter: blur(10px);
 }
 
 .tab:hover {
-  background-color: #4c4c4c;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .tab.active {
-  background-color: #1e1e1e;
-  border-bottom: 2px solid #007acc;
+  background: linear-gradient(135deg, #007acc 0%, #005a9e 100%);
+  border-bottom: 3px solid #ffffff;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 122, 204, 0.4);
 }
 
 .tab.modified .tab-title::after {

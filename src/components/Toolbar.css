@@ -1,11 +1,12 @@
 .toolbar {
   display: flex;
-  background-color: #3c3c3c;
-  border-bottom: 1px solid #555;
-  height: 40px;
+  background: linear-gradient(135deg, #2d2d30 0%, #3c3c3c 100%);
+  border-bottom: 2px solid #007acc;
+  height: 48px;
   align-items: center;
-  padding: 0 8px;
-  gap: 4px;
+  padding: 0 12px;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .toolbar-item {
@@ -14,23 +15,26 @@
 }
 
 .toolbar-button {
-  width: 36px;
-  height: 36px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: #d4d4d4;
+  width: 42px;
+  height: 42px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e1e1e1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: all 0.2s ease;
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 500;
 }
 
 .toolbar-button:hover {
-  background-color: #4c4c4c;
-  border-color: #666;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .toolbar-button:active {
@@ -39,14 +43,16 @@
 }
 
 .toolbar-button.active {
-  background-color: #007acc;
+  background: linear-gradient(135deg, #007acc 0%, #005a9e 100%);
   border-color: #007acc;
   color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 122, 204, 0.4);
 }
 
 .toolbar-button.active:hover {
-  background-color: #005a9e;
+  background: linear-gradient(135deg, #005a9e 0%, #004080 100%);
   border-color: #005a9e;
+  box-shadow: 0 4px 12px rgba(0, 122, 204, 0.6);
 }
 
 .toolbar-icon {

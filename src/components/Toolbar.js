@@ -3,15 +3,15 @@ import './Toolbar.css';
 
 const Toolbar = ({ onAction, alwaysOnTop, fullscreen }) => {
   const toolbarItems = [
-    { id: 'new', icon: '📄', label: 'New', action: 'new' },
-    { id: 'open', icon: '📂', label: 'Open', action: 'open' },
+    { id: 'new', icon: '✚', label: 'New File', action: 'new' },
+    { id: 'open', icon: '📁', label: 'Open File', action: 'open' },
     { id: 'save', icon: '💾', label: 'Save', action: 'save' },
     { type: 'separator' },
     { id: 'find', icon: '🔍', label: 'Find', action: 'find' },
     { id: 'replace', icon: '🔄', label: 'Replace', action: 'replace' },
     { type: 'separator' },
-    { id: 'pin', icon: '📌', label: 'Pin', action: 'pin', active: alwaysOnTop },
-    { id: 'full', icon: '⛶', label: 'Full', action: 'full', active: fullscreen }
+    { id: 'pin', icon: '📌', label: 'Always on Top', action: 'pin', active: alwaysOnTop },
+    { id: 'full', icon: '⛶', label: 'Fullscreen', action: 'full', active: fullscreen }
   ];
   
   const handleAction = (action) => {

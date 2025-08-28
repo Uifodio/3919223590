@@ -11,10 +11,10 @@
 }
 
 .line-numbers {
-  background-color: #2d2d2d;
-  border-right: 1px solid #555;
+  background: linear-gradient(135deg, #252526 0%, #2d2d30 100%);
+  border-right: 2px solid #007acc;
   padding: 8px 0;
-  min-width: 60px;
+  min-width: 70px;
   text-align: right;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 14px;
@@ -22,6 +22,7 @@
   user-select: none;
   overflow-y: auto;
   overflow-x: hidden;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
 }
 
 .line-number {
@@ -45,7 +46,7 @@
   height: 100%;
   background: transparent;
   color: transparent;
-  caret-color: #d4d4d4;
+  caret-color: #007acc;
   border: none;
   outline: none;
   resize: none;

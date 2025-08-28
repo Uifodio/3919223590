@@ -3,11 +3,12 @@
   top: 0;
   left: 0;
   right: 0;
-  background-color: #2d2d2d;
-  border-bottom: 1px solid #555;
-  padding: 12px;
+  background: linear-gradient(135deg, #252526 0%, #2d2d30 100%);
+  border-bottom: 2px solid #007acc;
+  padding: 16px;
   z-index: 100;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
 }
 
 .search-inputs {

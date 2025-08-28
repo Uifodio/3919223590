@@ -5,6 +5,7 @@ export const useFileManager = () => {
   const [tabs, setTabs] = useState([]);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const closedTabs = useRef([]);
+  const initialized = useRef(false);
   
   const createNewTab = useCallback((content = '') => {
     const newTab = {
@@ -19,8 +20,16 @@ export const useFileManager = () => {
       totalLines: 1
     };
     
-    setTabs(prev => [...prev, newTab]);
-    setActiveTabIndex(prev => prev + 1);
+    if (!initialized.current) {
+      // First tab - replace the array
+      setTabs([newTab]);
+      setActiveTabIndex(0);
+      initialized.current = true;
+    } else {
+      // Additional tabs - append to array
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabIndex(prev => prev + 1);
+    }
   }, []);
   
   const openFile = useCallback(async (filePath = null) => {
