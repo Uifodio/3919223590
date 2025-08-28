@@ -1,0 +1,52 @@
+{
+  "name": "react-electron-sample",
+  "version": "1.0.0",
+  "description": "A sample React + Electron application",
+  "main": "public/electron.js",
+  "homepage": "./",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "electron": "electron .",
+    "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron-pack": "electron-builder",
+    "preelectron-pack": "npm run build"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.6.4",
+    "concurrently": "^8.2.2",
+    "wait-on": "^7.0.1"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "build": {
+    "appId": "com.example.react-electron-sample",
+    "productName": "React Electron Sample",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "build/**/*",
+      "public/electron.js",
+      "node_modules/**/*"
+    ]
+  }
+}
