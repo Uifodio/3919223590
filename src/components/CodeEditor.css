@@ -4,6 +4,8 @@
   position: relative;
   background: #1e1e1e;
   border-radius: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .editor-container {
@@ -11,15 +13,17 @@
   height: 100%;
   overflow: hidden;
   position: relative;
+  flex: 1;
 }
 
-/* Line Numbers - Fixed width, scrollable */
+/* Line Numbers - Fixed width, perfectly scrollable */
 .line-numbers {
   background: linear-gradient(135deg, #252526 0%, #2d2d30 100%);
   border-right: 2px solid #007acc;
   padding: 8px 0;
   width: 70px;
   min-width: 70px;
+  max-width: 70px;
   text-align: right;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
@@ -30,6 +34,7 @@
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
   position: relative;
   z-index: 10;
+  flex-shrink: 0;
 }
 
 .line-number {
@@ -38,11 +43,18 @@
   line-height: 21px;
   font-size: 13px;
   color: #858585;
-  transition: color 0.2s ease;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .line-number:hover {
   color: #c5c5c5;
+}
+
+.line-number.current-line {
+  color: #ffffff;
+  background: rgba(0, 122, 204, 0.2);
+  font-weight: 600;
 }
 
 /* Editor Content - Main editing area */
@@ -51,6 +63,8 @@
   position: relative;
   overflow: hidden;
   background: #1e1e1e;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Textarea - The actual input field */
@@ -75,6 +89,7 @@
   overflow-wrap: normal;
   overflow: auto;
   tab-size: 2;
+  box-sizing: border-box;
 }
 
 .editor-textarea::selection {
@@ -89,7 +104,7 @@
   outline: none;
 }
 
-/* Syntax Highlighting - Overlay for colors */
+/* Syntax Highlighting - Perfect overlay for colors */
 .syntax-highlighting {
   position: absolute;
   top: 0;
@@ -98,7 +113,8 @@
   height: 100%;
   pointer-events: none;
   z-index: 15;
-  overflow: hidden;
+  overflow: auto;
+  box-sizing: border-box;
 }
 
 .syntax-highlighting pre {
@@ -110,221 +126,248 @@
   line-height: 21px;
   white-space: pre;
   overflow-wrap: normal;
-  overflow: hidden;
+  min-height: 100%;
+  box-sizing: border-box;
 }
 
 /* Syntax highlighting colors matching VS Code Dark+ theme */
 .syntax-highlighting .token.keyword {
-  color: #569cd6; /* Blue for keywords */
+  color: #569cd6 !important; /* Blue for keywords */
 }
 
 .syntax-highlighting .token.string {
-  color: #ce9178; /* Orange for strings */
+  color: #ce9178 !important; /* Orange for strings */
 }
 
 .syntax-highlighting .token.comment {
-  color: #6a9955; /* Green for comments */
+  color: #6a9955 !important; /* Green for comments */
 }
 
 .syntax-highlighting .token.function {
-  color: #dcdcaa; /* Yellow for functions */
+  color: #dcdcaa !important; /* Yellow for functions */
 }
 
 .syntax-highlighting .token.number {
-  color: #b5cea8; /* Light green for numbers */
+  color: #b5cea8 !important; /* Light green for numbers */
 }
 
 .syntax-highlighting .token.operator {
-  color: #d4d4d4; /* White for operators */
+  color: #d4d4d4 !important; /* White for operators */
 }
 
 .syntax-highlighting .token.punctuation {
-  color: #d4d4d4; /* White for punctuation */
+  color: #d4d4d4 !important; /* White for punctuation */
 }
 
 .syntax-highlighting .token.class-name {
-  color: #4ec9b0; /* Teal for class names */
+  color: #4ec9b0 !important; /* Teal for class names */
 }
 
 .syntax-highlighting .token.variable {
-  color: #9cdcfe; /* Light blue for variables */
+  color: #9cdcfe !important; /* Light blue for variables */
 }
 
 .syntax-highlighting .token.property {
-  color: #9cdcfe; /* Light blue for properties */
+  color: #9cdcfe !important; /* Light blue for properties */
 }
 
 .syntax-highlighting .token.parameter {
-  color: #9cdcfe; /* Light blue for parameters */
+  color: #9cdcfe !important; /* Light blue for parameters */
 }
 
 .syntax-highlighting .token.type {
-  color: #4ec9b0; /* Teal for types */
+  color: #4ec9b0 !important; /* Teal for types */
 }
 
 .syntax-highlighting .token.namespace {
-  color: #4ec9b0; /* Teal for namespaces */
+  color: #4ec9b0 !important; /* Teal for namespaces */
 }
 
 .syntax-highlighting .token.import {
-  color: #569cd6; /* Blue for imports */
+  color: #569cd6 !important; /* Blue for imports */
 }
 
 .syntax-highlighting .token.export {
-  color: #569cd6; /* Blue for exports */
+  color: #569cd6 !important; /* Blue for exports */
 }
 
 .syntax-highlighting .token.constant {
-  color: #4fc1ff; /* Light blue for constants */
+  color: #4fc1ff !important; /* Light blue for constants */
 }
 
 .syntax-highlighting .token.boolean {
-  color: #569cd6; /* Blue for booleans */
+  color: #569cd6 !important; /* Blue for booleans */
 }
 
 .syntax-highlighting .token.null {
-  color: #569cd6; /* Blue for null */
+  color: #569cd6 !important; /* Blue for null */
 }
 
 .syntax-highlighting .token.undefined {
-  color: #569cd6; /* Blue for undefined */
+  color: #569cd6 !important; /* Blue for undefined */
 }
 
 .syntax-highlighting .token.this {
-  color: #569cd6; /* Blue for this */
+  color: #569cd6 !important; /* Blue for this */
 }
 
 .syntax-highlighting .token.super {
-  color: #569cd6; /* Blue for super */
+  color: #569cd6 !important; /* Blue for super */
 }
 
 .syntax-highlighting .token.new {
-  color: #569cd6; /* Blue for new */
+  color: #569cd6 !important; /* Blue for new */
 }
 
 .syntax-highlighting .token.return {
-  color: #569cd6; /* Blue for return */
+  color: #569cd6 !important; /* Blue for return */
 }
 
 .syntax-highlighting .token.if {
-  color: #569cd6; /* Blue for if */
+  color: #569cd6 !important; /* Blue for if */
 }
 
 .syntax-highlighting .token.else {
-  color: #569cd6; /* Blue for else */
+  color: #569cd6 !important; /* Blue for else */
 }
 
 .syntax-highlighting .token.for {
-  color: #569cd6; /* Blue for for */
+  color: #569cd6 !important; /* Blue for for */
 }
 
 .syntax-highlighting .token.while {
-  color: #569cd6; /* Blue for while */
+  color: #569cd6 !important; /* Blue for while */
 }
 
 .syntax-highlighting .token.switch {
-  color: #569cd6; /* Blue for switch */
+  color: #569cd6 !important; /* Blue for switch */
 }
 
 .syntax-highlighting .token.case {
-  color: #569cd6; /* Blue for case */
+  color: #569cd6 !important; /* Blue for case */
 }
 
 .syntax-highlighting .token.default {
-  color: #569cd6; /* Blue for default */
+  color: #569cd6 !important; /* Blue for default */
 }
 
 .syntax-highlighting .token.break {
-  color: #569cd6; /* Blue for break */
+  color: #569cd6 !important; /* Blue for break */
 }
 
 .syntax-highlighting .token.continue {
-  color: #569cd6; /* Blue for continue */
+  color: #569cd6 !important; /* Blue for continue */
 }
 
 .syntax-highlighting .token.try {
-  color: #569cd6; /* Blue for try */
+  color: #569cd6 !important; /* Blue for try */
 }
 
 .syntax-highlighting .token.catch {
-  color: #569cd6; /* Blue for catch */
+  color: #569cd6 !important; /* Blue for catch */
 }
 
 .syntax-highlighting .token.finally {
-  color: #569cd6; /* Blue for finally */
+  color: #569cd6 !important; /* Blue for finally */
 }
 
 .syntax-highlighting .token.throw {
-  color: #569cd6; /* Blue for throw */
+  color: #569cd6 !important; /* Blue for throw */
 }
 
 .syntax-highlighting .token.delete {
-  color: #569cd6; /* Blue for delete */
+  color: #569cd6 !important; /* Blue for delete */
 }
 
 .syntax-highlighting .token.in {
-  color: #569cd6; /* Blue for in */
+  color: #569cd6 !important; /* Blue for in */
 }
 
 .syntax-highlighting .token.instanceof {
-  color: #569cd6; /* Blue for instanceof */
+  color: #569cd6 !important; /* Blue for instanceof */
 }
 
 .syntax-highlighting .token.typeof {
-  color: #569cd6; /* Blue for typeof */
+  color: #569cd6 !important; /* Blue for typeof */
 }
 
 .syntax-highlighting .token.void {
-  color: #569cd6; /* Blue for void */
+  color: #569cd6 !important; /* Blue for void */
 }
 
 .syntax-highlighting .token.yield {
-  color: #569cd6; /* Blue for yield */
+  color: #569cd6 !important; /* Blue for yield */
 }
 
 .syntax-highlighting .token.await {
-  color: #569cd6; /* Blue for await */
+  color: #569cd6 !important; /* Blue for await */
 }
 
 .syntax-highlighting .token.async {
-  color: #569cd6; /* Blue for async */
+  color: #569cd6 !important; /* Blue for async */
 }
 
 /* C# specific tokens */
 .syntax-highlighting .token.public {
-  color: #569cd6; /* Blue for public */
+  color: #569cd6 !important; /* Blue for public */
 }
 
 .syntax-highlighting .token.private {
-  color: #569cd6; /* Blue for private */
+  color: #569cd6 !important; /* Blue for private */
 }
 
 .syntax-highlighting .token.protected {
-  color: #569cd6; /* Blue for protected */
+  color: #569cd6 !important; /* Blue for protected */
 }
 
 .syntax-highlighting .token.internal {
-  color: #569cd6; /* Blue for internal */
+  color: #569cd6 !important; /* Blue for internal */
 }
 
 .syntax-highlighting .token.static {
-  color: #569cd6; /* Blue for static */
+  color: #569cd6 !important; /* Blue for static */
 }
 
 .syntax-highlighting .token.readonly {
-  color: #569cd6; /* Blue for readonly */
+  color: #569cd6 !important; /* Blue for readonly */
 }
 
 .syntax-highlighting .token.const {
-  color: #569cd6; /* Blue for const */
+  color: #569cd6 !important; /* Blue for const */
 }
 
 .syntax-highlighting .token.var {
-  color: #569cd6; /* Blue for var */
+  color: #569cd6 !important; /* Blue for var */
 }
 
 .syntax-highlighting .token.let {
-  color: #569cd6; /* Blue for let */
+  color: #569cd6 !important; /* Blue for let */
+}
+
+/* HTML specific tokens */
+.syntax-highlighting .token.tag {
+  color: #569cd6 !important; /* Blue for HTML tags */
+}
+
+.syntax-highlighting .token.attr-name {
+  color: #9cdcfe !important; /* Light blue for attribute names */
+}
+
+.syntax-highlighting .token.attr-value {
+  color: #ce9178 !important; /* Orange for attribute values */
+}
+
+/* CSS specific tokens */
+.syntax-highlighting .token.selector {
+  color: #d7ba7d !important; /* Gold for CSS selectors */
+}
+
+.syntax-highlighting .token.property {
+  color: #9cdcfe !important; /* Light blue for CSS properties */
+}
+
+.syntax-highlighting .token.value {
+  color: #ce9178 !important; /* Orange for CSS values */
 }
 
 /* Responsive design */
@@ -332,6 +375,7 @@
   .line-numbers {
     width: 60px;
     min-width: 60px;
+    max-width: 60px;
     font-size: 12px;
   }
   
@@ -355,45 +399,44 @@
   }
 }
 
-/* Scrollbar styling for the editor */
-.editor-textarea::-webkit-scrollbar {
+/* Bulletproof scrollbar styling for all elements */
+.editor-textarea::-webkit-scrollbar,
+.line-numbers::-webkit-scrollbar,
+.syntax-highlighting::-webkit-scrollbar {
   width: 14px;
   height: 14px;
 }
 
-.editor-textarea::-webkit-scrollbar-track {
+.editor-textarea::-webkit-scrollbar-track,
+.line-numbers::-webkit-scrollbar-track,
+.syntax-highlighting::-webkit-scrollbar-track {
   background: #2d2d2d;
 }
 
-.editor-textarea::-webkit-scrollbar-thumb {
+.editor-textarea::-webkit-scrollbar-thumb,
+.line-numbers::-webkit-scrollbar-thumb,
+.syntax-highlighting::-webkit-scrollbar-thumb {
   background: #555;
   border-radius: 7px;
   border: 2px solid #2d2d2d;
 }
 
-.editor-textarea::-webkit-scrollbar-thumb:hover {
+.editor-textarea::-webkit-scrollbar-thumb:hover,
+.line-numbers::-webkit-scrollbar-thumb:hover,
+.syntax-highlighting::-webkit-scrollbar-thumb:hover {
   background: #777;
 }
 
-.editor-textarea::-webkit-scrollbar-corner {
+.editor-textarea::-webkit-scrollbar-corner,
+.line-numbers::-webkit-scrollbar-corner,
+.syntax-highlighting::-webkit-scrollbar-corner {
   background: #2d2d2d;
 }
 
-/* Line numbers scrollbar */
-.line-numbers::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.line-numbers::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.line-numbers::-webkit-scrollbar-thumb {
-  background: #555;
-  border-radius: 4px;
-}
-
-.line-numbers::-webkit-scrollbar-thumb:hover {
-  background: #777;
+/* Firefox scrollbar styling */
+.editor-textarea,
+.line-numbers,
+.syntax-highlighting {
+  scrollbar-width: thin;
+  scrollbar-color: #555 #2d2d2d;
 }

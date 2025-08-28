@@ -7,6 +7,14 @@ export const useFileManager = () => {
   const closedTabs = useRef([]);
   const initialized = useRef(false);
   
+  // Initialize with one clean tab if none exist
+  useEffect(() => {
+    if (!initialized.current && tabs.length === 0) {
+      createNewTab('');
+      initialized.current = true;
+    }
+  }, [tabs.length]);
+  
   const createNewTab = useCallback((content = '') => {
     const newTab = {
       id: uuidv4(),
@@ -20,16 +28,8 @@ export const useFileManager = () => {
       totalLines: 1
     };
     
-    if (!initialized.current) {
-      // First tab - replace the array
-      setTabs([newTab]);
-      setActiveTabIndex(0);
-      initialized.current = true;
-    } else {
-      // Additional tabs - append to array
-      setTabs(prev => [...prev, newTab]);
-      setActiveTabIndex(prev => prev + 1);
-    }
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabIndex(prev => prev + 1);
   }, []);
   
   const openFile = useCallback(async (filePath = null) => {

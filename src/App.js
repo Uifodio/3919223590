@@ -102,7 +102,7 @@ function App() {
   // Load session on startup
   useEffect(() => {
     const savedSession = loadSession();
-    if (savedSession && savedSession.tabs.length > 0) {
+    if (savedSession && savedSession.tabs && savedSession.tabs.length > 0) {
       // Restore tabs
       savedSession.tabs.forEach(tab => {
         if (tab.filePath) {
@@ -111,12 +111,12 @@ function App() {
           createNewTab(tab.content || '');
         }
       });
-      setActiveTab(savedSession.activeTabIndex || 0);
+      setActiveTabIndex(savedSession.activeTabIndex || 0);
     } else {
       // Create only one clean default tab
       createNewTab('');
     }
-  }, []);
+  }, [loadSession, openFile, createNewTab]);
   
   const handleToolbarAction = useCallback((action) => {
     switch (action) {
