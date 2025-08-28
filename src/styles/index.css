@@ -1,0 +1,251 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+}
+
+code {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+/* Remove default button styles */
+button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Remove default input styles */
+input, textarea {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+}
+
+/* Remove default list styles */
+ul, ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Remove default link styles */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Remove default heading margins */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: normal;
+}
+
+/* Remove default paragraph margins */
+p {
+  margin: 0;
+}
+
+/* Remove default table styles */
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* Remove default form styles */
+form {
+  margin: 0;
+}
+
+/* Remove default fieldset styles */
+fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove default legend styles */
+legend {
+  padding: 0;
+}
+
+/* Remove default select styles */
+select {
+  background: none;
+  border: none;
+  font: inherit;
+}
+
+/* Remove default textarea styles */
+textarea {
+  resize: none;
+  overflow: auto;
+}
+
+/* Remove default image styles */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Remove default hr styles */
+hr {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove default details styles */
+details {
+  display: block;
+}
+
+/* Remove default summary styles */
+summary {
+  display: list-item;
+}
+
+/* Remove default dialog styles */
+dialog {
+  background: inherit;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove default meter styles */
+meter {
+  background: inherit;
+  border: none;
+}
+
+/* Remove default progress styles */
+progress {
+  background: inherit;
+  border: none;
+}
+
+/* Remove default output styles */
+output {
+  display: inline;
+}
+
+/* Remove default canvas styles */
+canvas {
+  display: inline-block;
+}
+
+/* Remove default iframe styles */
+iframe {
+  border: none;
+}
+
+/* Remove default object styles */
+object {
+  display: block;
+}
+
+/* Remove default embed styles */
+embed {
+  display: block;
+}
+
+/* Remove default video styles */
+video {
+  display: block;
+}
+
+/* Remove default audio styles */
+audio {
+  display: block;
+}
+
+/* Remove default source styles */
+source {
+  display: none;
+}
+
+/* Remove default track styles */
+track {
+  display: none;
+}
+
+/* Remove default map styles */
+map {
+  display: inline;
+}
+
+/* Remove default area styles */
+area {
+  display: none;
+}
+
+/* Remove default base styles */
+base {
+  display: none;
+}
+
+/* Remove default link styles */
+link {
+  display: none;
+}
+
+/* Remove default meta styles */
+meta {
+  display: none;
+}
+
+/* Remove default script styles */
+script {
+  display: none;
+}
+
+/* Remove default style styles */
+style {
+  display: none;
+}
+
+/* Remove default title styles */
+title {
+  display: none;
+}
+
+/* Remove default head styles */
+head {
+  display: none;
+}
+
+/* Remove default html styles */
+html {
+  display: block;
+}
+
+/* Remove default body styles */
+body {
+  display: block;
+}

@@ -1,0 +1,158 @@
+.tab-manager {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.tab-manager.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1e1e1e;
+}
+
+.empty-state {
+  text-align: center;
+  color: #888;
+}
+
+.empty-state h3 {
+  font-size: 24px;
+  margin-bottom: 16px;
+  color: #d4d4d4;
+}
+
+.empty-state p {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.tab-bar {
+  display: flex;
+  background-color: #2d2d2d;
+  border-bottom: 1px solid #555;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 36px;
+  align-items: center;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  background-color: #3c3c3c;
+  border-right: 1px solid #555;
+  padding: 0 12px;
+  height: 100%;
+  min-width: 120px;
+  max-width: 200px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  position: relative;
+  user-select: none;
+}
+
+.tab:hover {
+  background-color: #4c4c4c;
+}
+
+.tab.active {
+  background-color: #1e1e1e;
+  border-bottom: 2px solid #007acc;
+}
+
+.tab.modified .tab-title::after {
+  content: ' *';
+  color: #ffa500;
+  font-weight: bold;
+}
+
+.tab-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #d4d4d4;
+}
+
+.tab-modified-indicator {
+  color: #ffa500;
+  font-weight: bold;
+  margin-left: 4px;
+  font-size: 14px;
+}
+
+.tab-close {
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-left: 8px;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.tab-close:hover {
+  background-color: #555;
+  color: #ffffff;
+}
+
+.tab-close:active {
+  background-color: #666;
+  transform: scale(0.95);
+}
+
+.tab-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background-color: #1e1e1e;
+}
+
+.tab-content.drag-over {
+  background-color: #2d2d2d;
+  border: 2px dashed #007acc;
+}
+
+.tab-content.drag-over::after {
+  content: 'Drop file to open';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #007acc;
+  font-size: 18px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .tab-bar {
+    height: 44px;
+  }
+  
+  .tab {
+    min-width: 100px;
+    max-width: 150px;
+    padding: 0 8px;
+  }
+  
+  .tab-title {
+    font-size: 14px;
+  }
+  
+  .tab-close {
+    width: 24px;
+    height: 24px;
+    font-size: 18px;
+  }
+}
