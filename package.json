@@ -3,17 +3,12 @@
   "version": "1.0.0",
   "description": "Professional code editor designed for Unity development",
   "author": "Uifodio",
-  "main": "build/electron.js",
+  "main": "public/electron.js",
   "homepage": "./",
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build && node -e \"const fs=require('fs'); fs.copyFileSync('public/electron.js','build/electron.js'); fs.copyFileSync('public/preload.js','build/preload.js'); fs.copyFileSync('public/icon.png','build/icon.png');\"",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "electron": "electron .",
-    "electron-dev": "concurrently \"BROWSER=none npm start\" \"wait-on http://localhost:3000 && electron .\"",
-    "electron-pack": "electron-builder",
-    "dist": "npm run build && electron-builder",
+    "start": "electron .",
+    "build": "electron-builder",
+    "dist": "electron-builder",
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
@@ -24,7 +19,7 @@
       "output": "dist"
     },
     "files": [
-      "build/**/*",
+      "public/**/*",
       "node_modules/**/*"
     ],
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
@@ -32,10 +27,13 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [ "x64", "ia32" ]
+          "arch": [
+            "x64",
+            "ia32"
+          ]
         }
       ],
-      "icon": "build/icon.png",
+      "icon": "public/icon.png",
       "legalTrademarks": "Nexus Labs",
       "requestedExecutionLevel": "asInvoker",
       "publisherName": "Nexus Labs Ltd.",
@@ -50,41 +48,23 @@
       "shortcutName": "Nexus Editor"
     },
     "linux": {
-      "target": [ "AppImage" ],
-      "icon": "build/icon.png",
+      "target": [
+        "AppImage"
+      ],
+      "icon": "public/icon.png",
       "category": "Development"
     },
     "mac": {
-      "target": [ "dmg" ],
-      "icon": "build/icon.icns",
+      "target": [
+        "dmg"
+      ],
+      "icon": "public/icon.icns",
       "category": "public.app-category.developer-tools"
     }
   },
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1",
-    "uuid": "^9.0.1",
-    "electron-store": "^8.1.0",
-    "prismjs": "^1.29.0",
-    "react-syntax-highlighter": "^15.5.0"
-  },
   "devDependencies": {
-    "concurrently": "^8.2.2",
-    "wait-on": "^7.2.0",
     "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "electron-builder": "^24.9.1",
+    "electron-store": "^8.1.0"
   }
 }

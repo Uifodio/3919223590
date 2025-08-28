@@ -1,41 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Nexus Editor - Professional code editor for Unity development"
-    />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nexus Editor</title>
-    <style>
-      body {
-        margin: 0;
-        padding: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-          sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        background-color: #1e1e1e;
-        color: #d4d4d4;
-        overflow: hidden;
-      }
-      
-      #root {
-        height: 100vh;
-        width: 100vw;
-      }
-      
-      * {
-        box-sizing: border-box;
-      }
-    </style>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-  </body>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button id="newBtn" class="toolbar-btn" title="New File (Ctrl+N)">✚ New</button>
+            <button id="openBtn" class="toolbar-btn" title="Open File (Ctrl+O)">📁 Open</button>
+            <button id="saveBtn" class="toolbar-btn" title="Save (Ctrl+S)">💾 Save</button>
+            <div class="toolbar-separator"></div>
+            <button id="findBtn" class="toolbar-btn" title="Find (Ctrl+F)">🔍 Find</button>
+            <button id="replaceBtn" class="toolbar-btn" title="Replace (Ctrl+H)">🔄 Replace</button>
+            <div class="toolbar-separator"></div>
+            <button id="pinBtn" class="toolbar-btn" title="Always on Top">📌 Pin</button>
+            <button id="fullBtn" class="toolbar-btn" title="Fullscreen (F11)">⛶ Full</button>
+        </div>
+
+        <!-- Tab Bar -->
+        <div class="tab-bar">
+            <div id="tabList" class="tab-list">
+                <div class="tab active" data-tab-id="1">
+                    <span class="tab-title">Untitled</span>
+                    <button class="tab-close" onclick="closeTab(this)">×</button>
+                </div>
+            </div>
+            <button id="newTabBtn" class="new-tab-btn" title="New Tab (Ctrl+T)">+</button>
+        </div>
+
+        <!-- Editor Container -->
+        <div class="editor-container">
+            <div class="line-numbers" id="lineNumbers">
+                <div class="line-number">1</div>
+            </div>
+            <div class="editor-content">
+                <textarea id="editor" class="code-editor" placeholder="Start typing your code here..."></textarea>
+            </div>
+        </div>
+
+        <!-- Search Panel (Hidden by default) -->
+        <div id="searchPanel" class="search-panel" style="display: none;">
+            <div class="search-header">
+                <span class="search-mode">🔍 Find</span>
+                <button class="search-close" onclick="hideSearchPanel()">✕</button>
+            </div>
+            <div class="search-content">
+                <div class="search-inputs">
+                    <div class="search-group">
+                        <label>Find:</label>
+                        <input type="text" id="findInput" placeholder="Enter search term..." class="search-input">
+                    </div>
+                    <div class="search-group" id="replaceGroup" style="display: none;">
+                        <label>Replace:</label>
+                        <input type="text" id="replaceInput" placeholder="Enter replacement text..." class="search-input">
+                    </div>
+                </div>
+                <div class="search-options">
+                    <label><input type="checkbox" id="caseSensitive"> Case sensitive</label>
+                    <label><input type="checkbox" id="wholeWord"> Whole word</label>
+                </div>
+                <div class="search-actions">
+                    <button id="findBtn" class="search-btn">Find</button>
+                    <button id="replaceBtn" class="search-btn" style="display: none;">Replace</button>
+                    <button id="replaceAllBtn" class="search-btn" style="display: none;">Replace All</button>
+                    <button id="prevBtn" class="search-btn">↑ Prev</button>
+                    <button id="nextBtn" class="search-btn">↓ Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <span id="statusText">Line 1, Column 1</span>
+            <span id="totalLines">Total: 1 line</span>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
 </html>
