@@ -1,51 +1,53 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import MiniMap from './MiniMap';
 import './CodeEditor.css';
 
-const CodeEditor = ({ content, language, onChange }) => {
+const CodeEditor = ({ content, language, onChange, onCursorPositionChange }) => {
   const [text, setText] = useState(content);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
-  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const textareaRef = useRef(null);
   const lineNumbersRef = useRef(null);
-  
+  const editorContainerRef = useRef(null);
+
+  // Update text when content prop changes
   useEffect(() => {
     setText(content);
   }, [content]);
-  
-  useEffect(() => {
-    if (textareaRef.current) {
-      const textarea = textareaRef.current;
-      const lines = text.split('\n');
-      const line = lines.length;
-      const column = lines[lines.length - 1].length + 1;
-      setCursorPosition({ line, column });
+
+  // Synchronize scrolling between textarea and line numbers
+  const handleScroll = useCallback((e) => {
+    if (lineNumbersRef.current) {
+      lineNumbersRef.current.scrollTop = e.target.scrollTop;
     }
-  }, [text]);
-  
-  const handleChange = (e) => {
+    if (onCursorPositionChange) {
+      onCursorPositionChange(cursorPosition);
+    }
+  }, [cursorPosition, onCursorPositionChange]);
+
+  // Handle text changes
+  const handleChange = useCallback((e) => {
     const newText = e.target.value;
     setText(newText);
     
     // Calculate cursor position
     const textarea = e.target;
     const cursorPos = textarea.selectionStart;
-    const lines = newText.substring(0, cursorPos).split('\n');
+    const textBeforeCursor = newText.substring(0, cursorPos);
+    const lines = textBeforeCursor.split('\n');
     const line = lines.length;
     const column = lines[lines.length - 1].length + 1;
     
     setCursorPosition({ line, column });
-    onChange(newText, line, column);
-  };
-  
-  const handleScroll = useCallback(() => {
-    if (textareaRef.current && lineNumbersRef.current) {
-      lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
+    
+    if (onChange) {
+      onChange(newText);
     }
-  }, []);
-  
-  const handleKeyDown = (e) => {
+  }, [onChange]);
+
+  // Handle key events for better navigation
+  const handleKeyDown = useCallback((e) => {
     if (e.key === 'Tab') {
       e.preventDefault();
       const textarea = e.target;
@@ -60,65 +62,97 @@ const CodeEditor = ({ content, language, onChange }) => {
         textarea.selectionStart = textarea.selectionEnd = start + 2;
       }, 0);
       
-      onChange(newText, cursorPosition.line, cursorPosition.column);
-    } else if (e.key === 'Enter') {
-      // Auto-indent
-      const textarea = e.target;
-      const cursorPos = textarea.selectionStart;
-      const lines = text.substring(0, cursorPos).split('\n');
-      const currentLine = lines[lines.length - 1];
-      const indent = currentLine.match(/^(\s*)/)[0];
-      
-      setTimeout(() => {
-        const newText = text.substring(0, cursorPos) + '\n' + indent + text.substring(cursorPos);
-        setText(newText);
-        onChange(newText, cursorPosition.line + 1, indent.length + 1);
-      }, 0);
+      if (onChange) {
+        onChange(newText);
+      }
     }
-  };
-  
-  const handleSelect = (e) => {
+  }, [text, onChange]);
+
+  // Handle cursor position changes
+  const handleSelect = useCallback((e) => {
     const textarea = e.target;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    setSelection({ start, end });
-  };
-  
+    const cursorPos = textarea.selectionStart;
+    const textBeforeCursor = text.substring(0, cursorPos);
+    const lines = textBeforeCursor.split('\n');
+    const line = lines.length;
+    const column = lines[lines.length - 1].length + 1;
+    
+    setCursorPosition({ line, column });
+    
+    if (onCursorPositionChange) {
+      onCursorPositionChange({ line, column });
+    }
+  }, [text, onCursorPositionChange]);
+
+  // Render line numbers
   const renderLineNumbers = () => {
     const lines = text.split('\n');
+    const totalLines = lines.length;
+    
     return (
       <div className="line-numbers" ref={lineNumbersRef}>
-        {lines.map((_, index) => (
-          <div key={index} className="line-number">
-            {String(index + 1).padStart(4, ' ')}
+        {Array.from({ length: Math.max(totalLines, 1) }, (_, i) => (
+          <div key={i + 1} className="line-number">
+            {i + 1}
           </div>
         ))}
       </div>
     );
   };
-  
+
+  // Get language for syntax highlighting
   const getLanguageForHighlighting = (lang) => {
     const languageMap = {
-      'csharp': 'csharp',
-      'javascript': 'javascript',
-      'typescript': 'typescript',
-      'python': 'python',
+      'js': 'javascript',
+      'jsx': 'javascript',
+      'ts': 'typescript',
+      'tsx': 'typescript',
+      'py': 'python',
+      'cs': 'csharp',
+      'cpp': 'cpp',
+      'c': 'c',
+      'h': 'cpp',
+      'hpp': 'cpp',
       'html': 'html',
       'css': 'css',
       'json': 'json',
-      'c': 'c',
-      'cpp': 'cpp',
-      'text': 'text'
+      'xml': 'xml',
+      'md': 'markdown',
+      'txt': 'text'
     };
     
-    return languageMap[lang] || 'text';
+    return languageMap[lang] || lang || 'text';
   };
-  
+
+  // Calculate total lines for status bar
+  const totalLines = text.split('\n').length;
+
+  // Calculate visible range for mini-map
+  const calculateVisibleRange = () => {
+    if (!textareaRef.current) return { start: 1, end: totalLines };
+    
+    const textarea = textareaRef.current;
+    const lineHeight = 21;
+    const visibleLines = Math.ceil(textarea.clientHeight / lineHeight);
+    const scrollTop = textarea.scrollTop;
+    const start = Math.floor(scrollTop / lineHeight) + 1;
+    const end = Math.min(start + visibleLines, totalLines);
+    
+    return { start, end };
+  };
+
+  const handleScrollToLine = useCallback((lineNumber) => {
+    if (textareaRef.current) {
+      const lineHeight = 21;
+      const scrollTop = (lineNumber - 1) * lineHeight;
+      textareaRef.current.scrollTop = scrollTop;
+    }
+  }, []);
+
   return (
-    <div className="code-editor">
+    <div className="code-editor" ref={editorContainerRef}>
       <div className="editor-container">
         {renderLineNumbers()}
-        
         <div className="editor-content">
           <textarea
             ref={textareaRef}
@@ -128,36 +162,39 @@ const CodeEditor = ({ content, language, onChange }) => {
             onKeyDown={handleKeyDown}
             onSelect={handleSelect}
             className="editor-textarea"
+            placeholder="Start typing your code here..."
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
-            wrap="off"
           />
-          
           <div className="syntax-highlighting">
             <SyntaxHighlighter
               language={getLanguageForHighlighting(language)}
               style={vscDarkPlus}
               customStyle={{
                 margin: 0,
-                padding: '8px 0',
+                padding: '8px 12px',
                 background: 'transparent',
                 fontSize: '14px',
-                lineHeight: '1.5',
-                fontFamily: 'Consolas, Monaco, "Courier New", monospace'
+                lineHeight: '21px',
+                fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace"
               }}
               showLineNumbers={false}
-              wrapLines={true}
-              lineProps={{
-                style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' }
-              }}
+              wrapLines={false}
             >
-              {text}
+              {text || ' '}
             </SyntaxHighlighter>
           </div>
         </div>
       </div>
+      
+      {/* Mini-map for navigation */}
+      <MiniMap
+        content={text}
+        onScrollToLine={handleScrollToLine}
+        visibleRange={calculateVisibleRange()}
+      />
     </div>
   );
 };

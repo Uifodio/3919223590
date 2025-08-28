@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import './TabManager.css';
 import CodeEditor from './CodeEditor';
+import BreadcrumbNav from './BreadcrumbNav';
 
 const TabManager = ({ tabs, activeTabIndex, onTabChange, onTabClose, onTabContentChange, onTabDrop }) => {
   const [dragOver, setDragOver] = useState(false);
@@ -86,14 +87,28 @@ const TabManager = ({ tabs, activeTabIndex, onTabChange, onTabClose, onTabConten
         onDrop={handleDrop}
       >
         {tabs[activeTabIndex] && (
-          <CodeEditor
-            key={tabs[activeTabIndex].id}
-            content={tabs[activeTabIndex].content}
-            language={tabs[activeTabIndex].language}
-            onChange={(content, line, column) => 
-              onTabContentChange(activeTabIndex, content, line, column)
-            }
-          />
+          <>
+            <BreadcrumbNav 
+              filePath={tabs[activeTabIndex].filePath}
+              onNavigate={(path) => console.log('Navigate to:', path)}
+            />
+            <CodeEditor
+              key={tabs[activeTabIndex].id}
+              content={tabs[activeTabIndex].content}
+              language={tabs[activeTabIndex].language}
+              onChange={(content) => 
+                onTabContentChange(activeTabIndex, content)
+              }
+              onCursorPositionChange={(position) => {
+                // Update tab with cursor position for status bar
+                const updatedTab = { ...tabs[activeTabIndex] };
+                updatedTab.line = position.line;
+                updatedTab.column = position.column;
+                updatedTab.totalLines = content.split('\n').length;
+                onTabContentChange(activeTabIndex, content);
+              }}
+            />
+          </>
         )}
       </div>
     </div>

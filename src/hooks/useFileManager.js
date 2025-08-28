@@ -194,7 +194,7 @@ export const useFileManager = () => {
     setActiveTabIndex(prev => prev + 1);
   }, []);
   
-  const updateTabContent = useCallback((tabIndex, content, line = 1, column = 1) => {
+  const updateTabContent = useCallback((tabIndex, content) => {
     if (tabIndex < 0 || tabIndex >= tabs.length) return;
     
     const totalLines = content.split('\n').length;
@@ -202,7 +202,7 @@ export const useFileManager = () => {
     
     setTabs(prev => prev.map((t, i) => 
       i === tabIndex 
-        ? { ...t, content, modified, line, column, totalLines }
+        ? { ...t, content, modified, totalLines }
         : t
     ));
   }, [tabs]);
