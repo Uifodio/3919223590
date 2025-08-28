@@ -9,6 +9,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   writeFile: (filePath, content) => ipcRenderer.invoke('write-file', filePath, content),
   
+  // Settings and window controls
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  setSettings: (partial) => ipcRenderer.invoke('settings:set', partial),
+  setAlwaysOnTop: (value) => ipcRenderer.send('window:setAlwaysOnTop', value),
+  setFullscreen: (value) => ipcRenderer.send('window:setFullscreen', value),
+  
   // Menu event listeners
   onMenuNewFile: (callback) => ipcRenderer.on('menu-new-file', callback),
   onMenuOpenFile: (callback) => ipcRenderer.on('menu-open-file', callback),
@@ -22,6 +28,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuReplace: (callback) => ipcRenderer.on('menu-replace', callback),
   onMenuGoToLine: (callback) => ipcRenderer.on('menu-go-to-line', callback),
   onOpenFilePath: (callback) => ipcRenderer.on('open-file-path', callback),
+  onAlwaysOnTopChanged: (callback) => ipcRenderer.on('view-always-on-top-changed', (e, v) => callback(v)),
+  onFullscreenChanged: (callback) => ipcRenderer.on('view-fullscreen-changed', (e, v) => callback(v)),
   
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)

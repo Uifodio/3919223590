@@ -2,6 +2,7 @@
   "name": "nexus-editor",
   "version": "1.0.0",
   "description": "Professional code editor designed for Unity development",
+  "author": "Uifodio",
   "main": "build/electron.js",
   "homepage": "./",
   "scripts": {
@@ -16,27 +17,32 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
-    "appId": "com.nexus.editor",
+    "appId": "com.nexuslabs.editor",
     "productName": "Nexus Editor",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "build/**/*",
-      "node_modules/**/*"
-    ],
+    "publisherName": "Nexus Labs Ltd.",
+    "copyright": "Copyright © ${year} Nexus Labs Ltd.",
+    "directories": { "output": "dist" },
+    "files": [ "build/**/*", "node_modules/**/*" ],
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "win": {
-      "target": "nsis",
-      "icon": "build/icon.png"
+      "target": [ { "target": "nsis", "arch": ["x64","ia32"] } ],
+      "icon": "build/icon.png",
+      "legalTrademarks": "Nexus Labs",
+      "companyName": "Nexus Labs Ltd.",
+      "requestedExecutionLevel": "asInvoker",
+      "publisherName": "Nexus Labs Ltd.",
+      "signAndEditExecutable": false
     },
-    "linux": {
-      "target": "AppImage",
-      "icon": "build/icon.png"
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Nexus Editor"
     },
-    "mac": {
-      "target": "dmg",
-      "icon": "build/icon.icns"
-    }
+    "linux": { "target": ["AppImage"], "icon": "build/icon.png", "category": "Development" },
+    "mac": { "target": ["dmg"], "icon": "build/icon.icns", "category": "public.app-category.developer-tools" }
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -54,15 +60,7 @@
     "electron-builder": "^24.9.1"
   },
   "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "production": [ ">0.2%", "not dead", "not op_mini all" ],
+    "development": [ "last 1 chrome version", "last 1 firefox version", "last 1 safari version" ]
   }
 }

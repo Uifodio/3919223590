@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './styles/App.css';
 import Toolbar from './components/Toolbar';
 import TabManager from './components/TabManager';
@@ -9,27 +9,27 @@ import { useSessionManager } from './hooks/useSessionManager';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 function App() {
+  const { tabs, activeTabIndex, createNewTab, openFile, saveFile, saveFileAs, closeTab, closeOtherTabs, reopenClosedTab, updateTabContent, setActiveTab } = useFileManager();
   const [searchPanelVisible, setSearchPanelVisible] = useState(false);
-  const [searchMode, setSearchMode] = useState('find'); // 'find' or 'replace'
+  const [searchMode, setSearchMode] = useState('find');
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  
-  const {
-    tabs,
-    activeTabIndex,
-    createNewTab,
-    openFile,
-    saveFile,
-    saveFileAs,
-    closeTab,
-    closeOtherTabs,
-    reopenClosedTab,
-    updateTabContent,
-    setActiveTab
-  } = useFileManager();
-  
+
+  const editorApiRef = useRef(null);
+
   const { saveSession, loadSession } = useSessionManager();
-  
+
+  // Load persisted settings from main
+  useEffect(() => {
+    (async () => {
+      if (window.electronAPI?.getSettings) {
+        const s = await window.electronAPI.getSettings();
+        setAlwaysOnTop(!!s.alwaysOnTop);
+        setFullscreen(!!s.fullscreen);
+      }
+    })();
+  }, []);
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onNewFile: createNewTab,
@@ -40,14 +40,11 @@ function App() {
     onCloseTab: () => closeTab(activeTabIndex),
     onReopenTab: reopenClosedTab,
     onFind: () => setSearchPanelVisible(true),
-    onReplace: () => {
-      setSearchMode('replace');
-      setSearchPanelVisible(true);
-    },
-    onGoToLine: () => {/* TODO: Implement go to line */},
+    onReplace: () => { setSearchMode('replace'); setSearchPanelVisible(true); },
+    onGoToLine: () => handleGoToLine(),
     onExit: () => window.close()
   });
-  
+
   // Menu event handlers
   useEffect(() => {
     if (window.electronAPI) {
@@ -60,16 +57,11 @@ function App() {
       window.electronAPI.onMenuCloseOthers(() => closeOtherTabs(activeTabIndex));
       window.electronAPI.onMenuReopenTab(reopenClosedTab);
       window.electronAPI.onMenuFind(() => setSearchPanelVisible(true));
-      window.electronAPI.onMenuReplace(() => {
-        setSearchMode('replace');
-        setSearchPanelVisible(true);
-      });
-      window.electronAPI.onMenuGoToLine(() => {/* TODO: Implement go to line */});
-      window.electronAPI.onOpenFilePath((event, filePath) => {
-        openFile(filePath);
-      });
+      window.electronAPI.onMenuReplace(() => { setSearchMode('replace'); setSearchPanelVisible(true); });
+      window.electronAPI.onMenuGoToLine(() => handleGoToLine());
+      window.electronAPI.onAlwaysOnTopChanged((val) => setAlwaysOnTop(!!val));
+      window.electronAPI.onFullscreenChanged((val) => setFullscreen(!!val));
     }
-    
     return () => {
       if (window.electronAPI) {
         window.electronAPI.removeAllListeners('menu-new-file');
@@ -83,11 +75,12 @@ function App() {
         window.electronAPI.removeAllListeners('menu-find');
         window.electronAPI.removeAllListeners('menu-replace');
         window.electronAPI.removeAllListeners('menu-go-to-line');
-        window.electronAPI.removeAllListeners('open-file-path');
+        window.electronAPI.removeAllListeners('view-always-on-top-changed');
+        window.electronAPI.removeAllListeners('view-fullscreen-changed');
       }
     };
   }, [createNewTab, openFile, saveFile, saveFileAs, closeTab, closeOtherTabs, reopenClosedTab, activeTabIndex]);
-  
+
   // Auto-save session
   useEffect(() => {
     const interval = setInterval(() => {
@@ -95,15 +88,13 @@ function App() {
         saveSession(tabs, activeTabIndex);
       }
     }, 500);
-    
     return () => clearInterval(interval);
   }, [tabs, activeTabIndex, saveSession]);
-  
+
   // Load session on startup
   useEffect(() => {
     const savedSession = loadSession();
     if (savedSession && savedSession.tabs && savedSession.tabs.length > 0) {
-      // Restore tabs
       savedSession.tabs.forEach(tab => {
         if (tab.filePath) {
           openFile(tab.filePath);
@@ -111,13 +102,12 @@ function App() {
           createNewTab(tab.content || '');
         }
       });
-      setActiveTabIndex(savedSession.activeTabIndex || 0);
+      setActiveTab(savedSession.activeTabIndex || 0);
     } else {
-      // Create only one clean default tab
       createNewTab('');
     }
-  }, [loadSession, openFile, createNewTab]);
-  
+  }, []);
+
   const handleToolbarAction = useCallback((action) => {
     switch (action) {
       case 'new':
@@ -137,25 +127,42 @@ function App() {
         setSearchMode('replace');
         setSearchPanelVisible(true);
         break;
-      case 'pin':
-        setAlwaysOnTop(!alwaysOnTop);
+      case 'pin': {
+        const next = !alwaysOnTop;
+        setAlwaysOnTop(next);
+        window.electronAPI?.setAlwaysOnTop(next);
+        window.electronAPI?.setSettings({ alwaysOnTop: next });
         break;
-      case 'full':
-        setFullscreen(!fullscreen);
+      }
+      case 'full': {
+        const next = !fullscreen;
+        setFullscreen(next);
+        window.electronAPI?.setFullscreen(next);
+        window.electronAPI?.setSettings({ fullscreen: next });
         break;
+      }
       default:
         break;
     }
   }, [createNewTab, openFile, saveFile, activeTabIndex, alwaysOnTop, fullscreen]);
-  
+
   const handleSearchPanelClose = useCallback(() => {
     setSearchPanelVisible(false);
   }, []);
-  
+
   const handleTabDrop = useCallback((filePath) => {
     openFile(filePath);
   }, [openFile]);
-  
+
+  const handleGoToLine = useCallback(() => {
+    const input = window.prompt('Go to line:');
+    if (!input) return;
+    const line = Math.max(1, parseInt(input, 10) || 1);
+    if (editorApiRef.current && editorApiRef.current.goToLine) {
+      editorApiRef.current.goToLine(line, 1);
+    }
+  }, []);
+
   return (
     <div className="app">
       <Toolbar onAction={handleToolbarAction} alwaysOnTop={alwaysOnTop} fullscreen={fullscreen} />
@@ -167,17 +174,17 @@ function App() {
           onTabClose={closeTab}
           onTabContentChange={updateTabContent}
           onTabDrop={handleTabDrop}
+          editorApiRef={editorApiRef}
         />
         {searchPanelVisible && (
           <SearchPanel
             mode={searchMode}
             onClose={handleSearchPanelClose}
-            onFind={(query, options) => {/* TODO: Implement find */}}
-            onReplace={(query, replace, options) => {/* TODO: Implement replace */}}
+            onFind={() => {}}
+            onReplace={() => {}}
             content={tabs[activeTabIndex]?.content || ''}
             onNavigateToLine={(line, column) => {
-              // TODO: Implement navigation to specific line/column
-              console.log(`Navigate to line ${line}, column ${column}`);
+              if (editorApiRef.current?.goToLine) editorApiRef.current.goToLine(line, column || 1);
             }}
           />
         )}

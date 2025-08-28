@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, forwardRef } from 'react';
 import './TabManager.css';
 import CodeEditor from './CodeEditor';
 
-const TabManager = ({ tabs, activeTabIndex, onTabChange, onTabClose, onTabContentChange, onTabDrop }) => {
+const TabManager = ({ tabs, activeTabIndex, onTabChange, onTabClose, onTabContentChange, onTabDrop, editorApiRef }) => {
   const [dragOver, setDragOver] = useState(false);
   
   const handleTabClick = (index) => {
@@ -87,6 +87,7 @@ const TabManager = ({ tabs, activeTabIndex, onTabChange, onTabClose, onTabConten
       >
         {tabs[activeTabIndex] && (
           <CodeEditor
+            ref={editorApiRef}
             key={tabs[activeTabIndex].id}
             content={tabs[activeTabIndex].content}
             language={tabs[activeTabIndex].language}
@@ -98,8 +99,8 @@ const TabManager = ({ tabs, activeTabIndex, onTabChange, onTabClose, onTabConten
               const updatedTab = { ...tabs[activeTabIndex] };
               updatedTab.line = position.line;
               updatedTab.column = position.column;
-              updatedTab.totalLines = content.split('\n').length;
-              onTabContentChange(activeTabIndex, content);
+              updatedTab.totalLines = (tabs[activeTabIndex].content || '').split('\n').length;
+              onTabContentChange(activeTabIndex, tabs[activeTabIndex].content || '');
             }}
           />
         )}
