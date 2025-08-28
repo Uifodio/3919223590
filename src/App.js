@@ -174,6 +174,11 @@ function App() {
             onClose={handleSearchPanelClose}
             onFind={(query, options) => {/* TODO: Implement find */}}
             onReplace={(query, replace, options) => {/* TODO: Implement replace */}}
+            content={tabs[activeTabIndex]?.content || ''}
+            onNavigateToLine={(line, column) => {
+              // TODO: Implement navigation to specific line/column
+              console.log(`Navigate to line ${line}, column ${column}`);
+            }}
           />
         )}
       </div>
