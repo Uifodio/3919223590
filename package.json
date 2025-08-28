@@ -19,16 +19,24 @@
   "build": {
     "appId": "com.nexuslabs.editor",
     "productName": "Nexus Editor",
-    "publisherName": "Nexus Labs Ltd.",
-    "copyright": "Copyright © ${year} Nexus Labs Ltd.",
-    "directories": { "output": "dist" },
-    "files": [ "build/**/*", "node_modules/**/*" ],
+    "copyright": "Copyright © 2025 Nexus Labs Ltd.",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "build/**/*",
+      "node_modules/**/*"
+    ],
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "win": {
-      "target": [ { "target": "nsis", "arch": ["x64","ia32"] } ],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [ "x64", "ia32" ]
+        }
+      ],
       "icon": "build/icon.png",
       "legalTrademarks": "Nexus Labs",
-      "companyName": "Nexus Labs Ltd.",
       "requestedExecutionLevel": "asInvoker",
       "publisherName": "Nexus Labs Ltd.",
       "signAndEditExecutable": false
@@ -41,8 +49,16 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Nexus Editor"
     },
-    "linux": { "target": ["AppImage"], "icon": "build/icon.png", "category": "Development" },
-    "mac": { "target": ["dmg"], "icon": "build/icon.icns", "category": "public.app-category.developer-tools" }
+    "linux": {
+      "target": [ "AppImage" ],
+      "icon": "build/icon.png",
+      "category": "Development"
+    },
+    "mac": {
+      "target": [ "dmg" ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.developer-tools"
+    }
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -60,7 +76,15 @@
     "electron-builder": "^24.9.1"
   },
   "browserslist": {
-    "production": [ ">0.2%", "not dead", "not op_mini all" ],
-    "development": [ "last 1 chrome version", "last 1 firefox version", "last 1 safari version" ]
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }

@@ -19,16 +19,25 @@ function App() {
 
   const { saveSession, loadSession } = useSessionManager();
 
-  // Load persisted settings from main
+  // Check if we're running in Electron
+  const isElectron = window.electronAPI && typeof window.electronAPI === 'object';
+
+  // Load persisted settings from main (only in Electron)
   useEffect(() => {
-    (async () => {
-      if (window.electronAPI?.getSettings) {
-        const s = await window.electronAPI.getSettings();
-        setAlwaysOnTop(!!s.alwaysOnTop);
-        setFullscreen(!!s.fullscreen);
-      }
-    })();
-  }, []);
+    if (isElectron) {
+      (async () => {
+        try {
+          if (window.electronAPI?.getSettings) {
+            const s = await window.electronAPI.getSettings();
+            setAlwaysOnTop(!!s.alwaysOnTop);
+            setFullscreen(!!s.fullscreen);
+          }
+        } catch (error) {
+          console.log('Settings not available in browser mode');
+        }
+      })();
+    }
+  }, [isElectron]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -42,12 +51,12 @@ function App() {
     onFind: () => setSearchPanelVisible(true),
     onReplace: () => { setSearchMode('replace'); setSearchPanelVisible(true); },
     onGoToLine: () => handleGoToLine(),
-    onExit: () => window.close()
+    onExit: () => isElectron ? window.close() : console.log('Exit not available in browser')
   });
 
-  // Menu event handlers
+  // Menu event handlers (only in Electron)
   useEffect(() => {
-    if (window.electronAPI) {
+    if (isElectron && window.electronAPI) {
       window.electronAPI.onMenuNewFile(createNewTab);
       window.electronAPI.onMenuOpenFile(openFile);
       window.electronAPI.onMenuSaveFile(() => saveFile(activeTabIndex));
@@ -63,7 +72,7 @@ function App() {
       window.electronAPI.onFullscreenChanged((val) => setFullscreen(!!val));
     }
     return () => {
-      if (window.electronAPI) {
+      if (isElectron && window.electronAPI) {
         window.electronAPI.removeAllListeners('menu-new-file');
         window.electronAPI.removeAllListeners('menu-open-file');
         window.electronAPI.removeAllListeners('menu-save-file');
@@ -79,7 +88,7 @@ function App() {
         window.electronAPI.removeAllListeners('view-fullscreen-changed');
       }
     };
-  }, [createNewTab, openFile, saveFile, saveFileAs, closeTab, closeOtherTabs, reopenClosedTab, activeTabIndex]);
+  }, [isElectron, createNewTab, openFile, saveFile, saveFileAs, closeTab, closeOtherTabs, reopenClosedTab, activeTabIndex]);
 
   // Auto-save session
   useEffect(() => {
@@ -106,7 +115,7 @@ function App() {
     } else {
       createNewTab('');
     }
-  }, []);
+  }, [loadSession, openFile, createNewTab]);
 
   const handleToolbarAction = useCallback((action) => {
     switch (action) {
@@ -130,21 +139,25 @@ function App() {
       case 'pin': {
         const next = !alwaysOnTop;
         setAlwaysOnTop(next);
-        window.electronAPI?.setAlwaysOnTop(next);
-        window.electronAPI?.setSettings({ alwaysOnTop: next });
+        if (isElectron && window.electronAPI?.setAlwaysOnTop) {
+          window.electronAPI.setAlwaysOnTop(next);
+          window.electronAPI.setSettings({ alwaysOnTop: next });
+        }
         break;
       }
       case 'full': {
         const next = !fullscreen;
         setFullscreen(next);
-        window.electronAPI?.setFullscreen(next);
-        window.electronAPI?.setSettings({ fullscreen: next });
+        if (isElectron && window.electronAPI?.setFullscreen) {
+          window.electronAPI.setFullscreen(next);
+          window.electronAPI.setSettings({ fullscreen: next });
+        }
         break;
       }
       default:
         break;
     }
-  }, [createNewTab, openFile, saveFile, activeTabIndex, alwaysOnTop, fullscreen]);
+  }, [createNewTab, openFile, saveFile, activeTabIndex, alwaysOnTop, fullscreen, isElectron]);
 
   const handleSearchPanelClose = useCallback(() => {
     setSearchPanelVisible(false);
@@ -155,13 +168,23 @@ function App() {
   }, [openFile]);
 
   const handleGoToLine = useCallback(() => {
+    if (!isElectron) {
+      // Browser fallback - just show a prompt
+      const input = window.prompt('Go to line:');
+      if (input) {
+        const line = Math.max(1, parseInt(input, 10) || 1);
+        console.log(`Would go to line ${line} in Electron mode`);
+      }
+      return;
+    }
+    
     const input = window.prompt('Go to line:');
     if (!input) return;
     const line = Math.max(1, parseInt(input, 10) || 1);
     if (editorApiRef.current && editorApiRef.current.goToLine) {
       editorApiRef.current.goToLine(line, 1);
     }
-  }, []);
+  }, [isElectron]);
 
   return (
     <div className="app">
@@ -184,7 +207,9 @@ function App() {
             onReplace={() => {}}
             content={tabs[activeTabIndex]?.content || ''}
             onNavigateToLine={(line, column) => {
-              if (editorApiRef.current?.goToLine) editorApiRef.current.goToLine(line, column || 1);
+              if (editorApiRef.current?.goToLine) {
+                editorApiRef.current.goToLine(line, column || 1);
+              }
             }}
           />
         )}
