@@ -1,6 +1,6 @@
 {
-  "short_name": "React Electron",
-  "name": "React Electron Sample",
+  "short_name": "Anora Editor",
+  "name": "Anora Editor - Professional Code Editor",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,6 +10,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#1e1e1e",
+  "background_color": "#1e1e1e"
 }
