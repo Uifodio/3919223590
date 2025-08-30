@@ -1,0 +1,144 @@
+/* Global CSS for Anora Editor */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Syntax highlighting colors */
+.keyword {
+  color: #569cd6;
+}
+
+.string {
+  color: #ce9178;
+}
+
+.comment {
+  color: #6a9955;
+}
+
+.number {
+  color: #b5cea8;
+}
+
+.function {
+  color: #dcdcaa;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4f4f4f;
+}
+
+::-webkit-scrollbar-corner {
+  background: #1e1e1e;
+}
+
+/* Focus styles */
+*:focus {
+  outline: 2px solid #264f78;
+  outline-offset: 2px;
+}
+
+/* Button styles */
+button {
+  background: #3e3e42;
+  border: 1px solid #555;
+  color: #d4d4d4;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background: #4a4a4a;
+  border-color: #666;
+}
+
+button:active {
+  background: #2d2d30;
+}
+
+button.active {
+  background: #264f78;
+  border-color: #007acc;
+}
+
+/* Input styles */
+input {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  color: #d4d4d4;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+input:focus {
+  border-color: #007acc;
+  background: #3c3c3c;
+}
+
+/* Selection styles */
+::selection {
+  background: #264f78;
+  color: #ffffff;
+}
+
+::-moz-selection {
+  background: #264f78;
+  color: #ffffff;
+}
+
+/* Utility classes */
+.hidden {
+  display: none !important;
+}
+
+.visible {
+  display: block !important;
+}
+
+/* Animation classes */
+.fade-in {
+  animation: fadeIn 0.2s ease-in;
+}
+
+.fade-out {
+  animation: fadeOut 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
