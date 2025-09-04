@@ -1,26 +1,22 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections.Generic;
 
-public class SimpleResourceManager : MonoBehaviour
+public class GameResourceManager : MonoBehaviour
 {
     [Header("Resources")]
     public List<ResourceDefinition> resourceDefinitions = new List<ResourceDefinition>();
     
-    [Header("UI")]
+    [Header("UI Display")]
     public bool showResourceUI = true;
     public Vector2 uiPosition = new Vector2(10, 10);
+    public int fontSize = 16;
     
-    public static SimpleResourceManager Instance { get; private set; }
+    public static GameResourceManager Instance;
     
-    // Events
-    public event Action<string, long> OnResourceChanged;
-    
-    // Private
     private Dictionary<string, long> resources = new Dictionary<string, long>();
     private Dictionary<string, ResourceDefinition> resourceDefs = new Dictionary<string, ResourceDefinition>();
     
-    private void Awake()
+    void Awake()
     {
         if (Instance == null)
         {
@@ -34,7 +30,7 @@ public class SimpleResourceManager : MonoBehaviour
         }
     }
     
-    private void Initialize()
+    void Initialize()
     {
         // Initialize resource definitions
         foreach (var def in resourceDefinitions)
@@ -51,7 +47,7 @@ public class SimpleResourceManager : MonoBehaviour
     {
         if (!resourceDefs.ContainsKey(resourceId))
         {
-            Debug.LogWarning($"[SimpleResourceManager] Unknown resource: {resourceId}");
+            Debug.LogWarning("[GameResourceManager] Unknown resource: " + resourceId);
             return;
         }
         
@@ -69,7 +65,7 @@ public class SimpleResourceManager : MonoBehaviour
             resources[resourceId] = Mathf.Min(resources[resourceId], def.maxAmount);
         }
         
-        OnResourceChanged?.Invoke(resourceId, resources[resourceId]);
+        Debug.Log("[GameResourceManager] Added " + amount + " " + resourceId + ". Total: " + resources[resourceId]);
     }
     
     public bool TryRemoveResource(string resourceId, long amount)
@@ -85,7 +81,7 @@ public class SimpleResourceManager : MonoBehaviour
         }
         
         resources[resourceId] -= amount;
-        OnResourceChanged?.Invoke(resourceId, resources[resourceId]);
+        Debug.Log("[GameResourceManager] Removed " + amount + " " + resourceId + ". Remaining: " + resources[resourceId]);
         return true;
     }
     
@@ -99,20 +95,29 @@ public class SimpleResourceManager : MonoBehaviour
         return GetResourceAmount(resourceId) >= amount;
     }
     
-    public Dictionary<string, long> GetAllResources()
+    public List<ResourceData> GetAllResources()
     {
-        return new Dictionary<string, long>(resources);
-    }
-    
-    public void LoadResources(Dictionary<string, long> loadedResources)
-    {
-        resources = new Dictionary<string, long>(loadedResources);
-        
-        // Notify all changes
+        var resourceList = new List<ResourceData>();
         foreach (var kvp in resources)
         {
-            OnResourceChanged?.Invoke(kvp.Key, kvp.Value);
+            resourceList.Add(new ResourceData
+            {
+                id = kvp.Key,
+                amount = kvp.Value
+            });
         }
+        return resourceList;
+    }
+    
+    public void LoadResources(List<ResourceData> loadedResources)
+    {
+        resources.Clear();
+        foreach (var resource in loadedResources)
+        {
+            resources[resource.id] = resource.amount;
+        }
+        
+        Debug.Log("[GameResourceManager] Loaded " + loadedResources.Count + " resources");
     }
     
     public ResourceDefinition GetResourceDefinition(string resourceId)
@@ -120,30 +125,25 @@ public class SimpleResourceManager : MonoBehaviour
         return resourceDefs.ContainsKey(resourceId) ? resourceDefs[resourceId] : null;
     }
     
-    public List<ResourceDefinition> GetTopBarResources()
-    {
-        var topBarResources = new List<ResourceDefinition>();
-        foreach (var def in resourceDefinitions)
-        {
-            if (def.showInTopBar)
-            {
-                topBarResources.Add(def);
-            }
-        }
-        return topBarResources;
-    }
-    
-    private void OnGUI()
+    void OnGUI()
     {
         if (!showResourceUI) return;
         
         GUILayout.BeginArea(new Rect(uiPosition.x, uiPosition.y, 300, 200));
-        GUILayout.Label("Resources", GUI.skin.box);
         
-        foreach (var def in GetTopBarResources())
+        GUIStyle style = new GUIStyle(GUI.skin.label);
+        style.fontSize = fontSize;
+        style.normal.textColor = Color.white;
+        
+        GUILayout.Label("Resources", style);
+        
+        foreach (var def in resourceDefinitions)
         {
-            long amount = GetResourceAmount(def.id);
-            GUILayout.Label($"{def.displayName}: {amount:N0}");
+            if (def.showInTopBar)
+            {
+                long amount = GetResourceAmount(def.id);
+                GUILayout.Label(def.displayName + ": " + amount.ToString("N0"), style);
+            }
         }
         
         GUILayout.EndArea();
@@ -164,7 +164,7 @@ public class SimpleResourceManager : MonoBehaviour
         Debug.Log("=== Current Resources ===");
         foreach (var kvp in resources)
         {
-            Debug.Log($"{kvp.Key}: {kvp.Value}");
+            Debug.Log(kvp.Key + ": " + kvp.Value);
         }
     }
 }

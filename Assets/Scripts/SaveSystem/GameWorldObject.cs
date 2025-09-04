@@ -1,7 +1,7 @@
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections.Generic;
 
-public class SaveableObject : MonoBehaviour
+public class GameWorldObject : MonoBehaviour
 {
     [Header("Object Settings")]
     public string objectId = "";
@@ -21,12 +21,11 @@ public class SaveableObject : MonoBehaviour
     public Material brokenMaterial;
     public Material destroyedMaterial;
     
-    // Private
     private Dictionary<string, object> customData = new Dictionary<string, object>();
     private Renderer objectRenderer;
     private Material originalMaterial;
     
-    private void Awake()
+    void Awake()
     {
         // Generate ID if needed
         if (generateIdAutomatically && string.IsNullOrEmpty(objectId))
@@ -45,28 +44,28 @@ public class SaveableObject : MonoBehaviour
         InitializeCustomData();
     }
     
-    private void Start()
+    void Start()
     {
         // Register with world manager
-        if (SimpleWorldManager.Instance != null)
+        if (GameWorldManager.Instance != null)
         {
-            SimpleWorldManager.Instance.RegisterObject(this);
+            GameWorldManager.Instance.RegisterObject(this);
         }
         
         // Update visual state
         UpdateVisualState();
     }
     
-    private void OnDestroy()
+    void OnDestroy()
     {
         // Unregister from world manager
-        if (SimpleWorldManager.Instance != null)
+        if (GameWorldManager.Instance != null)
         {
-            SimpleWorldManager.Instance.UnregisterObject(objectId);
+            GameWorldManager.Instance.UnregisterObject(objectId);
         }
     }
     
-    private void InitializeCustomData()
+    void InitializeCustomData()
     {
         customData.Clear();
         foreach (var field in customFields)
@@ -102,16 +101,30 @@ public class SaveableObject : MonoBehaviour
         return defaultValue;
     }
     
-    public Dictionary<string, object> GetCustomData()
+    public List<CustomData> GetCustomDataList()
     {
-        return new Dictionary<string, object>(customData);
+        var customDataList = new List<CustomData>();
+        foreach (var kvp in customData)
+        {
+            customDataList.Add(new CustomData
+            {
+                key = kvp.Key,
+                value = kvp.Value.ToString(),
+                type = kvp.Value.GetType().Name
+            });
+        }
+        return customDataList;
     }
     
-    public void LoadCustomData(Dictionary<string, object> data)
+    public void LoadCustomDataList(List<CustomData> data)
     {
         if (data != null)
         {
-            customData = new Dictionary<string, object>(data);
+            customData.Clear();
+            foreach (var item in data)
+            {
+                customData[item.key] = item.value;
+            }
         }
     }
     
@@ -121,10 +134,12 @@ public class SaveableObject : MonoBehaviour
         isDestroyed = false;
         UpdateVisualState();
         
-        if (SimpleWorldManager.Instance != null)
+        if (GameWorldManager.Instance != null)
         {
-            SimpleWorldManager.Instance.MarkObjectBroken(objectId);
+            GameWorldManager.Instance.MarkObjectBroken(objectId);
         }
+        
+        Debug.Log("[GameWorldObject] Marked as broken: " + objectId);
     }
     
     public void MarkDestroyed()
@@ -133,10 +148,12 @@ public class SaveableObject : MonoBehaviour
         isBroken = false;
         UpdateVisualState();
         
-        if (SimpleWorldManager.Instance != null)
+        if (GameWorldManager.Instance != null)
         {
-            SimpleWorldManager.Instance.MarkObjectBroken(objectId);
+            GameWorldManager.Instance.MarkObjectDestroyed(objectId);
         }
+        
+        Debug.Log("[GameWorldObject] Marked as destroyed: " + objectId);
     }
     
     public void Repair()
@@ -145,13 +162,15 @@ public class SaveableObject : MonoBehaviour
         isDestroyed = false;
         UpdateVisualState();
         
-        if (SimpleWorldManager.Instance != null)
+        if (GameWorldManager.Instance != null)
         {
-            SimpleWorldManager.Instance.MarkObjectRepaired(objectId);
+            GameWorldManager.Instance.MarkObjectRepaired(objectId);
         }
+        
+        Debug.Log("[GameWorldObject] Repaired: " + objectId);
     }
     
-    private void UpdateVisualState()
+    void UpdateVisualState()
     {
         if (objectRenderer == null) return;
         
@@ -202,14 +221,14 @@ public class SaveableObject : MonoBehaviour
     [ContextMenu("Log Object Data")]
     public void LogObjectData()
     {
-        Debug.Log($"[SaveableObject] {gameObject.name} (ID: {objectId})");
-        Debug.Log($"  Position: {transform.position}");
-        Debug.Log($"  Rotation: {transform.rotation.eulerAngles}");
-        Debug.Log($"  Scale: {transform.localScale}");
-        Debug.Log($"  Active: {gameObject.activeInHierarchy}");
-        Debug.Log($"  Broken: {isBroken}");
-        Debug.Log($"  Destroyed: {isDestroyed}");
-        Debug.Log($"  Custom Data Count: {customData.Count}");
+        Debug.Log("[GameWorldObject] " + gameObject.name + " (ID: " + objectId + ")");
+        Debug.Log("  Position: " + transform.position);
+        Debug.Log("  Rotation: " + transform.rotation.eulerAngles);
+        Debug.Log("  Scale: " + transform.localScale);
+        Debug.Log("  Active: " + gameObject.activeInHierarchy);
+        Debug.Log("  Broken: " + isBroken);
+        Debug.Log("  Destroyed: " + isDestroyed);
+        Debug.Log("  Custom Data Count: " + customData.Count);
     }
 }
 

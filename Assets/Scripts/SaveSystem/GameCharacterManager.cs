@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class SimpleCharacterManager : MonoBehaviour
+public class GameCharacterManager : MonoBehaviour
 {
     [Header("Character Settings")]
     public string playerTag = "Player";
@@ -15,9 +15,8 @@ public class SimpleCharacterManager : MonoBehaviour
     public float rotationThreshold = 1f;
     public float saveInterval = 1f;
     
-    public static SimpleCharacterManager Instance { get; private set; }
+    public static GameCharacterManager Instance;
     
-    // Private
     private Transform playerTransform;
     private Vector3 lastSavedPosition;
     private Quaternion lastSavedRotation;
@@ -25,7 +24,7 @@ public class SimpleCharacterManager : MonoBehaviour
     private bool lastSavedActiveState;
     private float lastSaveTime;
     
-    private void Awake()
+    void Awake()
     {
         if (Instance == null)
         {
@@ -38,7 +37,7 @@ public class SimpleCharacterManager : MonoBehaviour
         }
     }
     
-    private void Start()
+    void Start()
     {
         if (autoFindPlayer)
         {
@@ -46,7 +45,7 @@ public class SimpleCharacterManager : MonoBehaviour
         }
     }
     
-    private void Update()
+    void Update()
     {
         if (playerTransform != null && trackPosition)
         {
@@ -54,7 +53,7 @@ public class SimpleCharacterManager : MonoBehaviour
         }
     }
     
-    private void FindPlayer()
+    void FindPlayer()
     {
         // Try to find player by tag
         GameObject player = GameObject.FindGameObjectWithTag(playerTag);
@@ -73,15 +72,15 @@ public class SimpleCharacterManager : MonoBehaviour
         {
             playerTransform = player.transform;
             InitializeTracking();
-            Debug.Log($"[SimpleCharacterManager] Found player: {player.name}");
+            Debug.Log("[GameCharacterManager] Found player: " + player.name);
         }
         else
         {
-            Debug.LogWarning($"[SimpleCharacterManager] No player found with tag '{playerTag}'");
+            Debug.LogWarning("[GameCharacterManager] No player found with tag '" + playerTag + "'");
         }
     }
     
-    private void InitializeTracking()
+    void InitializeTracking()
     {
         if (playerTransform != null)
         {
@@ -93,7 +92,7 @@ public class SimpleCharacterManager : MonoBehaviour
         }
     }
     
-    private void CheckForChanges()
+    void CheckForChanges()
     {
         if (playerTransform == null) return;
         
@@ -130,7 +129,7 @@ public class SimpleCharacterManager : MonoBehaviour
         }
     }
     
-    private void SaveCharacterState()
+    void SaveCharacterState()
     {
         if (playerTransform == null) return;
         
@@ -140,11 +139,7 @@ public class SimpleCharacterManager : MonoBehaviour
         lastSavedActiveState = playerTransform.gameObject.activeInHierarchy;
         lastSaveTime = Time.time;
         
-        // Mark save system as dirty
-        if (SimpleSaveManager.Instance != null)
-        {
-            // This would trigger a save in the main save manager
-        }
+        Debug.Log("[GameCharacterManager] Character state saved");
     }
     
     public CharacterData GetCharacterData()
@@ -190,6 +185,8 @@ public class SimpleCharacterManager : MonoBehaviour
         
         // Update tracking values
         InitializeTracking();
+        
+        Debug.Log("[GameCharacterManager] Character data loaded");
     }
     
     public void SetPlayer(Transform player)
@@ -220,11 +217,11 @@ public class SimpleCharacterManager : MonoBehaviour
     public void LogCharacterData()
     {
         var data = GetCharacterData();
-        Debug.Log($"[SimpleCharacterManager] Character Data:");
-        Debug.Log($"  Position: {data.position}");
-        Debug.Log($"  Rotation: {data.rotation.eulerAngles}");
-        Debug.Log($"  Scale: {data.scale}");
-        Debug.Log($"  Active: {data.isActive}");
-        Debug.Log($"  Scene: {data.currentScene}");
+        Debug.Log("[GameCharacterManager] Character Data:");
+        Debug.Log("  Position: " + data.position);
+        Debug.Log("  Rotation: " + data.rotation.eulerAngles);
+        Debug.Log("  Scale: " + data.scale);
+        Debug.Log("  Active: " + data.isActive);
+        Debug.Log("  Scene: " + data.currentScene);
     }
 }

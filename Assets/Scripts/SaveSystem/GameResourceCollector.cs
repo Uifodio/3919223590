@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class ResourceCollector : MonoBehaviour
+public class GameResourceCollector : MonoBehaviour
 {
     [Header("Collection Settings")]
     public string resourceId = "coins";
@@ -15,12 +15,11 @@ public class ResourceCollector : MonoBehaviour
     public GameObject collectEffect;
     public AudioClip collectSound;
     
-    // Private
     private Transform playerTransform;
     private bool isCollected = false;
     private AudioSource audioSource;
     
-    private void Start()
+    void Start()
     {
         // Find player
         GameObject player = GameObject.FindGameObjectWithTag(playerTag);
@@ -41,7 +40,7 @@ public class ResourceCollector : MonoBehaviour
         }
     }
     
-    private void Update()
+    void Update()
     {
         if (isCollected || playerTransform == null) return;
         
@@ -59,16 +58,16 @@ public class ResourceCollector : MonoBehaviour
         }
     }
     
-    private void CollectResource()
+    void CollectResource()
     {
         if (isCollected) return;
         
         isCollected = true;
         
         // Add resource
-        if (SimpleResourceManager.Instance != null)
+        if (GameResourceManager.Instance != null)
         {
-            SimpleResourceManager.Instance.AddResource(resourceId, amount);
+            GameResourceManager.Instance.AddResource(resourceId, amount);
         }
         
         // Play effects
@@ -91,9 +90,11 @@ public class ResourceCollector : MonoBehaviour
         {
             gameObject.SetActive(false);
         }
+        
+        Debug.Log("[GameResourceCollector] Collected " + amount + " " + resourceId);
     }
     
-    private void OnDrawGizmosSelected()
+    void OnDrawGizmosSelected()
     {
         // Draw collect radius
         Gizmos.color = Color.yellow;
