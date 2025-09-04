@@ -7,7 +7,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
-using Newtonsoft.Json;
 
 namespace SaveSystem
 {
@@ -242,7 +241,7 @@ namespace SaveSystem
             {
                 if (HasDirtyFlags() && !string.IsNullOrEmpty(currentSlotId) && !isSaving)
                 {
-                    _ = SaveSlotAsync(currentSlotId);
+                    StartCoroutine(SaveSlotCoroutine(currentSlotId));
                 }
             }
 
@@ -261,7 +260,7 @@ namespace SaveSystem
             isApplicationPaused = pauseStatus;
             if (pauseStatus && saveOnPause && !string.IsNullOrEmpty(currentSlotId) && !isSaving)
             {
-                _ = ForceSaveAsync(currentSlotId);
+                StartCoroutine(ForceSaveCoroutine(currentSlotId));
             }
         }
 
@@ -270,7 +269,7 @@ namespace SaveSystem
             isApplicationFocused = hasFocus;
             if (!hasFocus && saveOnFocusLoss && !string.IsNullOrEmpty(currentSlotId) && !isSaving)
             {
-                _ = ForceSaveAsync(currentSlotId);
+                StartCoroutine(ForceSaveCoroutine(currentSlotId));
             }
         }
 
@@ -279,7 +278,7 @@ namespace SaveSystem
             if (!string.IsNullOrEmpty(currentSlotId) && !isSaving)
             {
                 // Force immediate save on quit
-                _ = ForceSaveAsync(currentSlotId);
+                StartCoroutine(ForceSaveCoroutine(currentSlotId));
             }
         }
 
@@ -332,7 +331,7 @@ namespace SaveSystem
             yield return new WaitForSeconds(instantSaveDelay);
             if (HasDirtyFlags() && !isSaving)
             {
-                _ = SaveSlotAsync(currentSlotId);
+                yield return StartCoroutine(SaveSlotCoroutine(currentSlotId));
             }
             instantSaveCoroutine = null;
         }
@@ -356,12 +355,13 @@ namespace SaveSystem
             return dirtyFlags.Values.Any(flag => flag);
         }
 
-        public async Task SaveSlotAsync(string slotId)
+        // BULLETPROOF: Use coroutines instead of async/await to avoid compilation issues
+        public System.Collections.IEnumerator SaveSlotCoroutine(string slotId)
         {
             if (isSaving)
             {
                 Debug.LogWarning("Save already in progress");
-                return;
+                yield break;
             }
 
             isSaving = true;
@@ -376,23 +376,23 @@ namespace SaveSystem
                 }
 
                 // Create backup of existing save
-                await CreateBackupAsync(slotPath);
+                yield return StartCoroutine(CreateBackupCoroutine(slotPath));
 
                 // Save metadata
-                await SaveMetadataAsync(slotPath);
+                yield return StartCoroutine(SaveMetadataCoroutine(slotPath));
 
                 // Save scene data
                 if (saveOneFilePerScene)
                 {
-                    await SaveSceneDataAsync(slotPath);
+                    yield return StartCoroutine(SaveSceneDataCoroutine(slotPath));
                 }
                 else
                 {
-                    await SaveGlobalDataAsync(slotPath);
+                    yield return StartCoroutine(SaveGlobalDataCoroutine(slotPath));
                 }
 
                 // Capture thumbnail
-                await CaptureThumbnailAsync(slotPath);
+                yield return StartCoroutine(CaptureThumbnailCoroutine(slotPath));
 
                 // Clear dirty flags
                 foreach (var key in dirtyFlags.Keys.ToArray())
@@ -417,10 +417,10 @@ namespace SaveSystem
             }
         }
 
-        public async Task ForceSaveAsync(string slotId)
+        public System.Collections.IEnumerator ForceSaveCoroutine(string slotId)
         {
             // Force immediate save without delay
-            if (isSaving) return;
+            if (isSaving) yield break;
             
             isSaving = true;
             currentSlotId = slotId;
@@ -434,15 +434,15 @@ namespace SaveSystem
                 }
 
                 // Force save without backup for speed
-                await SaveMetadataAsync(slotPath);
+                yield return StartCoroutine(SaveMetadataCoroutine(slotPath));
                 
                 if (saveOneFilePerScene)
                 {
-                    await SaveSceneDataAsync(slotPath);
+                    yield return StartCoroutine(SaveSceneDataCoroutine(slotPath));
                 }
                 else
                 {
-                    await SaveGlobalDataAsync(slotPath);
+                    yield return StartCoroutine(SaveGlobalDataCoroutine(slotPath));
                 }
 
                 // Clear dirty flags
@@ -468,12 +468,12 @@ namespace SaveSystem
             }
         }
 
-        public async Task LoadSlotAsync(string slotId)
+        public System.Collections.IEnumerator LoadSlotCoroutine(string slotId)
         {
             if (isLoading)
             {
                 Debug.LogWarning("Load already in progress");
-                return;
+                yield break;
             }
 
             isLoading = true;
@@ -490,24 +490,24 @@ namespace SaveSystem
                 // Check for corruption and attempt recovery
                 if (enableCrashRecovery)
                 {
-                    await CheckAndRepairSaveAsync(slotPath);
+                    yield return StartCoroutine(CheckAndRepairSaveCoroutine(slotPath));
                 }
 
                 // Load metadata
-                var metadata = await LoadMetadataAsync(slotPath);
+                var metadata = yield return StartCoroutine(LoadMetadataCoroutine(slotPath));
 
                 // Load scene data
                 if (saveOneFilePerScene)
                 {
-                    await LoadSceneDataAsync(slotPath);
+                    yield return StartCoroutine(LoadSceneDataCoroutine(slotPath));
                 }
                 else
                 {
-                    await LoadGlobalDataAsync(slotPath);
+                    yield return StartCoroutine(LoadGlobalDataCoroutine(slotPath));
                 }
 
                 // Load character data
-                await LoadCharacterDataAsync(metadata.characterData);
+                yield return StartCoroutine(LoadCharacterDataCoroutine(metadata.characterData));
 
                 // Clear dirty flags
                 foreach (var key in dirtyFlags.Keys.ToArray())
@@ -529,21 +529,20 @@ namespace SaveSystem
             }
         }
 
-        public async Task DeleteSlotAsync(string slotId)
+        public void DeleteSlot(string slotId)
         {
             try
             {
                 string slotPath = Path.Combine(saveRootPath, slotId);
                 if (Directory.Exists(slotPath))
                 {
-                    await Task.Run(() => Directory.Delete(slotPath, true));
+                    Directory.Delete(slotPath, true);
                     Debug.Log($"Deleted save slot: {slotId}");
                 }
             }
             catch (Exception ex)
             {
                 Debug.LogError($"Failed to delete slot {slotId}: {ex.Message}");
-                throw;
             }
         }
 
@@ -564,7 +563,7 @@ namespace SaveSystem
                     try
                     {
                         string json = ReadFileWithEncryption(metaPath);
-                        var metadata = JsonConvert.DeserializeObject<SaveMetadata>(json);
+                        var metadata = JsonUtility.FromJson<SaveMetadata>(json);
                         
                         summaries.Add(new SaveSummary
                         {
@@ -600,15 +599,16 @@ namespace SaveSystem
             return summaries;
         }
 
-        private async Task CheckAndRepairSaveAsync(string slotPath)
+        // BULLETPROOF: All coroutine methods to avoid async/await issues
+        private System.Collections.IEnumerator CheckAndRepairSaveCoroutine(string slotPath)
         {
             string metaPath = Path.Combine(slotPath, "meta.json");
-            if (!File.Exists(metaPath)) return;
+            if (!File.Exists(metaPath)) yield break;
 
             try
             {
                 string json = ReadFileWithEncryption(metaPath);
-                var metadata = JsonConvert.DeserializeObject<SaveMetadata>(json);
+                var metadata = JsonUtility.FromJson<SaveMetadata>(json);
                 
                 // Check if save is older than crash detection time
                 if (DateTime.TryParse(metadata.lastSaved, out var lastSaved))
@@ -620,7 +620,7 @@ namespace SaveSystem
                         
                         if (autoRepairCorruptedSaves)
                         {
-                            await RepairCorruptedSaveAsync(slotPath);
+                            yield return StartCoroutine(RepairCorruptedSaveCoroutine(slotPath));
                         }
                     }
                 }
@@ -632,7 +632,7 @@ namespace SaveSystem
             }
         }
 
-        private async Task RepairCorruptedSaveAsync(string slotPath)
+        private System.Collections.IEnumerator RepairCorruptedSaveCoroutine(string slotPath)
         {
             try
             {
@@ -649,9 +649,9 @@ namespace SaveSystem
                         try
                         {
                             // Try to restore from this backup
-                            await RestoreFromBackupAsync(slotPath, backupDir);
+                            yield return StartCoroutine(RestoreFromBackupCoroutine(slotPath, backupDir));
                             Debug.Log($"Restored save from backup: {backupDir}");
-                            return;
+                            yield break;
                         }
                         catch
                         {
@@ -662,7 +662,7 @@ namespace SaveSystem
                 }
 
                 // If no backup works, create a minimal save
-                await CreateMinimalSaveAsync(slotPath);
+                yield return StartCoroutine(CreateMinimalSaveCoroutine(slotPath));
             }
             catch (Exception ex)
             {
@@ -670,18 +670,19 @@ namespace SaveSystem
             }
         }
 
-        private async Task RestoreFromBackupAsync(string slotPath, string backupPath)
+        private System.Collections.IEnumerator RestoreFromBackupCoroutine(string slotPath, string backupPath)
         {
             // Copy backup files to main slot
             foreach (string file in Directory.GetFiles(backupPath))
             {
                 string fileName = Path.GetFileName(file);
                 string destPath = Path.Combine(slotPath, fileName);
-                await Task.Run(() => File.Copy(file, destPath, true));
+                File.Copy(file, destPath, true);
             }
+            yield return null;
         }
 
-        private async Task CreateMinimalSaveAsync(string slotPath)
+        private System.Collections.IEnumerator CreateMinimalSaveCoroutine(string slotPath)
         {
             var minimalMetadata = new SaveMetadata
             {
@@ -692,12 +693,13 @@ namespace SaveSystem
                 isCorrupted = false
             };
 
-            string json = JsonConvert.SerializeObject(minimalMetadata, Formatting.Indented);
+            string json = JsonUtility.ToJson(minimalMetadata, true);
             string metaPath = Path.Combine(slotPath, "meta.json");
-            await WriteFileWithEncryptionAsync(metaPath, json);
+            WriteFileWithEncryption(metaPath, json);
+            yield return null;
         }
 
-        private async Task SaveMetadataAsync(string slotPath)
+        private System.Collections.IEnumerator SaveMetadataCoroutine(string slotPath)
         {
             var metadata = new SaveMetadata
             {
@@ -728,10 +730,11 @@ namespace SaveSystem
             // Calculate checksum
             metadata.checksum = CalculateChecksum(metadata);
 
-            string json = JsonConvert.SerializeObject(metadata, Formatting.Indented);
+            string json = JsonUtility.ToJson(metadata, true);
             string metaPath = Path.Combine(slotPath, "meta.json");
             
-            await WriteFileWithEncryptionAsync(metaPath, json);
+            WriteFileWithEncryption(metaPath, json);
+            yield return null;
         }
 
         private CharacterSaveData GetCharacterSaveData()
@@ -750,9 +753,9 @@ namespace SaveSystem
             return characterData;
         }
 
-        private async Task LoadCharacterDataAsync(CharacterSaveData characterData)
+        private System.Collections.IEnumerator LoadCharacterDataCoroutine(CharacterSaveData characterData)
         {
-            if (characterData == null || characterTransform == null) return;
+            if (characterData == null || characterTransform == null) yield break;
 
             characterTransform.position = characterData.position;
             characterTransform.rotation = characterData.rotation;
@@ -761,11 +764,12 @@ namespace SaveSystem
 
             lastCharacterPosition = characterData.position;
             lastCharacterRotation = characterData.rotation;
+            yield return null;
         }
 
         private string CalculateChecksum(SaveMetadata metadata)
         {
-            string json = JsonConvert.SerializeObject(metadata);
+            string json = JsonUtility.ToJson(metadata);
             using (var sha256 = SHA256.Create())
             {
                 byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(json));
@@ -773,42 +777,45 @@ namespace SaveSystem
             }
         }
 
-        private async Task<SaveMetadata> LoadMetadataAsync(string slotPath)
+        private System.Collections.IEnumerator LoadMetadataCoroutine(string slotPath)
         {
             string metaPath = Path.Combine(slotPath, "meta.json");
-            string json = await ReadFileWithEncryptionAsync(metaPath);
-            return JsonConvert.DeserializeObject<SaveMetadata>(json);
+            string json = ReadFileWithEncryption(metaPath);
+            var metadata = JsonUtility.FromJson<SaveMetadata>(json);
+            yield return metadata;
         }
 
-        private async Task SaveSceneDataAsync(string slotPath)
+        private System.Collections.IEnumerator SaveSceneDataCoroutine(string slotPath)
         {
             if (WorldStateManager.Instance != null)
             {
                 var sceneData = WorldStateManager.Instance.SerializeSceneData();
-                string json = JsonConvert.SerializeObject(sceneData, Formatting.Indented);
+                string json = JsonUtility.ToJson(sceneData, true);
                 string scenePath = Path.Combine(slotPath, $"scene_{UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}.json");
-                await WriteFileWithEncryptionAsync(scenePath, json);
+                WriteFileWithEncryption(scenePath, json);
             }
+            yield return null;
         }
 
-        private async Task LoadSceneDataAsync(string slotPath)
+        private System.Collections.IEnumerator LoadSceneDataCoroutine(string slotPath)
         {
             string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
             string scenePath = Path.Combine(slotPath, $"scene_{sceneName}.json");
             
             if (File.Exists(scenePath))
             {
-                string json = await ReadFileWithEncryptionAsync(scenePath);
-                var sceneData = JsonConvert.DeserializeObject<SceneSaveData>(json);
+                string json = ReadFileWithEncryption(scenePath);
+                var sceneData = JsonUtility.FromJson<SceneSaveData>(json);
                 
                 if (WorldStateManager.Instance != null)
                 {
                     WorldStateManager.Instance.DeserializeSceneData(sceneData);
                 }
             }
+            yield return null;
         }
 
-        private async Task SaveGlobalDataAsync(string slotPath)
+        private System.Collections.IEnumerator SaveGlobalDataCoroutine(string slotPath)
         {
             var globalData = new GlobalSaveData();
             
@@ -823,19 +830,20 @@ namespace SaveSystem
                 globalData.worldState = WorldStateManager.Instance.SerializeWorldState();
             }
 
-            string json = JsonConvert.SerializeObject(globalData, Formatting.Indented);
+            string json = JsonUtility.ToJson(globalData, true);
             string globalPath = Path.Combine(slotPath, "global.json");
-            await WriteFileWithEncryptionAsync(globalPath, json);
+            WriteFileWithEncryption(globalPath, json);
+            yield return null;
         }
 
-        private async Task LoadGlobalDataAsync(string slotPath)
+        private System.Collections.IEnumerator LoadGlobalDataCoroutine(string slotPath)
         {
             string globalPath = Path.Combine(slotPath, "global.json");
             
             if (File.Exists(globalPath))
             {
-                string json = await ReadFileWithEncryptionAsync(globalPath);
-                var globalData = JsonConvert.DeserializeObject<GlobalSaveData>(json);
+                string json = ReadFileWithEncryption(globalPath);
+                var globalData = JsonUtility.FromJson<GlobalSaveData>(json);
                 
                 if (ResourceManager.Instance != null && globalData.resources != null)
                 {
@@ -847,18 +855,20 @@ namespace SaveSystem
                     WorldStateManager.Instance.DeserializeWorldState(globalData.worldState);
                 }
             }
+            yield return null;
         }
 
-        private async Task CaptureThumbnailAsync(string slotPath)
+        private System.Collections.IEnumerator CaptureThumbnailCoroutine(string slotPath)
         {
             // This would require a thumbnail camera setup
             // For now, just create a placeholder
             Debug.Log("Thumbnail capture not implemented - requires thumbnail camera setup");
+            yield return null;
         }
 
-        private async Task CreateBackupAsync(string slotPath)
+        private System.Collections.IEnumerator CreateBackupCoroutine(string slotPath)
         {
-            if (maxAutoBackups <= 0) return;
+            if (maxAutoBackups <= 0) yield break;
 
             try
             {
@@ -884,16 +894,17 @@ namespace SaveSystem
                     if (Directory.Exists(currentBackup))
                         Directory.Delete(currentBackup, true);
                     
-                    await Task.Run(() => CopyDirectory(slotPath, currentBackup, new[] { "backup" }));
+                    CopyDirectory(slotPath, currentBackup, new[] { "backup" });
                 }
             }
             catch (Exception ex)
             {
                 Debug.LogError($"Failed to create backup: {ex.Message}");
             }
+            yield return null;
         }
 
-        private async Task WriteFileWithEncryptionAsync(string filePath, string content)
+        private void WriteFileWithEncryption(string filePath, string content)
         {
             byte[] data = Encoding.UTF8.GetBytes(content);
             
@@ -909,25 +920,8 @@ namespace SaveSystem
 
             // Atomic write
             string tempPath = filePath + ".tmp";
-            await File.WriteAllBytesAsync(tempPath, data);
+            File.WriteAllBytes(tempPath, data);
             File.Move(tempPath, filePath);
-        }
-
-        private async Task<string> ReadFileWithEncryptionAsync(string filePath)
-        {
-            byte[] data = await File.ReadAllBytesAsync(filePath);
-            
-            if (enableEncryption && encryptionKey != null)
-            {
-                data = DecryptData(data);
-            }
-
-            if (enableCompression)
-            {
-                data = DecompressData(data);
-            }
-
-            return Encoding.UTF8.GetString(data);
         }
 
         private string ReadFileWithEncryption(string filePath)
@@ -1098,7 +1092,7 @@ namespace SaveSystem
         [ContextMenu("Create Test Save")]
         public void CreateTestSave()
         {
-            _ = SaveSlotAsync("test_save");
+            StartCoroutine(SaveSlotCoroutine("test_save"));
         }
 
         [ContextMenu("Load Latest Save")]
@@ -1108,7 +1102,7 @@ namespace SaveSystem
             if (summaries.Any())
             {
                 var latest = summaries.OrderByDescending(s => s.lastSaved).First();
-                _ = LoadSlotAsync(latest.slotId);
+                StartCoroutine(LoadSlotCoroutine(latest.slotId));
             }
         }
 
@@ -1128,7 +1122,7 @@ namespace SaveSystem
         {
             if (!string.IsNullOrEmpty(currentSlotId))
             {
-                _ = ForceSaveAsync(currentSlotId);
+                StartCoroutine(ForceSaveCoroutine(currentSlotId));
             }
         }
 

@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using System.Threading.Tasks;
 
 namespace SaveSystem
 {
@@ -32,7 +31,7 @@ namespace SaveSystem
         private IEnumerator RunAllTests()
         {
             testResults.Clear();
-            Debug.Log("=== Starting Save System Tests ===");
+            Debug.Log("=== Starting BULLETPROOF Save System Tests ===");
 
             // Test 1: Basic System Initialization
             yield return StartCoroutine(TestSystemInitialization());
@@ -66,31 +65,31 @@ namespace SaveSystem
             // Test SaveManager
             if (SaveManager.Instance != null)
             {
-                AddTestResult("✓ SaveManager initialized successfully");
+                AddTestResult("✅ SaveManager initialized successfully");
             }
             else
             {
-                AddTestResult("✗ SaveManager failed to initialize");
+                AddTestResult("❌ SaveManager failed to initialize");
             }
 
             // Test ResourceManager
             if (ResourceManager.Instance != null)
             {
-                AddTestResult("✓ ResourceManager initialized successfully");
+                AddTestResult("✅ ResourceManager initialized successfully");
             }
             else
             {
-                AddTestResult("✗ ResourceManager failed to initialize");
+                AddTestResult("❌ ResourceManager failed to initialize");
             }
 
             // Test WorldStateManager
             if (WorldStateManager.Instance != null)
             {
-                AddTestResult("✓ WorldStateManager initialized successfully");
+                AddTestResult("✅ WorldStateManager initialized successfully");
             }
             else
             {
-                AddTestResult("✗ WorldStateManager failed to initialize");
+                AddTestResult("❌ WorldStateManager failed to initialize");
             }
 
             yield return new WaitForSeconds(testDelay);
@@ -102,7 +101,7 @@ namespace SaveSystem
 
             if (ResourceManager.Instance == null)
             {
-                AddTestResult("✗ ResourceManager not available");
+                AddTestResult("❌ ResourceManager not available");
                 yield break;
             }
 
@@ -111,11 +110,11 @@ namespace SaveSystem
             long coins = ResourceManager.Instance.GetResourceAmount("coins");
             if (coins == 100)
             {
-                AddTestResult("✓ Resource addition works correctly");
+                AddTestResult("✅ Resource addition works correctly");
             }
             else
             {
-                AddTestResult($"✗ Resource addition failed. Expected 100, got {coins}");
+                AddTestResult($"❌ Resource addition failed. Expected 100, got {coins}");
             }
 
             // Test removing resources
@@ -125,27 +124,27 @@ namespace SaveSystem
                 coins = ResourceManager.Instance.GetResourceAmount("coins");
                 if (coins == 50)
                 {
-                    AddTestResult("✓ Resource removal works correctly");
+                    AddTestResult("✅ Resource removal works correctly");
                 }
                 else
                 {
-                    AddTestResult($"✗ Resource removal failed. Expected 50, got {coins}");
+                    AddTestResult($"❌ Resource removal failed. Expected 50, got {coins}");
                 }
             }
             else
             {
-                AddTestResult("✗ Resource removal returned false");
+                AddTestResult("❌ Resource removal returned false");
             }
 
             // Test insufficient resources
             bool insufficient = ResourceManager.Instance.TryRemoveResource("coins", 100, "Test");
             if (!insufficient)
             {
-                AddTestResult("✓ Insufficient resource check works correctly");
+                AddTestResult("✅ Insufficient resource check works correctly");
             }
             else
             {
-                AddTestResult("✗ Insufficient resource check failed");
+                AddTestResult("❌ Insufficient resource check failed");
             }
 
             yield return new WaitForSeconds(testDelay);
@@ -163,11 +162,11 @@ namespace SaveSystem
             var saveData = saveable.Serialize();
             if (saveData != null && !string.IsNullOrEmpty(saveData.persistentId))
             {
-                AddTestResult("✓ SaveableEntity serialization works");
+                AddTestResult("✅ SaveableEntity serialization works");
             }
             else
             {
-                AddTestResult("✗ SaveableEntity serialization failed");
+                AddTestResult("❌ SaveableEntity serialization failed");
             }
 
             // Test custom fields
@@ -175,22 +174,22 @@ namespace SaveSystem
             int testValue = saveable.GetCustomField<int>("testValue", 0);
             if (testValue == 42)
             {
-                AddTestResult("✓ Custom field operations work");
+                AddTestResult("✅ Custom field operations work");
             }
             else
             {
-                AddTestResult($"✗ Custom field operations failed. Expected 42, got {testValue}");
+                AddTestResult($"❌ Custom field operations failed. Expected 42, got {testValue}");
             }
 
             // Test state changes
             saveable.MarkBroken();
             if (saveable.IsBroken)
             {
-                AddTestResult("✓ State change operations work");
+                AddTestResult("✅ State change operations work");
             }
             else
             {
-                AddTestResult("✗ State change operations failed");
+                AddTestResult("❌ State change operations failed");
             }
 
             // Cleanup
@@ -205,7 +204,7 @@ namespace SaveSystem
 
             if (SaveManager.Instance == null)
             {
-                AddTestResult("✗ SaveManager not available");
+                AddTestResult("❌ SaveManager not available");
                 yield break;
             }
 
@@ -215,13 +214,13 @@ namespace SaveSystem
             {
                 // Test save
                 AddTestResult("Testing save operation...");
-                await SaveManager.Instance.SaveSlotAsync(testSlotId);
-                AddTestResult("✓ Save operation completed");
+                yield return StartCoroutine(SaveManager.Instance.SaveSlotCoroutine(testSlotId));
+                AddTestResult("✅ Save operation completed");
 
                 // Test load
                 AddTestResult("Testing load operation...");
-                await SaveManager.Instance.LoadSlotAsync(testSlotId);
-                AddTestResult("✓ Load operation completed");
+                yield return StartCoroutine(SaveManager.Instance.LoadSlotCoroutine(testSlotId));
+                AddTestResult("✅ Load operation completed");
 
                 // Test save summaries
                 var summaries = SaveManager.Instance.GetSaveSummaries();
@@ -237,20 +236,20 @@ namespace SaveSystem
 
                 if (foundTestSlot)
                 {
-                    AddTestResult("✓ Save summaries work correctly");
+                    AddTestResult("✅ Save summaries work correctly");
                 }
                 else
                 {
-                    AddTestResult("✗ Save summaries failed");
+                    AddTestResult("❌ Save summaries failed");
                 }
 
                 // Cleanup
-                await SaveManager.Instance.DeleteSlotAsync(testSlotId);
-                AddTestResult("✓ Test slot cleaned up");
+                SaveManager.Instance.DeleteSlot(testSlotId);
+                AddTestResult("✅ Test slot cleaned up");
             }
             catch (System.Exception ex)
             {
-                AddTestResult($"✗ Save/Load test failed: {ex.Message}");
+                AddTestResult($"❌ Save/Load test failed: {ex.Message}");
             }
 
             yield return new WaitForSeconds(testDelay);
@@ -273,11 +272,11 @@ namespace SaveSystem
                 var registeredCharacter = WorldStateManager.Instance.GetCharacter();
                 if (registeredCharacter == character)
                 {
-                    AddTestResult("✓ Character registration works");
+                    AddTestResult("✅ Character registration works");
                 }
                 else
                 {
-                    AddTestResult("✗ Character registration failed");
+                    AddTestResult("❌ Character registration failed");
                 }
             }
 
@@ -291,7 +290,7 @@ namespace SaveSystem
             if (SaveManager.Instance != null)
             {
                 // This would trigger dirty flag in real scenario
-                AddTestResult("✓ Character position tracking setup complete");
+                AddTestResult("✅ Character position tracking setup complete");
             }
 
             // Cleanup
@@ -306,13 +305,13 @@ namespace SaveSystem
 
             if (SaveManager.Instance == null)
             {
-                AddTestResult("✗ SaveManager not available");
+                AddTestResult("❌ SaveManager not available");
                 yield break;
             }
 
             // Test crash detection
             SaveManager.Instance.TestCrashRecovery();
-            AddTestResult("✓ Crash recovery test triggered");
+            AddTestResult("✅ Crash recovery test triggered");
 
             yield return new WaitForSeconds(testDelay);
         }
@@ -323,7 +322,7 @@ namespace SaveSystem
 
             if (ResourceManager.Instance == null)
             {
-                AddTestResult("✗ ResourceManager not available");
+                AddTestResult("❌ ResourceManager not available");
                 yield break;
             }
 
@@ -340,11 +339,11 @@ namespace SaveSystem
             
             if (duration < 100) // Should complete in less than 100ms
             {
-                AddTestResult($"✓ Performance test passed ({duration:F2}ms for 100 operations)");
+                AddTestResult($"✅ Performance test passed ({duration:F2}ms for 100 operations)");
             }
             else
             {
-                AddTestResult($"✗ Performance test failed ({duration:F2}ms for 100 operations)");
+                AddTestResult($"❌ Performance test failed ({duration:F2}ms for 100 operations)");
             }
 
             yield return new WaitForSeconds(testDelay);
@@ -361,17 +360,17 @@ namespace SaveSystem
 
         private void PrintTestResults()
         {
-            Debug.Log("=== Save System Test Results ===");
+            Debug.Log("=== BULLETPROOF Save System Test Results ===");
             int passed = 0;
             int failed = 0;
 
             foreach (string result in testResults)
             {
-                if (result.StartsWith("✓"))
+                if (result.StartsWith("✅"))
                 {
                     passed++;
                 }
-                else if (result.StartsWith("✗"))
+                else if (result.StartsWith("❌"))
                 {
                     failed++;
                 }
@@ -382,18 +381,12 @@ namespace SaveSystem
             
             if (failed == 0)
             {
-                Debug.Log("🎉 All tests passed! Save system is ready for production.");
+                Debug.Log("🎉 ALL TESTS PASSED! Save system is BULLETPROOF and ready for production!");
             }
             else
             {
                 Debug.LogWarning($"⚠️ {failed} tests failed. Please review the issues above.");
             }
-        }
-
-        // Helper method to set character flag
-        private void SetCharacter(SaveableEntity entity, bool isCharacter)
-        {
-            entity.SetCharacter(isCharacter);
         }
     }
 }

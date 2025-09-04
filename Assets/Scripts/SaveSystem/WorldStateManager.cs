@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace SaveSystem
@@ -210,10 +209,11 @@ namespace SaveSystem
             }
         }
 
-        public async Task SimulateOfflineAsync(double deltaSeconds)
+        // BULLETPROOF: Use coroutine instead of async/await
+        public System.Collections.IEnumerator SimulateOfflineCoroutine(double deltaSeconds)
         {
             if (!enableOfflineSimulation || ResourceManager.Instance == null)
-                return;
+                yield break;
 
             // Clamp delta time to maximum offline time
             double maxDeltaSeconds = maxOfflineTimeHours * 3600.0;
@@ -256,7 +256,7 @@ namespace SaveSystem
             // Update last save time
             lastSaveTime = GetCurrentTime();
 
-            await Task.CompletedTask;
+            yield return null;
         }
 
         public void RegisterSpawnablePrefab(string prefabId, GameObject prefab)
@@ -535,13 +535,13 @@ namespace SaveSystem
         [ContextMenu("Simulate 1 Hour Offline")]
         public void SimulateOneHourOffline()
         {
-            _ = SimulateOfflineAsync(3600.0);
+            StartCoroutine(SimulateOfflineCoroutine(3600.0));
         }
 
         [ContextMenu("Simulate 1 Day Offline")]
         public void SimulateOneDayOffline()
         {
-            _ = SimulateOfflineAsync(86400.0);
+            StartCoroutine(SimulateOfflineCoroutine(86400.0));
         }
 
         // Editor helper methods
