@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,7 +18,8 @@ namespace SaveSystem
         WorldState,
         SceneState,
         PlayerData,
-        Settings
+        Settings,
+        CharacterData
     }
 
     [System.Serializable]
@@ -38,6 +40,8 @@ namespace SaveSystem
         public List<ResourceSnapshot> topResources;
         public List<SceneSummary> sceneSummaries;
         public string thumbnailPath;
+        public bool isCorrupted = false;
+        public string version;
     }
 
     [System.Serializable]
@@ -59,12 +63,26 @@ namespace SaveSystem
     public class SaveMetadata
     {
         public string slotId;
-        public int saveVersion = 2;
+        public int saveVersion = 3;
         public string lastSaved;
         public long playTimeSeconds;
         public Dictionary<string, long> resources = new Dictionary<string, long>();
         public List<ResourceSnapshot> topResources = new List<ResourceSnapshot>();
         public List<SceneSummary> scenes = new List<SceneSummary>();
+        public CharacterSaveData characterData = new CharacterSaveData();
+        public bool isCorrupted = false;
+        public string checksum;
+    }
+
+    [System.Serializable]
+    public class CharacterSaveData
+    {
+        public Vector3 position;
+        public Quaternion rotation;
+        public Vector3 scale;
+        public bool isActive;
+        public string currentScene;
+        public Dictionary<string, object> customData = new Dictionary<string, object>();
     }
 
     public class SaveManager : MonoBehaviour
@@ -75,12 +93,24 @@ namespace SaveSystem
         [SerializeField] private bool enableEncryption = false;
         [SerializeField] private EncryptionKeySource encryptionKeySource = EncryptionKeySource.None;
         [SerializeField] private string encryptionPassword = "";
-        [SerializeField] private float autosaveIntervalSeconds = 30f;
+        [SerializeField] private float autosaveIntervalSeconds = 5f; // More frequent autosave
         [SerializeField] private bool saveOnPause = true;
+        [SerializeField] private bool saveOnFocusLoss = true;
         [SerializeField] private bool saveOneFilePerScene = true;
-        [SerializeField] private int maxAutoBackups = 3;
+        [SerializeField] private int maxAutoBackups = 5;
         [SerializeField] private bool debugDumpJsonToConsole = false;
-        [SerializeField] private int saveVersion = 2;
+        [SerializeField] private int saveVersion = 3;
+
+        [Header("Instant Save Settings")]
+        [SerializeField] private bool enableInstantSave = true;
+        [SerializeField] private float instantSaveDelay = 0.1f;
+        [SerializeField] private bool saveOnResourceChange = true;
+        [SerializeField] private bool saveOnPositionChange = true;
+
+        [Header("Crash Recovery")]
+        [SerializeField] private bool enableCrashRecovery = true;
+        [SerializeField] private float crashDetectionTime = 2f;
+        [SerializeField] private bool autoRepairCorruptedSaves = true;
 
         [Header("Debug Tools")]
         [SerializeField] private bool createTestSaveOnStart = false;
@@ -91,6 +121,8 @@ namespace SaveSystem
         public event Action<string> OnSaveCompleted;
         public event Action<string> OnLoadCompleted;
         public event Action<string, string> OnSaveFailed;
+        public event Action<string> OnCrashDetected;
+        public event Action<string> OnSaveCorrupted;
 
         // Private fields
         private Dictionary<SaveCategory, bool> dirtyFlags = new Dictionary<SaveCategory, bool>();
@@ -100,6 +132,15 @@ namespace SaveSystem
         private bool isLoading = false;
         private string saveRootPath;
         private byte[] encryptionKey;
+        private Coroutine instantSaveCoroutine;
+        private float lastSaveTime;
+        private bool isApplicationPaused = false;
+        private bool isApplicationFocused = true;
+
+        // Character tracking
+        private Transform characterTransform;
+        private Vector3 lastCharacterPosition;
+        private Quaternion lastCharacterRotation;
 
         private void Awake()
         {
@@ -121,10 +162,26 @@ namespace SaveSystem
             {
                 CreateTestSave();
             }
+
+            // Find character transform
+            FindCharacterTransform();
         }
 
         private void Update()
         {
+            // Check for character position changes
+            if (saveOnPositionChange && characterTransform != null)
+            {
+                if (Vector3.Distance(characterTransform.position, lastCharacterPosition) > 0.1f ||
+                    Quaternion.Angle(characterTransform.rotation, lastCharacterRotation) > 1f)
+                {
+                    MarkDirty(SaveCategory.CharacterData);
+                    lastCharacterPosition = characterTransform.position;
+                    lastCharacterRotation = characterTransform.rotation;
+                }
+            }
+
+            // Regular autosave
             if (autosaveIntervalSeconds > 0 && Time.time - lastAutosaveTime >= autosaveIntervalSeconds)
             {
                 if (HasDirtyFlags() && !string.IsNullOrEmpty(currentSlotId) && !isSaving)
@@ -132,21 +189,41 @@ namespace SaveSystem
                     _ = SaveSlotAsync(currentSlotId);
                 }
             }
+
+            // Instant save check
+            if (enableInstantSave && HasDirtyFlags() && !isSaving && !string.IsNullOrEmpty(currentSlotId))
+            {
+                if (instantSaveCoroutine == null)
+                {
+                    instantSaveCoroutine = StartCoroutine(InstantSaveCoroutine());
+                }
+            }
         }
 
         private void OnApplicationPause(bool pauseStatus)
         {
+            isApplicationPaused = pauseStatus;
             if (pauseStatus && saveOnPause && !string.IsNullOrEmpty(currentSlotId) && !isSaving)
             {
-                _ = SaveSlotAsync(currentSlotId);
+                _ = ForceSaveAsync(currentSlotId);
             }
         }
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (!hasFocus && saveOnPause && !string.IsNullOrEmpty(currentSlotId) && !isSaving)
+            isApplicationFocused = hasFocus;
+            if (!hasFocus && saveOnFocusLoss && !string.IsNullOrEmpty(currentSlotId) && !isSaving)
             {
-                _ = SaveSlotAsync(currentSlotId);
+                _ = ForceSaveAsync(currentSlotId);
+            }
+        }
+
+        private void OnApplicationQuit()
+        {
+            if (!string.IsNullOrEmpty(currentSlotId) && !isSaving)
+            {
+                // Force immediate save on quit
+                _ = ForceSaveAsync(currentSlotId);
             }
         }
 
@@ -169,63 +246,58 @@ namespace SaveSystem
             {
                 dirtyFlags[category] = false;
             }
+
+            lastSaveTime = Time.time;
         }
 
-        private void InitializeEncryption()
+        private void FindCharacterTransform()
         {
-            switch (encryptionKeySource)
+            // Look for character by tag or name
+            GameObject character = GameObject.FindGameObjectWithTag("Player");
+            if (character == null)
             {
-                case EncryptionKeySource.Password:
-                    if (string.IsNullOrEmpty(encryptionPassword))
-                    {
-                        Debug.LogError("Encryption password is required when using Password key source");
-                        return;
-                    }
-                    // Generate key from password using PBKDF2
-                    var salt = new byte[32];
-                    using (var rng = RandomNumberGenerator.Create())
-                    {
-                        rng.GetBytes(salt);
-                    }
-                    using (var pbkdf2 = new Rfc2898DeriveBytes(encryptionPassword, salt, 100000, HashAlgorithmName.SHA256))
-                    {
-                        encryptionKey = pbkdf2.GetBytes(32);
-                    }
-                    break;
-
-                case EncryptionKeySource.Generated:
-                    encryptionKey = new byte[32];
-                    using (var rng = RandomNumberGenerator.Create())
-                    {
-                        rng.GetBytes(encryptionKey);
-                    }
-                    break;
-
-                case EncryptionKeySource.AndroidKeyStore:
-                    // Note: This would require a native plugin for Android KeyStore
-                    // For now, fall back to generated key
-                    Debug.LogWarning("AndroidKeyStore encryption requires native plugin - falling back to generated key");
-                    encryptionKey = new byte[32];
-                    using (var rng = RandomNumberGenerator.Create())
-                    {
-                        rng.GetBytes(encryptionKey);
-                    }
-                    break;
+                character = GameObject.Find("Player");
             }
+            if (character == null)
+            {
+                character = GameObject.Find("Character");
+            }
+
+            if (character != null)
+            {
+                characterTransform = character.transform;
+                lastCharacterPosition = characterTransform.position;
+                lastCharacterRotation = characterTransform.rotation;
+            }
+        }
+
+        private System.Collections.IEnumerator InstantSaveCoroutine()
+        {
+            yield return new WaitForSeconds(instantSaveDelay);
+            if (HasDirtyFlags() && !isSaving)
+            {
+                _ = SaveSlotAsync(currentSlotId);
+            }
+            instantSaveCoroutine = null;
         }
 
         public void MarkDirty(SaveCategory category)
         {
             dirtyFlags[category] = true;
+
+            // Trigger instant save for critical categories
+            if (saveOnResourceChange && (category == SaveCategory.Resources || category == SaveCategory.CharacterData))
+            {
+                if (enableInstantSave && instantSaveCoroutine == null)
+                {
+                    instantSaveCoroutine = StartCoroutine(InstantSaveCoroutine());
+                }
+            }
         }
 
         private bool HasDirtyFlags()
         {
-            foreach (var flag in dirtyFlags.Values)
-            {
-                if (flag) return true;
-            }
-            return false;
+            return dirtyFlags.Values.Any(flag => flag);
         }
 
         public async Task SaveSlotAsync(string slotId)
@@ -273,6 +345,7 @@ namespace SaveSystem
                 }
 
                 lastAutosaveTime = Time.time;
+                lastSaveTime = Time.time;
 
                 OnSaveCompleted?.Invoke(slotId);
                 Debug.Log($"Save completed for slot: {slotId}");
@@ -280,6 +353,57 @@ namespace SaveSystem
             catch (Exception ex)
             {
                 Debug.LogError($"Save failed for slot {slotId}: {ex.Message}");
+                OnSaveFailed?.Invoke(slotId, ex.Message);
+            }
+            finally
+            {
+                isSaving = false;
+            }
+        }
+
+        public async Task ForceSaveAsync(string slotId)
+        {
+            // Force immediate save without delay
+            if (isSaving) return;
+            
+            isSaving = true;
+            currentSlotId = slotId;
+
+            try
+            {
+                string slotPath = Path.Combine(saveRootPath, slotId);
+                if (!Directory.Exists(slotPath))
+                {
+                    Directory.CreateDirectory(slotPath);
+                }
+
+                // Force save without backup for speed
+                await SaveMetadataAsync(slotPath);
+                
+                if (saveOneFilePerScene)
+                {
+                    await SaveSceneDataAsync(slotPath);
+                }
+                else
+                {
+                    await SaveGlobalDataAsync(slotPath);
+                }
+
+                // Clear dirty flags
+                foreach (var key in dirtyFlags.Keys.ToArray())
+                {
+                    dirtyFlags[key] = false;
+                }
+
+                lastAutosaveTime = Time.time;
+                lastSaveTime = Time.time;
+
+                OnSaveCompleted?.Invoke(slotId);
+                Debug.Log($"Force save completed for slot: {slotId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Force save failed for slot {slotId}: {ex.Message}");
                 OnSaveFailed?.Invoke(slotId, ex.Message);
             }
             finally
@@ -307,6 +431,12 @@ namespace SaveSystem
                     throw new DirectoryNotFoundException($"Save slot not found: {slotId}");
                 }
 
+                // Check for corruption and attempt recovery
+                if (enableCrashRecovery)
+                {
+                    await CheckAndRepairSaveAsync(slotPath);
+                }
+
                 // Load metadata
                 var metadata = await LoadMetadataAsync(slotPath);
 
@@ -319,6 +449,9 @@ namespace SaveSystem
                 {
                     await LoadGlobalDataAsync(slotPath);
                 }
+
+                // Load character data
+                await LoadCharacterDataAsync(metadata.characterData);
 
                 // Clear dirty flags
                 foreach (var key in dirtyFlags.Keys.ToArray())
@@ -384,17 +517,128 @@ namespace SaveSystem
                             playTimeSeconds = metadata.playTimeSeconds,
                             topResources = metadata.topResources,
                             sceneSummaries = metadata.scenes,
-                            thumbnailPath = Path.Combine(slotPath, "thumbnail.png")
+                            thumbnailPath = Path.Combine(slotPath, "thumbnail.png"),
+                            isCorrupted = metadata.isCorrupted,
+                            version = metadata.saveVersion.ToString()
                         });
                     }
                     catch (Exception ex)
                     {
                         Debug.LogError($"Failed to read save summary for {slotId}: {ex.Message}");
+                        // Add corrupted save entry
+                        summaries.Add(new SaveSummary
+                        {
+                            slotId = slotId,
+                            lastSaved = "Unknown",
+                            playTimeSeconds = 0,
+                            topResources = new List<ResourceSnapshot>(),
+                            sceneSummaries = new List<SceneSummary>(),
+                            thumbnailPath = "",
+                            isCorrupted = true,
+                            version = "Unknown"
+                        });
                     }
                 }
             }
 
             return summaries;
+        }
+
+        private async Task CheckAndRepairSaveAsync(string slotPath)
+        {
+            string metaPath = Path.Combine(slotPath, "meta.json");
+            if (!File.Exists(metaPath)) return;
+
+            try
+            {
+                string json = ReadFileWithEncryption(metaPath);
+                var metadata = JsonConvert.DeserializeObject<SaveMetadata>(json);
+                
+                // Check if save is older than crash detection time
+                if (DateTime.TryParse(metadata.lastSaved, out var lastSaved))
+                {
+                    var timeSinceLastSave = DateTime.UtcNow - lastSaved;
+                    if (timeSinceLastSave.TotalSeconds < crashDetectionTime)
+                    {
+                        OnCrashDetected?.Invoke(metadata.slotId);
+                        
+                        if (autoRepairCorruptedSaves)
+                        {
+                            await RepairCorruptedSaveAsync(slotPath);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error checking save corruption: {ex.Message}");
+                OnSaveCorrupted?.Invoke(Path.GetFileName(slotPath));
+            }
+        }
+
+        private async Task RepairCorruptedSaveAsync(string slotPath)
+        {
+            try
+            {
+                // Try to restore from backup
+                string backupPath = Path.Combine(slotPath, "backup");
+                if (Directory.Exists(backupPath))
+                {
+                    var backupDirs = Directory.GetDirectories(backupPath, "backup_*")
+                        .OrderByDescending(d => d)
+                        .ToArray();
+
+                    foreach (var backupDir in backupDirs)
+                    {
+                        try
+                        {
+                            // Try to restore from this backup
+                            await RestoreFromBackupAsync(slotPath, backupDir);
+                            Debug.Log($"Restored save from backup: {backupDir}");
+                            return;
+                        }
+                        catch
+                        {
+                            // Try next backup
+                            continue;
+                        }
+                    }
+                }
+
+                // If no backup works, create a minimal save
+                await CreateMinimalSaveAsync(slotPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Failed to repair corrupted save: {ex.Message}");
+            }
+        }
+
+        private async Task RestoreFromBackupAsync(string slotPath, string backupPath)
+        {
+            // Copy backup files to main slot
+            foreach (string file in Directory.GetFiles(backupPath))
+            {
+                string fileName = Path.GetFileName(file);
+                string destPath = Path.Combine(slotPath, fileName);
+                await Task.Run(() => File.Copy(file, destPath, true));
+            }
+        }
+
+        private async Task CreateMinimalSaveAsync(string slotPath)
+        {
+            var minimalMetadata = new SaveMetadata
+            {
+                slotId = Path.GetFileName(slotPath),
+                saveVersion = saveVersion,
+                lastSaved = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                playTimeSeconds = 0,
+                isCorrupted = false
+            };
+
+            string json = JsonConvert.SerializeObject(minimalMetadata, Formatting.Indented);
+            string metaPath = Path.Combine(slotPath, "meta.json");
+            await WriteFileWithEncryptionAsync(metaPath, json);
         }
 
         private async Task SaveMetadataAsync(string slotPath)
@@ -404,7 +648,8 @@ namespace SaveSystem
                 slotId = currentSlotId,
                 saveVersion = saveVersion,
                 lastSaved = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                playTimeSeconds = (long)Time.time
+                playTimeSeconds = (long)Time.time,
+                isCorrupted = false
             };
 
             // Get resource data from ResourceManager
@@ -421,10 +666,55 @@ namespace SaveSystem
                 metadata.scenes = WorldStateManager.Instance.GetSceneSummaries();
             }
 
+            // Get character data
+            metadata.characterData = GetCharacterSaveData();
+
+            // Calculate checksum
+            metadata.checksum = CalculateChecksum(metadata);
+
             string json = JsonConvert.SerializeObject(metadata, Formatting.Indented);
             string metaPath = Path.Combine(slotPath, "meta.json");
             
             await WriteFileWithEncryptionAsync(metaPath, json);
+        }
+
+        private CharacterSaveData GetCharacterSaveData()
+        {
+            var characterData = new CharacterSaveData();
+            
+            if (characterTransform != null)
+            {
+                characterData.position = characterTransform.position;
+                characterData.rotation = characterTransform.rotation;
+                characterData.scale = characterTransform.localScale;
+                characterData.isActive = characterTransform.gameObject.activeInHierarchy;
+                characterData.currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            }
+
+            return characterData;
+        }
+
+        private async Task LoadCharacterDataAsync(CharacterSaveData characterData)
+        {
+            if (characterData == null || characterTransform == null) return;
+
+            characterTransform.position = characterData.position;
+            characterTransform.rotation = characterData.rotation;
+            characterTransform.localScale = characterData.scale;
+            characterTransform.gameObject.SetActive(characterData.isActive);
+
+            lastCharacterPosition = characterData.position;
+            lastCharacterRotation = characterData.rotation;
+        }
+
+        private string CalculateChecksum(SaveMetadata metadata)
+        {
+            string json = JsonConvert.SerializeObject(metadata);
+            using (var sha256 = SHA256.Create())
+            {
+                byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(json));
+                return Convert.ToBase64String(hash);
+            }
         }
 
         private async Task<SaveMetadata> LoadMetadataAsync(string slotPath)
@@ -684,6 +974,49 @@ namespace SaveSystem
             }
         }
 
+        private void InitializeEncryption()
+        {
+            switch (encryptionKeySource)
+            {
+                case EncryptionKeySource.Password:
+                    if (string.IsNullOrEmpty(encryptionPassword))
+                    {
+                        Debug.LogError("Encryption password is required when using Password key source");
+                        return;
+                    }
+                    // Generate key from password using PBKDF2
+                    var salt = new byte[32];
+                    using (var rng = RandomNumberGenerator.Create())
+                    {
+                        rng.GetBytes(salt);
+                    }
+                    using (var pbkdf2 = new Rfc2898DeriveBytes(encryptionPassword, salt, 100000, HashAlgorithmName.SHA256))
+                    {
+                        encryptionKey = pbkdf2.GetBytes(32);
+                    }
+                    break;
+
+                case EncryptionKeySource.Generated:
+                    encryptionKey = new byte[32];
+                    using (var rng = RandomNumberGenerator.Create())
+                    {
+                        rng.GetBytes(encryptionKey);
+                    }
+                    break;
+
+                case EncryptionKeySource.AndroidKeyStore:
+                    // Note: This would require a native plugin for Android KeyStore
+                    // For now, fall back to generated key
+                    Debug.LogWarning("AndroidKeyStore encryption requires native plugin - falling back to generated key");
+                    encryptionKey = new byte[32];
+                    using (var rng = RandomNumberGenerator.Create())
+                    {
+                        rng.GetBytes(encryptionKey);
+                    }
+                    break;
+            }
+        }
+
         private void CopyDirectory(string sourceDir, string destDir, string[] excludeDirs)
         {
             Directory.CreateDirectory(destDir);
@@ -732,6 +1065,21 @@ namespace SaveSystem
                 Directory.CreateDirectory(saveRootPath);
                 Debug.Log("All saves cleared");
             }
+        }
+
+        [ContextMenu("Force Save Now")]
+        public void ForceSaveNow()
+        {
+            if (!string.IsNullOrEmpty(currentSlotId))
+            {
+                _ = ForceSaveAsync(currentSlotId);
+            }
+        }
+
+        [ContextMenu("Test Crash Recovery")]
+        public void TestCrashRecovery()
+        {
+            OnCrashDetected?.Invoke("test_crash");
         }
     }
 

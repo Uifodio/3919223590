@@ -103,6 +103,7 @@ namespace SaveSystem
         private Dictionary<string, ProducerState> producerStates = new Dictionary<string, ProducerState>();
         private List<SaveableEntity> allSaveableEntities = new List<SaveableEntity>();
         private List<SaveableEntity> brokenObjects = new List<SaveableEntity>();
+        private SaveableEntity characterEntity;
         private double lastSaveTime;
         private float lastSimulationUpdate;
 
@@ -292,6 +293,17 @@ namespace SaveSystem
             {
                 spawnablePrefabs[prefabId] = prefab;
             }
+        }
+
+        public void RegisterCharacter(SaveableEntity character)
+        {
+            characterEntity = character;
+            Debug.Log($"Character registered: {character.PersistentId}");
+        }
+
+        public SaveableEntity GetCharacter()
+        {
+            return characterEntity;
         }
 
         public IEnumerable<BrokenObjectInfo> GetBrokenObjects()

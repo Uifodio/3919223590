@@ -12,7 +12,9 @@ namespace SaveSystem
         Float,
         Bool,
         String,
-        Vector3
+        Vector3,
+        Quaternion,
+        Color
     }
 
     [System.Serializable]
@@ -62,6 +64,10 @@ namespace SaveSystem
                         return value;
                     case CustomFieldType.Vector3:
                         return JsonUtility.FromJson<Vector3>(value);
+                    case CustomFieldType.Quaternion:
+                        return JsonUtility.FromJson<Quaternion>(value);
+                    case CustomFieldType.Color:
+                        return JsonUtility.FromJson<Color>(value);
                     default:
                         return value;
                 }
@@ -80,6 +86,8 @@ namespace SaveSystem
             switch (type)
             {
                 case CustomFieldType.Vector3:
+                case CustomFieldType.Quaternion:
+                case CustomFieldType.Color:
                     return JsonUtility.ToJson(value);
                 default:
                     return value.ToString();
@@ -102,6 +110,10 @@ namespace SaveSystem
                     return "";
                 case CustomFieldType.Vector3:
                     return Vector3.zero;
+                case CustomFieldType.Quaternion:
+                    return Quaternion.identity;
+                case CustomFieldType.Color:
+                    return Color.white;
                 default:
                     return null;
             }
@@ -120,7 +132,9 @@ namespace SaveSystem
         public Dictionary<string, object> customFields = new Dictionary<string, object>();
         public bool isBroken = false;
         public bool isDestroyed = false;
-        public int version = 1;
+        public int version = 2;
+        public string sceneName;
+        public float lastUpdateTime;
     }
 
     public class SaveableEntity : MonoBehaviour
@@ -137,6 +151,12 @@ namespace SaveSystem
         [SerializeField] private bool saveActiveState = true;
         [SerializeField] private bool saveCustomFields = true;
 
+        [Header("Character Tracking")]
+        [SerializeField] private bool isCharacter = false;
+        [SerializeField] private bool trackMovement = true;
+        [SerializeField] private float movementThreshold = 0.1f;
+        [SerializeField] private float rotationThreshold = 1f;
+
         [Header("Custom Fields")]
         [SerializeField] private List<CustomField> customFields = new List<CustomField>();
 
@@ -146,6 +166,7 @@ namespace SaveSystem
 
         // Events
         public event Action OnPersistedChanged;
+        public event Action OnStateChanged;
 
         // Private fields
         private Dictionary<string, object> runtimeCustomFields = new Dictionary<string, object>();
@@ -154,12 +175,16 @@ namespace SaveSystem
         private Vector3 originalScale;
         private bool originalActiveState;
         private bool hasBeenInitialized = false;
+        private Vector3 lastSavedPosition;
+        private Quaternion lastSavedRotation;
+        private float lastUpdateTime = 0f;
 
         // Properties
         public string PersistentId => persistentId;
         public string PrefabId => prefabId;
         public bool IsBroken => isBroken;
         public bool IsDestroyed => isDestroyed;
+        public bool IsCharacter => isCharacter;
 
         private void Awake()
         {
@@ -171,6 +196,38 @@ namespace SaveSystem
             if (!hasBeenInitialized)
             {
                 InitializeEntity();
+            }
+
+            // Register with WorldStateManager if it's a character
+            if (isCharacter && WorldStateManager.Instance != null)
+            {
+                WorldStateManager.Instance.RegisterCharacter(this);
+            }
+        }
+
+        private void Update()
+        {
+            // Track movement for characters
+            if (isCharacter && trackMovement)
+            {
+                CheckForMovement();
+            }
+        }
+
+        private void CheckForMovement()
+        {
+            if (Vector3.Distance(transform.position, lastSavedPosition) > movementThreshold ||
+                Quaternion.Angle(transform.rotation, lastSavedRotation) > rotationThreshold)
+            {
+                // Mark as dirty for save
+                if (SaveManager.Instance != null)
+                {
+                    SaveManager.Instance.MarkDirty(SaveCategory.CharacterData);
+                }
+                
+                lastSavedPosition = transform.position;
+                lastSavedRotation = transform.rotation;
+                lastUpdateTime = Time.time;
             }
         }
 
@@ -196,6 +253,11 @@ namespace SaveSystem
 
             // Initialize custom fields
             InitializeCustomFields();
+
+            // Set initial tracking values
+            lastSavedPosition = transform.position;
+            lastSavedRotation = transform.rotation;
+            lastUpdateTime = Time.time;
 
             hasBeenInitialized = true;
         }
@@ -231,7 +293,9 @@ namespace SaveSystem
             {
                 persistentId = persistentId,
                 prefabId = prefabId,
-                version = 1
+                version = 2,
+                sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
+                lastUpdateTime = Time.time
             };
 
             // Save transform data
@@ -302,10 +366,16 @@ namespace SaveSystem
             isBroken = data.isBroken;
             isDestroyed = data.isDestroyed;
 
+            // Update tracking values
+            lastSavedPosition = transform.position;
+            lastSavedRotation = transform.rotation;
+            lastUpdateTime = data.lastUpdateTime;
+
             // Update visual state
             UpdateVisualState();
 
             OnPersistedChanged?.Invoke();
+            OnStateChanged?.Invoke();
         }
 
         public void MarkBroken()
@@ -315,6 +385,7 @@ namespace SaveSystem
                 isBroken = true;
                 UpdateVisualState();
                 OnPersistedChanged?.Invoke();
+                OnStateChanged?.Invoke();
                 
                 // Mark save system as dirty
                 if (SaveManager.Instance != null)
@@ -331,6 +402,7 @@ namespace SaveSystem
                 isDestroyed = true;
                 UpdateVisualState();
                 OnPersistedChanged?.Invoke();
+                OnStateChanged?.Invoke();
                 
                 // Mark save system as dirty
                 if (SaveManager.Instance != null)
@@ -348,6 +420,7 @@ namespace SaveSystem
                 isDestroyed = false;
                 UpdateVisualState();
                 OnPersistedChanged?.Invoke();
+                OnStateChanged?.Invoke();
                 
                 // Mark save system as dirty
                 if (SaveManager.Instance != null)
@@ -460,6 +533,15 @@ namespace SaveSystem
             isDestroyed = false;
             UpdateVisualState();
             OnPersistedChanged?.Invoke();
+            OnStateChanged?.Invoke();
+        }
+
+        public void ForceUpdate()
+        {
+            // Force an update of tracking values
+            lastSavedPosition = transform.position;
+            lastSavedRotation = transform.rotation;
+            lastUpdateTime = Time.time;
         }
 
         // Editor helper methods
@@ -514,6 +596,12 @@ namespace SaveSystem
         {
             var saveData = Serialize();
             Debug.Log($"SaveableEntity {gameObject.name} Save Data:\n{JsonUtility.ToJson(saveData, true)}");
+        }
+
+        [ContextMenu("Force Update Position")]
+        public void ForceUpdatePosition()
+        {
+            ForceUpdate();
         }
         #endif
     }

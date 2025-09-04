@@ -21,25 +21,49 @@ namespace SaveSystem
         public ResourceCategory category;
     }
 
+    [System.Serializable]
+    public class ResourceTransaction
+    {
+        public string resourceId;
+        public long amount;
+        public long previousAmount;
+        public long newAmount;
+        public DateTime timestamp;
+        public string reason;
+    }
+
     public class ResourceManager : MonoBehaviour
     {
         [Header("Configuration")]
         [SerializeField] private ResourceCatalog resourceCatalog;
         [SerializeField] private List<string> topBarResourceIds = new List<string>();
-        [SerializeField] private float autosaveOnChangeThrottleMs = 1000f;
+        [SerializeField] private float autosaveOnChangeThrottleMs = 500f; // Faster throttling
+
+        [Header("Professional Features")]
+        [SerializeField] private bool enableTransactionLogging = true;
+        [SerializeField] private int maxTransactionHistory = 1000;
+        [SerializeField] private bool enableResourceValidation = true;
+        [SerializeField] private bool enableResourceLimits = true;
+        [SerializeField] private bool enableResourceDecay = false;
+        [SerializeField] private float decayIntervalSeconds = 60f;
 
         [Header("Debug")]
         [SerializeField] private bool logResourceChanges = false;
+        [SerializeField] private bool showResourceDebugUI = false;
 
         public static ResourceManager Instance { get; private set; }
 
         // Events
         public event Action<string, long> OnResourceChanged;
+        public event Action<ResourceTransaction> OnResourceTransaction;
+        public event Action<string, long, long> OnResourceLimitReached; // resourceId, current, limit
 
         // Private fields
         private Dictionary<string, long> resourceAmounts = new Dictionary<string, long>();
         private Dictionary<string, float> lastChangeTime = new Dictionary<string, float>();
+        private List<ResourceTransaction> transactionHistory = new List<ResourceTransaction>();
         private bool isInitialized = false;
+        private float lastDecayTime = 0f;
 
         private void Awake()
         {
@@ -65,6 +89,16 @@ namespace SaveSystem
 
             // Load top bar resource IDs from catalog
             LoadTopBarResourcesFromCatalog();
+        }
+
+        private void Update()
+        {
+            // Handle resource decay
+            if (enableResourceDecay && Time.time - lastDecayTime >= decayIntervalSeconds)
+            {
+                ProcessResourceDecay();
+                lastDecayTime = Time.time;
+            }
         }
 
         private void InitializeResources()
@@ -100,7 +134,7 @@ namespace SaveSystem
             }
         }
 
-        public void AddResource(string id, long amount)
+        public void AddResource(string id, long amount, string reason = "Unknown")
         {
             if (amount <= 0)
             {
@@ -115,18 +149,25 @@ namespace SaveSystem
             }
 
             var resourceDef = resourceCatalog.GetResource(id);
-            long newAmount = resourceAmounts.GetValueOrDefault(id, 0) + amount;
+            long previousAmount = resourceAmounts.GetValueOrDefault(id, 0);
+            long newAmount = previousAmount + amount;
             
-            // Clamp to max amount if specified
-            if (resourceDef != null)
+            // Apply limits if enabled
+            if (enableResourceLimits && resourceDef != null)
             {
                 newAmount = resourceDef.ClampAmount(newAmount);
+                
+                // Check if limit was reached
+                if (newAmount >= resourceDef.MaxAmount)
+                {
+                    OnResourceLimitReached?.Invoke(id, newAmount, resourceDef.MaxAmount);
+                }
             }
 
-            SetResourceAmount(id, newAmount);
+            SetResourceAmount(id, newAmount, reason, previousAmount);
         }
 
-        public bool TryRemoveResource(string id, long amount)
+        public bool TryRemoveResource(string id, long amount, string reason = "Unknown")
         {
             if (amount <= 0)
             {
@@ -155,7 +196,7 @@ namespace SaveSystem
                 newAmount = Math.Max(0, newAmount);
             }
 
-            SetResourceAmount(id, newAmount);
+            SetResourceAmount(id, newAmount, reason, currentAmount);
             return true;
         }
 
@@ -306,7 +347,7 @@ namespace SaveSystem
             return resourceCatalog?.GetResourcesByCategory(category) ?? new List<ResourceDefinition>();
         }
 
-        private void SetResourceAmount(string id, long amount)
+        private void SetResourceAmount(string id, long amount, string reason, long previousAmount)
         {
             if (!IsValidResource(id))
             {
@@ -328,6 +369,30 @@ namespace SaveSystem
                 if (logResourceChanges)
                 {
                     Debug.Log($"Resource '{id}' changed from {oldAmount} to {amount} (delta: {amount - oldAmount})");
+                }
+
+                // Log transaction
+                if (enableTransactionLogging)
+                {
+                    var transaction = new ResourceTransaction
+                    {
+                        resourceId = id,
+                        amount = amount - oldAmount,
+                        previousAmount = oldAmount,
+                        newAmount = amount,
+                        timestamp = DateTime.UtcNow,
+                        reason = reason
+                    };
+                    
+                    transactionHistory.Add(transaction);
+                    
+                    // Limit transaction history
+                    if (transactionHistory.Count > maxTransactionHistory)
+                    {
+                        transactionHistory.RemoveAt(0);
+                    }
+                    
+                    OnResourceTransaction?.Invoke(transaction);
                 }
 
                 OnResourceChanged?.Invoke(id, amount);
@@ -352,6 +417,27 @@ namespace SaveSystem
             }
         }
 
+        private void ProcessResourceDecay()
+        {
+            if (resourceCatalog == null) return;
+
+            foreach (var resourceDef in resourceCatalog.GetAllResources())
+            {
+                if (resourceDef.DecayRate > 0)
+                {
+                    long currentAmount = GetResourceAmount(resourceDef.Id);
+                    if (currentAmount > 0)
+                    {
+                        long decayAmount = (long)(currentAmount * resourceDef.DecayRate);
+                        if (decayAmount > 0)
+                        {
+                            TryRemoveResource(resourceDef.Id, decayAmount, "Decay");
+                        }
+                    }
+                }
+            }
+        }
+
         // Utility methods
         public bool HasEnoughResources(string id, long amount)
         {
@@ -370,7 +456,7 @@ namespace SaveSystem
             return true;
         }
 
-        public bool TrySpendResources(Dictionary<string, long> costs)
+        public bool TrySpendResources(Dictionary<string, long> costs, string reason = "Purchase")
         {
             // First check if we have enough
             if (!HasEnoughResources(costs))
@@ -381,7 +467,7 @@ namespace SaveSystem
             // Then spend them
             foreach (var kvp in costs)
             {
-                if (!TryRemoveResource(kvp.Key, kvp.Value))
+                if (!TryRemoveResource(kvp.Key, kvp.Value, reason))
                 {
                     return false;
                 }
@@ -395,6 +481,23 @@ namespace SaveSystem
             // This would typically come from a separate upgrade system
             // For now, return empty dictionary
             return new Dictionary<string, long>();
+        }
+
+        public List<ResourceTransaction> GetTransactionHistory(string resourceId = null, int limit = 100)
+        {
+            var transactions = transactionHistory.AsEnumerable();
+            
+            if (!string.IsNullOrEmpty(resourceId))
+            {
+                transactions = transactions.Where(t => t.resourceId == resourceId);
+            }
+            
+            return transactions.TakeLast(limit).ToList();
+        }
+
+        public void ClearTransactionHistory()
+        {
+            transactionHistory.Clear();
         }
 
         // Debug methods
@@ -430,7 +533,7 @@ namespace SaveSystem
             {
                 if (IsValidResource(kvp.Key))
                 {
-                    AddResource(kvp.Key, kvp.Value);
+                    AddResource(kvp.Key, kvp.Value, "Test");
                 }
             }
         }
@@ -445,12 +548,23 @@ namespace SaveSystem
             }
 
             resourceAmounts.Clear();
+            transactionHistory.Clear();
             InitializeResources();
             
             // Notify all changes
             foreach (var kvp in resourceAmounts)
             {
                 OnResourceChanged?.Invoke(kvp.Key, kvp.Value);
+            }
+        }
+
+        [ContextMenu("Log Transaction History")]
+        public void LogTransactionHistory()
+        {
+            Debug.Log("=== Transaction History ===");
+            foreach (var transaction in transactionHistory.TakeLast(10))
+            {
+                Debug.Log($"{transaction.timestamp:HH:mm:ss} - {transaction.resourceId}: {transaction.previousAmount} -> {transaction.newAmount} ({transaction.amount:+0;-0}) - {transaction.reason}");
             }
         }
 
@@ -461,6 +575,24 @@ namespace SaveSystem
             if (resourceCatalog != null && Application.isPlaying)
             {
                 LoadTopBarResourcesFromCatalog();
+            }
+        }
+
+        private void OnGUI()
+        {
+            if (showResourceDebugUI && Application.isPlaying)
+            {
+                GUILayout.BeginArea(new Rect(10, 10, 300, 200));
+                GUILayout.Label("Resource Debug UI", EditorStyles.boldLabel);
+                
+                foreach (var kvp in resourceAmounts.Take(5))
+                {
+                    var resourceDef = resourceCatalog?.GetResource(kvp.Key);
+                    string displayName = resourceDef?.DisplayName ?? kvp.Key;
+                    GUILayout.Label($"{displayName}: {kvp.Value}");
+                }
+                
+                GUILayout.EndArea();
             }
         }
         #endif
