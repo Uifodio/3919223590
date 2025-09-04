@@ -85,6 +85,62 @@ namespace SaveSystem
         public Dictionary<string, object> customData = new Dictionary<string, object>();
     }
 
+    [System.Serializable]
+    public class GlobalSaveData
+    {
+        public ResourceSnapshot resources;
+        public WorldStateSaveData worldState;
+    }
+
+    [System.Serializable]
+    public class SceneSaveData
+    {
+        public string sceneName;
+        public List<SaveableEntityData> spawnables = new List<SaveableEntityData>();
+        public List<string> broken = new List<string>();
+        public Dictionary<string, bool> triggers = new Dictionary<string, bool>();
+        public List<ProducerState> producers = new List<ProducerState>();
+    }
+
+    [System.Serializable]
+    public class WorldStateSaveData
+    {
+        public List<BrokenObjectInfo> brokenObjects = new List<BrokenObjectInfo>();
+        public Dictionary<string, bool> triggers = new Dictionary<string, bool>();
+        public List<ProducerState> producers = new List<ProducerState>();
+    }
+
+    [System.Serializable]
+    public class SaveableEntityData
+    {
+        public string persistentId;
+        public string prefabId;
+        public Vector3 position;
+        public Quaternion rotation;
+        public Vector3 scale;
+        public bool active;
+        public Dictionary<string, object> customFields = new Dictionary<string, object>();
+    }
+
+    [System.Serializable]
+    public class BrokenObjectInfo
+    {
+        public string persistentId;
+        public string prefabId;
+        public bool isDestroyed;
+        public Dictionary<string, object> customFields = new Dictionary<string, object>();
+    }
+
+    [System.Serializable]
+    public class ProducerState
+    {
+        public string id;
+        public double lastUpdateTime;
+        public long currentOutput;
+        public int workerCount;
+        public bool isActive;
+    }
+
     public class SaveManager : MonoBehaviour
     {
         [Header("Save Configuration")]
@@ -93,7 +149,7 @@ namespace SaveSystem
         [SerializeField] private bool enableEncryption = false;
         [SerializeField] private EncryptionKeySource encryptionKeySource = EncryptionKeySource.None;
         [SerializeField] private string encryptionPassword = "";
-        [SerializeField] private float autosaveIntervalSeconds = 5f; // More frequent autosave
+        [SerializeField] private float autosaveIntervalSeconds = 5f;
         [SerializeField] private bool saveOnPause = true;
         [SerializeField] private bool saveOnFocusLoss = true;
         [SerializeField] private bool saveOneFilePerScene = true;
@@ -1081,60 +1137,5 @@ namespace SaveSystem
         {
             OnCrashDetected?.Invoke("test_crash");
         }
-    }
-
-    // Data transfer objects
-    [System.Serializable]
-    public class GlobalSaveData
-    {
-        public ResourceSnapshot resources;
-        public WorldStateSaveData worldState;
-    }
-
-    [System.Serializable]
-    public class SceneSaveData
-    {
-        public string sceneName;
-        public List<SaveableEntityData> spawnables = new List<SaveableEntityData>();
-        public List<string> broken = new List<string>();
-        public Dictionary<string, bool> triggers = new Dictionary<string, bool>();
-    }
-
-    [System.Serializable]
-    public class WorldStateSaveData
-    {
-        public List<BrokenObjectInfo> brokenObjects = new List<BrokenObjectInfo>();
-        public Dictionary<string, bool> triggers = new Dictionary<string, bool>();
-        public List<ProducerState> producers = new List<ProducerState>();
-    }
-
-    [System.Serializable]
-    public class SaveableEntityData
-    {
-        public string persistentId;
-        public string prefabId;
-        public Vector3 position;
-        public Quaternion rotation;
-        public Vector3 scale;
-        public bool active;
-        public Dictionary<string, object> customFields = new Dictionary<string, object>();
-    }
-
-    [System.Serializable]
-    public class BrokenObjectInfo
-    {
-        public string persistentId;
-        public string prefabId;
-        public bool isDestroyed;
-        public Dictionary<string, object> customFields = new Dictionary<string, object>();
-    }
-
-    [System.Serializable]
-    public class ProducerState
-    {
-        public string id;
-        public double lastUpdateTime;
-        public long currentOutput;
-        public int workerCount;
     }
 }

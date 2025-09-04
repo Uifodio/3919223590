@@ -18,7 +18,7 @@ namespace SaveSystem
         [Header("Behavior")]
         [SerializeField] private bool isPassive = true;
         [SerializeField] private int workerCount = 1;
-        [SerializeField] private float decayRate = 0f; // Optional decay over time
+        [SerializeField] private float decayRate = 0f;
 
         public string Id => id;
         public string OutputResourceId => outputResourceId;
@@ -47,34 +47,6 @@ namespace SaveSystem
         {
             id = Guid.NewGuid().ToString();
         }
-    }
-
-    [System.Serializable]
-    public class ProducerState
-    {
-        public string id;
-        public double lastUpdateTime;
-        public long currentOutput;
-        public int workerCount;
-        public bool isActive;
-    }
-
-    [System.Serializable]
-    public class SceneSaveData
-    {
-        public string sceneName;
-        public List<SaveableEntityData> spawnables = new List<SaveableEntityData>();
-        public List<string> broken = new List<string>();
-        public Dictionary<string, bool> triggers = new Dictionary<string, bool>();
-        public List<ProducerState> producers = new List<ProducerState>();
-    }
-
-    [System.Serializable]
-    public class WorldStateSaveData
-    {
-        public List<BrokenObjectInfo> brokenObjects = new List<BrokenObjectInfo>();
-        public Dictionary<string, bool> triggers = new Dictionary<string, bool>();
-        public List<ProducerState> producers = new List<ProducerState>();
     }
 
     public class WorldStateManager : MonoBehaviour
@@ -181,7 +153,7 @@ namespace SaveSystem
             }
         }
 
-        private void RefreshSaveableEntities()
+        public void RefreshSaveableEntities()
         {
             allSaveableEntities.Clear();
             brokenObjects.Clear();
@@ -545,7 +517,7 @@ namespace SaveSystem
 
         // Debug methods
         [ContextMenu("Refresh Saveable Entities")]
-        public void RefreshSaveableEntities()
+        public void RefreshSaveableEntitiesDebug()
         {
             RefreshSaveableEntities();
         }

@@ -544,6 +544,15 @@ namespace SaveSystem
             lastUpdateTime = Time.time;
         }
 
+        public void SetCharacter(bool isChar)
+        {
+            isCharacter = isChar;
+            if (isCharacter && WorldStateManager.Instance != null)
+            {
+                WorldStateManager.Instance.RegisterCharacter(this);
+            }
+        }
+
         // Editor helper methods
         #if UNITY_EDITOR
         private void OnValidate()

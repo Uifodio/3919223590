@@ -6,22 +6,6 @@ using UnityEngine;
 namespace SaveSystem
 {
     [System.Serializable]
-    public class ResourceSnapshot
-    {
-        public Dictionary<string, long> resources = new Dictionary<string, long>();
-        public List<ResourceSummary> topResources = new List<ResourceSummary>();
-    }
-
-    [System.Serializable]
-    public class ResourceSummary
-    {
-        public string id;
-        public long amount;
-        public string displayName;
-        public ResourceCategory category;
-    }
-
-    [System.Serializable]
     public class ResourceTransaction
     {
         public string resourceId;
@@ -37,7 +21,7 @@ namespace SaveSystem
         [Header("Configuration")]
         [SerializeField] private ResourceCatalog resourceCatalog;
         [SerializeField] private List<string> topBarResourceIds = new List<string>();
-        [SerializeField] private float autosaveOnChangeThrottleMs = 500f; // Faster throttling
+        [SerializeField] private float autosaveOnChangeThrottleMs = 500f;
 
         [Header("Professional Features")]
         [SerializeField] private bool enableTransactionLogging = true;
@@ -56,7 +40,7 @@ namespace SaveSystem
         // Events
         public event Action<string, long> OnResourceChanged;
         public event Action<ResourceTransaction> OnResourceTransaction;
-        public event Action<string, long, long> OnResourceLimitReached; // resourceId, current, limit
+        public event Action<string, long, long> OnResourceLimitReached;
 
         // Private fields
         private Dictionary<string, long> resourceAmounts = new Dictionary<string, long>();
@@ -246,12 +230,10 @@ namespace SaveSystem
             {
                 if (snapshot.resources.ContainsKey(resource.Id))
                 {
-                    snapshot.topResources.Add(new ResourceSummary
+                    snapshot.topResources.Add(new ResourceSnapshot
                     {
                         id = resource.Id,
-                        amount = snapshot.resources[resource.Id],
-                        displayName = resource.DisplayName,
-                        category = resource.Category
+                        amount = snapshot.resources[resource.Id]
                     });
                 }
             }
@@ -423,18 +405,9 @@ namespace SaveSystem
 
             foreach (var resourceDef in resourceCatalog.GetAllResources())
             {
-                if (resourceDef.DecayRate > 0)
-                {
-                    long currentAmount = GetResourceAmount(resourceDef.Id);
-                    if (currentAmount > 0)
-                    {
-                        long decayAmount = (long)(currentAmount * resourceDef.DecayRate);
-                        if (decayAmount > 0)
-                        {
-                            TryRemoveResource(resourceDef.Id, decayAmount, "Decay");
-                        }
-                    }
-                }
+                // Check if resource has decay rate (this would need to be added to ResourceDefinition)
+                // For now, skip decay processing
+                continue;
             }
         }
 
@@ -474,13 +447,6 @@ namespace SaveSystem
             }
 
             return true;
-        }
-
-        public Dictionary<string, long> GetResourceCostsForUpgrade(string upgradeId)
-        {
-            // This would typically come from a separate upgrade system
-            // For now, return empty dictionary
-            return new Dictionary<string, long>();
         }
 
         public List<ResourceTransaction> GetTransactionHistory(string resourceId = null, int limit = 100)
@@ -585,11 +551,13 @@ namespace SaveSystem
                 GUILayout.BeginArea(new Rect(10, 10, 300, 200));
                 GUILayout.Label("Resource Debug UI", EditorStyles.boldLabel);
                 
-                foreach (var kvp in resourceAmounts.Take(5))
+                if (ResourceManager.Instance != null)
                 {
-                    var resourceDef = resourceCatalog?.GetResource(kvp.Key);
-                    string displayName = resourceDef?.DisplayName ?? kvp.Key;
-                    GUILayout.Label($"{displayName}: {kvp.Value}");
+                    var snapshot = ResourceManager.Instance.GetSnapshot();
+                    foreach (var resource in snapshot.topResources.Take(5))
+                    {
+                        GUILayout.Label($"{resource.id}: {resource.amount}");
+                    }
                 }
                 
                 GUILayout.EndArea();

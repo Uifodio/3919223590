@@ -154,12 +154,7 @@ namespace SaveSystem
             
             // Add SaveableEntity with character settings
             SaveableEntity saveable = character.AddComponent<SaveableEntity>();
-            // Set as character through reflection
-            #if UNITY_EDITOR
-            var field = typeof(SaveableEntity).GetField("isCharacter", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            field?.SetValue(saveable, true);
-            #endif
+            saveable.SetCharacter(true);
 
             Debug.Log("✓ Created sample character with SaveableEntity");
         }

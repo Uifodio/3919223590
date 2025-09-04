@@ -393,11 +393,7 @@ namespace SaveSystem
         // Helper method to set character flag
         private void SetCharacter(SaveableEntity entity, bool isCharacter)
         {
-            #if UNITY_EDITOR
-            var field = typeof(SaveableEntity).GetField("isCharacter", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            field?.SetValue(entity, isCharacter);
-            #endif
+            entity.SetCharacter(isCharacter);
         }
     }
 }
