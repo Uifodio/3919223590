@@ -1,0 +1,17 @@
+PyQt6
+PyQt6-WebEngine
+flask
+flask-cors
+werkzeug
+pillow
+opencv-python
+python-magic
+pyinstaller
+psutil
+requests
+aiohttp
+watchdog
+qrcode
+cryptography
+bcrypt
+python-dotenv
