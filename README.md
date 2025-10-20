@@ -1,153 +1,258 @@
 # Modern Server Administrator
 
-A professional, modern web server management tool with a sleek dark theme interface. This application allows you to easily manage multiple local web servers without using the terminal.
+A professional, bulletproof server management tool with GitHub-themed dark UI, full PHP support, file management, and standalone EXE build capability.
 
-## Features
+## 🚀 Features
 
-### 🚀 Server Management
-- **Multiple Server Support**: Run up to 10 servers simultaneously
-- **Port Assignment**: Assign custom ports to each server
-- **Server Types**: Support for HTTP, HTTPS, PHP, and Node.js servers
-- **Real-time Status**: Live status monitoring for all servers
-- **One-click Start/Stop**: Easy server control with modern UI
+### Server Management
+- **Multiple Servers**: Run up to 10 servers simultaneously
+- **Port Assignment**: Custom ports with conflict detection
+- **Server Types**: HTTP, PHP, Node.js support
+- **Real-time Status**: Live monitoring with status badges
+- **One-click Control**: Start/stop servers with professional buttons
 
-### 📊 Professional Logging
-- **Real-time Logs**: View detailed logs for each server
-- **Log Export**: Copy logs to clipboard for sharing
-- **Professional Display**: Clean, formatted log viewer
-- **Error Highlighting**: Easy identification of issues
+### Professional Logging
+- **Real-time Logs**: Detailed logs in sleek modal windows
+- **Log Export**: Copy logs to clipboard
+- **Error Highlighting**: Color-coded log messages
+- **Professional Display**: Monospace font with timestamps
 
-### 📁 File Management
+### File Management
 - **File Browser**: Browse and manage website files
 - **Upload Support**: Drag-and-drop file uploads
 - **Video Support**: Special handling for video files
 - **File Operations**: Delete, view, and organize files
-- **Size Display**: File size and modification date info
+- **Size & Date Info**: Display file sizes and modification dates
 
-### 🎨 Modern Interface
-- **Dark Theme**: Professional dark UI design
-- **Responsive Layout**: Adapts to different screen sizes
-- **Intuitive Controls**: Easy-to-use interface
-- **Status Indicators**: Visual feedback for all operations
-- **Professional Styling**: Modern, clean design
+### GitHub-Themed UI
+- **Dark Theme**: Professional GitHub-inspired dark interface
+- **Modern Design**: Beautiful cards with glassmorphism effects
+- **Responsive Layout**: Works perfectly on all screen sizes
+- **Smooth Animations**: Subtle hover effects and transitions
 
-### 🔒 Security Features
-- **Port Validation**: Prevents port conflicts
-- **File Type Validation**: Secure file uploads
-- **Error Handling**: Comprehensive error management
-- **Process Management**: Safe server process handling
+### PHP Support
+- **Auto-Detection**: Automatically detects PHP installation
+- **Auto-Installation**: Windows auto-installer for PHP
+- **Full Support**: Complete PHP built-in server implementation
+- **Error Handling**: Proper PHP error logging and display
 
-## Installation
+### Standalone EXE
+- **Windows EXE**: Build standalone executable
+- **Auto-Installer**: Professional installation script
+- **No Dependencies**: Runs without Python installation
+- **Portable**: Can run from any location
 
-1. **Clone or download** this repository
-2. **Install Python dependencies**:
+## 🛠️ Installation
+
+### Quick Start (Windows)
+1. **Download** the application files
+2. **Run** `start.bat` to start the application
+3. **Open** your browser to `http://localhost:5000`
+
+### Manual Installation
+1. **Install Python 3.7+** from [python.org](https://python.org)
+2. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 3. **Run the application**:
    ```bash
-   python main.py
+   python web_server_admin.py
    ```
 
-## Usage
+### Build Standalone EXE (Windows)
+1. **Install build dependencies**:
+   ```bash
+   pip install pyinstaller
+   ```
+2. **Build EXE**:
+   ```bash
+   python build_exe.py
+   ```
+3. **Install application**:
+   ```bash
+   install.bat
+   ```
+
+## 🎯 Usage
 
 ### Starting a Server
-1. Click **"Browse"** to select your website folder
-2. Enter a **port number** (default: 8000)
-3. Select **server type** (HTTP, HTTPS, PHP, Node.js)
-4. Click **"➕ Add Server"** to start
+1. **Select Folder**: Click "Browse" to select your website folder
+2. **Set Port**: Enter port number (1000-65535)
+3. **Choose Type**: Select HTTP, PHP, or Node.js
+4. **Add Server**: Click "Add Server"
 
 ### Managing Servers
 - **View Logs**: Double-click any server to view detailed logs
-- **Stop Server**: Use the stop button in the log viewer
-- **Open in Browser**: Click the browser button to open your site
-- **Monitor Status**: Real-time status updates in the server list
+- **Open Browser**: Click "Open Browser" to view your website
+- **Stop Server**: Click "Stop Server" to stop the server
 
 ### File Management
-- **Upload Files**: Use the upload buttons to add files
+- **Upload Files**: Use upload buttons to add files
 - **Upload Videos**: Special video upload with format validation
 - **Delete Files**: Select and delete unwanted files
-- **Open Files**: Double-click to open files in default application
+- **Browse Files**: View all files in your website folder
 
-### System Information
-- Click **"📊 System Info"** to view system details
-- Monitor active servers and system resources
-- View Python and OS information
+### PHP Support
+- **Auto-Detection**: Application automatically detects PHP
+- **Auto-Installation**: Use "Install PHP" button for Windows
+- **Full Support**: Complete PHP server functionality
 
-## Supported Server Types
+## 🔧 System Requirements
 
-- **HTTP**: Python's built-in HTTP server
-- **HTTPS**: Secure HTTP server (requires SSL certificates)
-- **PHP**: PHP built-in development server
-- **Node.js**: Node.js HTTP server (requires Node.js installation)
+- **Python 3.7+** (for source version)
+- **Operating System**: Windows 10/11, macOS, or Linux
+- **Memory**: 4GB RAM minimum
+- **Disk Space**: 100MB for application + space for websites
+- **Browser**: Modern web browser (Chrome, Firefox, Safari, Edge)
 
-## System Requirements
+## 📁 Project Structure
 
-- **Python 3.7+**
-- **Windows 10/11** (primary target)
-- **4GB RAM** minimum
-- **50MB disk space**
+```
+Modern Server Administrator/
+├── web_server_admin.py          # Main Flask application
+├── templates/index.html         # GitHub-themed UI
+├── static/css/style.css         # Professional styling
+├── static/js/app.js            # Interactive functionality
+├── requirements.txt            # Python dependencies
+├── build_exe.py               # EXE build script
+├── start.bat                  # Windows startup script
+├── install.bat                # Windows installer
+├── demo.py                    # Demo setup script
+├── test_complete.py           # Comprehensive test suite
+├── demo_website/              # Sample website files
+│   ├── index.html            # HTML demo
+│   ├── index.php             # PHP demo
+│   ├── style.css             # Modern CSS
+│   └── script.js             # Interactive JavaScript
+└── uploads/                   # File upload directory
+```
 
-## Features in Detail
+## 🎨 UI Features
 
-### Server Management
-- Run multiple servers on different ports
-- Automatic port conflict detection
-- Process monitoring and management
-- Graceful server shutdown
+### GitHub Theme
+- **Dark Background**: Professional dark interface
+- **Blue Accents**: GitHub-inspired color scheme
+- **Modern Typography**: Inter font family
+- **Smooth Animations**: Subtle hover effects
 
-### Logging System
-- Real-time log capture
-- Formatted log display
-- Log export functionality
-- Error and warning highlighting
+### Professional Design
+- **Card Layout**: Beautiful server cards
+- **Status Indicators**: Visual feedback for all operations
+- **Responsive Design**: Perfect on all screen sizes
+- **Intuitive Controls**: Easy-to-use interface
 
-### File Operations
-- Secure file uploads
-- File type detection
-- Size and date information
-- Context menu operations
+## 🔒 Security Features
 
-### User Interface
-- Modern dark theme
-- Responsive design
-- Intuitive controls
-- Professional styling
+- **Port Validation**: Prevents port conflicts
+- **File Type Validation**: Secure file uploads
+- **Error Handling**: Comprehensive error management
+- **Process Management**: Safe server process handling
 
-## Troubleshooting
+## 🚀 Advanced Features
+
+### Auto-Installation
+- **PHP Auto-Install**: Windows PHP auto-installer
+- **Dependency Management**: Automatic dependency checking
+- **System Detection**: Automatic system requirement detection
+
+### Professional Logging
+- **Real-time Monitoring**: Live log updates
+- **Error Tracking**: Comprehensive error logging
+- **Export Functionality**: Copy logs to clipboard
+
+### File Management
+- **Multiple Upload**: Support for multiple file uploads
+- **Video Support**: Special video file handling
+- **File Organization**: Easy file management
+
+## 🧪 Testing
+
+Run the comprehensive test suite:
+```bash
+python test_complete.py
+```
+
+Tests include:
+- Import validation
+- File structure verification
+- Web application functionality
+- PHP detection
+- File operations
+- Demo files validation
+- Server startup testing
+
+## 📊 Performance
+
+- **Lightweight**: Minimal memory usage
+- **Fast**: Quick server startup and response
+- **Efficient**: Optimized for performance
+- **Scalable**: Supports multiple servers
+
+## 🎯 Target Users
+
+- **Web Developers**: Easy local server management
+- **Students**: Learning web development
+- **Designers**: Quick website testing
+- **Professionals**: Efficient development workflows
+
+## 🔧 Troubleshooting
 
 ### Common Issues
+
+**Application Won't Start**
+- Verify Python 3.7+ is installed
+- Check if all dependencies are installed
+- Run `python test_complete.py` to diagnose issues
+
+**PHP Servers Won't Work**
+- Use "Install PHP" button in the application
+- Or install PHP manually from [php.net](https://php.net)
 
 **Port Already in Use**
 - Choose a different port number
 - Check if another application is using the port
 
-**Server Won't Start**
-- Verify the folder path is correct
-- Check if Python/PHP is installed
-- Ensure the port is available
-
 **File Upload Fails**
 - Check folder permissions
-- Verify file size limits
+- Verify file type is allowed
 - Ensure sufficient disk space
 
 ### Getting Help
 
-If you encounter issues:
-1. Check the system information panel
-2. Review server logs for error messages
-3. Verify all requirements are installed
-4. Ensure proper folder permissions
+1. **Check System Info**: Click info button in the application
+2. **Review Logs**: Check server logs for error messages
+3. **Run Tests**: Use the test suite to diagnose issues
+4. **Check Dependencies**: Ensure all requirements are installed
 
-## License
+## 📈 Future Enhancements
+
+- **Database Integration**: Support for database management
+- **SSL Certificate Management**: Easy HTTPS setup
+- **Team Collaboration**: Multi-user server management
+- **Plugin System**: Extensible architecture
+- **Mobile App**: Companion mobile application
+- **Cloud Integration**: Deploy to cloud platforms
+
+## 🏆 Success Metrics
+
+- ✅ **All Core Features**: Server management, file operations, logging
+- ✅ **Professional UI**: GitHub-themed dark interface
+- ✅ **Cross-platform**: Works on Windows, Mac, Linux
+- ✅ **Easy Installation**: One-command setup
+- ✅ **Comprehensive Testing**: Full test suite
+- ✅ **Standalone EXE**: Windows executable build
+- ✅ **PHP Support**: Full PHP server support
+- ✅ **File Management**: Complete file operations
+
+## 📄 License
 
 This project is open source and available under the MIT License.
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ---
 
-**Modern Server Administrator** - Making web development easier with a professional, modern interface.
+**Modern Server Administrator** - Professional server management with a GitHub-themed interface that makes web development easier and more enjoyable.

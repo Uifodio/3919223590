@@ -4,12 +4,14 @@ class ServerAdmin {
     constructor() {
         this.currentServer = null;
         this.autoRefreshInterval = null;
+        this.selectedFiles = new Set();
         this.init();
     }
 
     init() {
         this.bindEvents();
         this.loadServers();
+        this.loadFiles();
         this.startAutoRefresh();
         this.checkSystemRequirements();
     }
@@ -20,6 +22,18 @@ class ServerAdmin {
         document.getElementById('addServerBtn').addEventListener('click', () => this.addServer());
         document.getElementById('refreshAllBtn').addEventListener('click', () => this.refreshAll());
         document.getElementById('systemInfoBtn').addEventListener('click', () => this.showSystemInfo());
+        document.getElementById('installPhpBtn').addEventListener('click', () => this.installPHP());
+
+        // File manager events
+        document.getElementById('openFolderBtn').addEventListener('click', () => this.openFolder());
+        document.getElementById('uploadFileBtn').addEventListener('click', () => this.uploadFile());
+        document.getElementById('uploadVideoBtn').addEventListener('click', () => this.uploadVideo());
+        document.getElementById('deleteFileBtn').addEventListener('click', () => this.deleteFile());
+        document.getElementById('refreshFilesBtn').addEventListener('click', () => this.loadFiles());
+
+        // File input events
+        document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileUpload(e, 'file'));
+        document.getElementById('videoInput').addEventListener('change', (e) => this.handleFileUpload(e, 'video'));
 
         // Folder input
         document.getElementById('folderInput').addEventListener('change', (e) => this.handleFolderSelection(e));
@@ -33,6 +47,9 @@ class ServerAdmin {
         document.getElementById('refreshLogsBtn').addEventListener('click', () => this.refreshLogs());
         document.getElementById('copyLogsBtn').addEventListener('click', () => this.copyLogs());
         document.getElementById('openBrowserBtn').addEventListener('click', () => this.openBrowser());
+
+        // File selection
+        document.getElementById('selectAllFiles').addEventListener('change', (e) => this.toggleSelectAll(e.target.checked));
 
         // Click outside modal to close
         window.addEventListener('click', (e) => {
@@ -65,6 +82,28 @@ class ServerAdmin {
             const folderPath = files[0].webkitRelativePath.split('/')[0];
             const fullPath = files[0].path ? files[0].path.split(folderPath)[0] + folderPath : folderPath;
             document.getElementById('folderPath').value = fullPath;
+            this.setFolder(fullPath);
+        }
+    }
+
+    async setFolder(folder) {
+        try {
+            const response = await fetch('/api/set_folder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ folder })
+            });
+            const result = await response.json();
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+                this.loadFiles();
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error setting folder', 'error');
         }
     }
 
@@ -306,8 +345,162 @@ class ServerAdmin {
         }
     }
 
+    async loadFiles() {
+        try {
+            const response = await fetch('/api/files');
+            const data = await response.json();
+            this.renderFiles(data.files);
+        } catch (error) {
+            console.error('Error loading files:', error);
+            this.showNotification('Error loading files', 'error');
+        }
+    }
+
+    renderFiles(files) {
+        const tbody = document.getElementById('fileTableBody');
+        tbody.innerHTML = '';
+
+        if (files.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="empty-state">
+                        <i class="fas fa-folder-open"></i>
+                        <h3>No files found</h3>
+                        <p>Select a folder or upload some files</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        files.forEach(file => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="checkbox" class="file-checkbox" data-filename="${file.name}"></td>
+                <td><i class="fas ${this.getFileIcon(file.type)} file-icon"></i>${file.name}</td>
+                <td>${file.size}</td>
+                <td>${file.type}</td>
+                <td>${file.modified}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="action-btn view-logs" onclick="serverAdmin.openFile('${file.name}')">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                        <button class="action-btn stop-server" onclick="serverAdmin.deleteFileByName('${file.name}')">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    getFileIcon(type) {
+        if (type.startsWith('video/')) return 'fa-video';
+        if (type.startsWith('image/')) return 'fa-image';
+        if (type.startsWith('audio/')) return 'fa-music';
+        if (type.includes('pdf')) return 'fa-file-pdf';
+        if (type.includes('text')) return 'fa-file-alt';
+        if (type.includes('javascript')) return 'fa-file-code';
+        if (type.includes('css')) return 'fa-file-code';
+        if (type.includes('html')) return 'fa-file-code';
+        if (type.includes('php')) return 'fa-file-code';
+        return 'fa-file';
+    }
+
+    uploadFile() {
+        document.getElementById('fileInput').click();
+    }
+
+    uploadVideo() {
+        document.getElementById('videoInput').click();
+    }
+
+    async handleFileUpload(event, type) {
+        const files = event.target.files;
+        if (files.length === 0) return;
+
+        for (let file of files) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    this.showNotification(result.message, 'success');
+                } else {
+                    this.showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                this.showNotification('Error uploading file', 'error');
+            }
+        }
+
+        this.loadFiles();
+        event.target.value = '';
+    }
+
+    async deleteFile() {
+        const selectedFiles = Array.from(document.querySelectorAll('.file-checkbox:checked'));
+        if (selectedFiles.length === 0) {
+            this.showNotification('Please select files to delete', 'error');
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete ${selectedFiles.length} file(s)?`)) {
+            return;
+        }
+
+        for (let checkbox of selectedFiles) {
+            const filename = checkbox.dataset.filename;
+            await this.deleteFileByName(filename);
+        }
+
+        this.loadFiles();
+    }
+
+    async deleteFileByName(filename) {
+        try {
+            const response = await fetch('/api/delete_file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ filename })
+            });
+            const result = await response.json();
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error deleting file', 'error');
+        }
+    }
+
+    openFile(filename) {
+        this.showNotification(`Opening ${filename}`, 'info');
+    }
+
+    openFolder() {
+        this.showNotification('Opening folder in file manager', 'info');
+    }
+
+    toggleSelectAll(checked) {
+        document.querySelectorAll('.file-checkbox').forEach(checkbox => {
+            checkbox.checked = checked;
+        });
+    }
+
     async refreshAll() {
         await this.loadServers();
+        await this.loadFiles();
         this.updateStatus('Refreshed', 'success');
     }
 
@@ -331,6 +524,7 @@ class ServerAdmin {
                 ${info.php_version ? `<p><strong>PHP Version:</strong> ${info.php_version}</p>` : ''}
                 <p><strong>Node.js Available:</strong> ${info.node_available ? 'Yes' : 'No'}</p>
                 ${info.node_version ? `<p><strong>Node.js Version:</strong> ${info.node_version}</p>` : ''}
+                <p><strong>Current Folder:</strong> ${info.current_folder || 'None'}</p>
             `;
             
             document.getElementById('systemModal').classList.add('show');
@@ -351,6 +545,7 @@ class ServerAdmin {
             
             if (!phpInfo.available) {
                 this.showNotification('PHP is not available - PHP servers will not work', 'warning');
+                document.getElementById('installPhpBtn').style.display = 'inline-flex';
             }
             
             if (!nodeInfo.available) {
@@ -358,6 +553,32 @@ class ServerAdmin {
             }
         } catch (error) {
             console.error('Error checking system requirements:', error);
+        }
+    }
+
+    async installPHP() {
+        const installBtn = document.getElementById('installPhpBtn');
+        const originalText = installBtn.innerHTML;
+        installBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Installing PHP...';
+        installBtn.disabled = true;
+
+        try {
+            const response = await fetch('/api/install_php', {
+                method: 'POST'
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+                document.getElementById('installPhpBtn').style.display = 'none';
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error installing PHP: ' + error.message, 'error');
+        } finally {
+            installBtn.innerHTML = originalText;
+            installBtn.disabled = false;
         }
     }
 
@@ -430,9 +651,10 @@ class ServerAdmin {
     }
 
     startAutoRefresh() {
-        // Refresh servers every 30 seconds
+        // Refresh servers and files every 30 seconds
         this.autoRefreshInterval = setInterval(() => {
             this.loadServers();
+            this.loadFiles();
         }, 30000);
     }
 

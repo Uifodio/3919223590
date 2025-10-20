@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Modern Server Administrator - Professional Web Server Management
-A sleek, professional server management tool with full PHP support
+Modern Server Administrator - Professional Edition
+A bulletproof, professional server management tool with all features
 """
 
 import os
@@ -19,8 +19,14 @@ import signal
 import sys
 import socket
 from pathlib import Path
+import mimetypes
+import tempfile
+import zipfile
+import urllib.request
+import ssl
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = 'modern_server_admin_2024'
@@ -29,6 +35,18 @@ app.secret_key = 'modern_server_admin_2024'
 servers = {}
 server_processes = {}
 log_queues = {}
+current_folder = None
+
+# Configuration
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm', 'php', 'html', 'css', 'js', 'json', 'xml', 'md', 'py', 'sql', 'zip', 'rar', '7z'}
+
+# Ensure upload folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def is_windows():
+    """Check if running on Windows"""
+    return platform.system() == 'Windows'
 
 def is_port_in_use(port):
     """Check if port is already in use"""
@@ -55,16 +73,88 @@ def check_node_available():
     except:
         return False
 
+def install_php_windows():
+    """Install PHP on Windows"""
+    try:
+        print("Installing PHP for Windows...")
+        
+        # Create temp directory
+        temp_dir = tempfile.mkdtemp()
+        php_zip = os.path.join(temp_dir, 'php.zip')
+        
+        # Download PHP
+        php_url = "https://windows.php.net/downloads/releases/php-8.2.12-Win32-vs16-x64.zip"
+        print(f"Downloading PHP from {php_url}...")
+        
+        # Create SSL context to ignore certificate errors
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        with urllib.request.urlopen(php_url, context=ssl_context) as response:
+            with open(php_zip, 'wb') as f:
+                f.write(response.read())
+        
+        # Extract PHP
+        with zipfile.ZipFile(php_zip, 'r') as zip_ref:
+            zip_ref.extractall(temp_dir)
+        
+        # Find PHP directory
+        php_dir = None
+        for item in os.listdir(temp_dir):
+            if item.startswith('php-'):
+                php_dir = os.path.join(temp_dir, item)
+                break
+        
+        if not php_dir:
+            return False, "Could not find PHP directory"
+        
+        # Copy PHP to application directory
+        app_php_dir = os.path.join(os.getcwd(), 'php')
+        if os.path.exists(app_php_dir):
+            shutil.rmtree(app_php_dir)
+        shutil.copytree(php_dir, app_php_dir)
+        
+        # Add PHP to PATH for this session
+        php_exe = os.path.join(app_php_dir, 'php.exe')
+        if os.path.exists(php_exe):
+            os.environ['PATH'] = app_php_dir + os.pathsep + os.environ['PATH']
+            return True, "PHP installed successfully"
+        else:
+            return False, "PHP executable not found"
+            
+    except Exception as e:
+        return False, f"Error installing PHP: {str(e)}"
+
+def get_php_path():
+    """Get PHP executable path"""
+    if is_windows():
+        # Check if we have local PHP installation
+        local_php = os.path.join(os.getcwd(), 'php', 'php.exe')
+        if os.path.exists(local_php):
+            return local_php
+        
+        # Check system PATH
+        try:
+            result = subprocess.run(['where', 'php'], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                return result.stdout.strip().split('\n')[0]
+        except:
+            pass
+    
+    return 'php'
+
 def start_server_process(name, folder, port, server_type):
     """Start a server process with proper support for all types"""
     try:
         if server_type == "PHP":
-            if not check_php_available():
-                return False, "PHP is not installed or not in PATH. Please install PHP to use PHP servers."
+            php_path = get_php_path()
+            if not os.path.exists(php_path) and not check_php_available():
+                return False, "PHP is not installed. Please install PHP or use the auto-installer."
             
             # Use PHP built-in server with proper configuration
             process = subprocess.Popen([
-                'php', '-S', f'localhost:{port}', '-t', folder,
+                php_path, '-S', f'localhost:{port}', '-t', folder,
                 '-d', 'display_errors=1',
                 '-d', 'log_errors=1',
                 '-d', 'error_log=php_errors.log'
@@ -119,7 +209,8 @@ const server = http.createServer((req, res) => {{
                 '.png': 'image/png',
                 '.jpg': 'image/jpeg',
                 '.gif': 'image/gif',
-                '.svg': 'image/svg+xml'
+                '.svg': 'image/svg+xml',
+                '.php': 'text/html'
             }};
             
             const contentType = mimeTypes[ext] || 'text/plain';
@@ -182,10 +273,27 @@ def monitor_server_logs(name, process):
         except:
             break
 
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_file_size(filepath):
+    """Get human readable file size"""
+    try:
+        size = os.path.getsize(filepath)
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024.0:
+                return f"{size:.1f} {unit}"
+            size /= 1024.0
+        return f"{size:.1f} TB"
+    except:
+        return "Unknown"
+
+# Routes
 @app.route('/')
 def index():
     """Main dashboard"""
-    return render_template('index.html', servers=servers)
+    return render_template('index.html', servers=servers, current_folder=current_folder)
 
 @app.route('/api/add_server', methods=['POST'])
 def add_server():
@@ -298,6 +406,93 @@ def get_servers():
     """Get all servers"""
     return jsonify(servers)
 
+@app.route('/api/files')
+def get_files():
+    """Get files in current folder"""
+    if not current_folder or not os.path.exists(current_folder):
+        return jsonify({'files': []})
+    
+    files = []
+    try:
+        for filename in os.listdir(current_folder):
+            file_path = os.path.join(current_folder, filename)
+            if os.path.isfile(file_path):
+                stat = os.stat(file_path)
+                file_type = mimetypes.guess_type(filename)[0] or "Unknown"
+                
+                files.append({
+                    'name': filename,
+                    'size': get_file_size(file_path),
+                    'type': file_type,
+                    'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
+                    'path': file_path
+                })
+    except Exception as e:
+        print(f"Error getting files: {e}")
+    
+    return jsonify({'files': files})
+
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    """Upload a file"""
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'message': 'No file selected'})
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'success': False, 'message': 'No file selected'})
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        if current_folder:
+            file_path = os.path.join(current_folder, filename)
+        else:
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+        
+        file.save(file_path)
+        return jsonify({'success': True, 'message': f'File {filename} uploaded successfully'})
+    
+    return jsonify({'success': False, 'message': 'Invalid file type'})
+
+@app.route('/api/delete_file', methods=['POST'])
+def delete_file():
+    """Delete a file"""
+    try:
+        data = request.get_json()
+        filename = data.get('filename')
+        
+        if not filename:
+            return jsonify({'success': False, 'message': 'No filename provided'})
+        
+        if current_folder:
+            file_path = os.path.join(current_folder, filename)
+        else:
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return jsonify({'success': True, 'message': f'File {filename} deleted successfully'})
+        else:
+            return jsonify({'success': False, 'message': 'File not found'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error deleting file: {str(e)}'})
+
+@app.route('/api/set_folder', methods=['POST'])
+def set_folder():
+    """Set current folder"""
+    global current_folder
+    try:
+        data = request.get_json()
+        folder = data.get('folder')
+        
+        if folder and os.path.exists(folder):
+            current_folder = folder
+            return jsonify({'success': True, 'message': f'Folder set to {folder}'})
+        else:
+            return jsonify({'success': False, 'message': 'Invalid folder path'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error setting folder: {str(e)}'})
+
 @app.route('/api/system_info')
 def get_system_info():
     """Get system information"""
@@ -317,7 +512,8 @@ def get_system_info():
             'php_available': php_available,
             'php_version': get_php_version() if php_available else None,
             'node_available': node_available,
-            'node_version': get_node_version() if node_available else None
+            'node_version': get_node_version() if node_available else None,
+            'current_folder': current_folder
         }
         return jsonify(info)
     except Exception as e:
@@ -326,7 +522,7 @@ def get_system_info():
 def get_php_version():
     """Get PHP version"""
     try:
-        result = subprocess.run(['php', '--version'], capture_output=True, text=True, timeout=5)
+        result = subprocess.run([get_php_path(), '--version'], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             return result.stdout.split('\n')[0]
     except:
@@ -355,6 +551,18 @@ def open_browser(server_name):
         return jsonify({'success': False, 'message': 'Server not found'})
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error opening browser: {str(e)}'})
+
+@app.route('/api/install_php', methods=['POST'])
+def install_php():
+    """Install PHP"""
+    try:
+        if not is_windows():
+            return jsonify({'success': False, 'message': 'PHP auto-installation is only available on Windows'})
+        
+        success, message = install_php_windows()
+        return jsonify({'success': success, 'message': message})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error installing PHP: {str(e)}'})
 
 @app.route('/api/check_php')
 def check_php():
@@ -391,6 +599,8 @@ if __name__ == '__main__':
         print("✓ PHP detected and ready")
     else:
         print("⚠️  PHP not detected - PHP servers will not work")
+        if is_windows():
+            print("   Use the 'Install PHP' button in the application to auto-install PHP")
     
     if check_node_available():
         print("✓ Node.js detected and ready")

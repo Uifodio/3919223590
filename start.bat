@@ -44,6 +44,25 @@ if not exist "demo_website" (
     python demo.py
 )
 
+REM Check PHP availability
+echo.
+echo Checking PHP availability...
+python -c "import subprocess; subprocess.run(['php', '--version'], capture_output=True, text=True, timeout=5)" 2>nul
+if errorlevel 1 (
+    echo ⚠️  PHP not detected - PHP servers will not work
+    echo    Use the 'Install PHP' button in the application to auto-install PHP
+) else (
+    echo ✓ PHP detected and ready
+)
+
+REM Check Node.js availability
+python -c "import subprocess; subprocess.run(['node', '--version'], capture_output=True, text=True, timeout=5)" 2>nul
+if errorlevel 1 (
+    echo ⚠️  Node.js not detected - Node.js servers will not work
+) else (
+    echo ✓ Node.js detected and ready
+)
+
 echo.
 echo Starting Modern Server Administrator...
 echo The application will be available at: http://localhost:5000

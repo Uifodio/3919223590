@@ -1,39 +1,42 @@
-/* Modern Server Administrator - Professional Dark Theme */
+/* Modern Server Administrator - GitHub Dark Theme */
 
 :root {
-    /* Color Palette */
-    --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --primary-light: #818cf8;
-    --secondary: #64748b;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --error: #ef4444;
-    --info: #3b82f6;
+    /* GitHub Color Palette */
+    --primary: #0969da;
+    --primary-dark: #0860ca;
+    --primary-light: #218bff;
+    --secondary: #656d76;
+    --success: #1a7f37;
+    --warning: #9a6700;
+    --error: #d1242f;
+    --info: #0969da;
     
-    /* Background Colors */
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    --bg-tertiary: #334155;
-    --bg-card: #1e293b;
-    --bg-hover: #334155;
+    /* GitHub Dark Background Colors */
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #21262d;
+    --bg-card: #161b22;
+    --bg-hover: #21262d;
+    --bg-accent: #30363d;
     
-    /* Text Colors */
-    --text-primary: #f8fafc;
-    --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
-    --text-inverse: #0f172a;
+    /* GitHub Text Colors */
+    --text-primary: #f0f6fc;
+    --text-secondary: #8b949e;
+    --text-muted: #656d76;
+    --text-inverse: #0d1117;
+    --text-accent: #58a6ff;
     
-    /* Border Colors */
-    --border-primary: #334155;
-    --border-secondary: #475569;
+    /* GitHub Border Colors */
+    --border-primary: #30363d;
+    --border-secondary: #21262d;
     --border-focus: var(--primary);
+    --border-accent: #58a6ff;
     
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    /* GitHub Shadows */
+    --shadow-sm: 0 1px 0 rgba(1, 4, 9, 0.85);
+    --shadow-md: 0 3px 6px rgba(1, 4, 9, 0.15), 0 2px 4px rgba(1, 4, 9, 0.1);
+    --shadow-lg: 0 8px 24px rgba(1, 4, 9, 0.2);
+    --shadow-xl: 0 16px 48px rgba(1, 4, 9, 0.3);
     
     /* Spacing */
     --space-1: 0.25rem;
@@ -85,7 +88,7 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(135deg, var(--bg-primary) 0%, #1a202c 100%);
+    background: var(--bg-primary);
 }
 
 /* Header */
@@ -165,7 +168,8 @@ body {
 
 /* Sections */
 .control-section,
-.servers-section {
+.servers-section,
+.file-manager-section {
     background: var(--bg-card);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-xl);
@@ -199,6 +203,12 @@ body {
 .header-actions {
     display: flex;
     gap: var(--space-3);
+}
+
+.file-actions {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
 }
 
 .server-count {
@@ -266,7 +276,7 @@ input[type="number"]:focus,
 select:focus {
     outline: none;
     border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
     background: var(--bg-secondary);
 }
 
@@ -318,7 +328,7 @@ input[type="text"]:read-only {
 }
 
 .btn-secondary:hover:not(:disabled) {
-    background: #475569;
+    background: #5a6268;
     transform: translateY(-1px);
 }
 
@@ -342,6 +352,26 @@ input[type="text"]:read-only {
 .btn-ghost:hover:not(:disabled) {
     background: var(--bg-hover);
     color: var(--text-primary);
+}
+
+.btn-danger {
+    background: var(--error);
+    color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: #b91c1c;
+    transform: translateY(-1px);
+}
+
+.btn-warning {
+    background: var(--warning);
+    color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+    background: #a16207;
+    transform: translateY(-1px);
 }
 
 .btn-large {
@@ -429,21 +459,21 @@ input[type="text"]:read-only {
 }
 
 .status-running {
-    background: rgba(16, 185, 129, 0.1);
+    background: rgba(26, 127, 55, 0.1);
     color: var(--success);
-    border: 1px solid rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(26, 127, 55, 0.2);
 }
 
 .status-stopped {
-    background: rgba(239, 68, 68, 0.1);
+    background: rgba(209, 36, 47, 0.1);
     color: var(--error);
-    border: 1px solid rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(209, 36, 47, 0.2);
 }
 
 .status-error {
-    background: rgba(245, 158, 11, 0.1);
+    background: rgba(154, 103, 0, 0.1);
     color: var(--warning);
-    border: 1px solid rgba(245, 158, 11, 0.2);
+    border: 1px solid rgba(154, 103, 0, 0.2);
 }
 
 .server-details {
@@ -507,7 +537,7 @@ input[type="text"]:read-only {
 }
 
 .action-btn.open-browser:hover {
-    background: #059669;
+    background: #15803d;
     transform: translateY(-1px);
 }
 
@@ -519,6 +549,55 @@ input[type="text"]:read-only {
 .action-btn.stop-server:hover {
     background: #dc2626;
     transform: translateY(-1px);
+}
+
+/* File Manager */
+.file-table-container {
+    padding: var(--space-6);
+    overflow-x: auto;
+}
+
+.file-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.file-table thead {
+    background: var(--bg-tertiary);
+}
+
+.file-table th,
+.file-table td {
+    padding: var(--space-4) var(--space-3);
+    text-align: left;
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.file-table th {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.file-table td {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.file-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.file-icon {
+    margin-right: var(--space-2);
+    width: 16px;
+    text-align: center;
+    color: var(--text-accent);
 }
 
 /* Empty State */
@@ -725,6 +804,10 @@ input[type="text"]:read-only {
     .app-main {
         padding: var(--space-4);
     }
+    
+    .file-actions {
+        flex-direction: column;
+    }
 }
 
 @media (max-width: 768px) {
@@ -791,6 +874,19 @@ select:focus-visible {
 
 /* Selection */
 ::selection {
-    background: rgba(99, 102, 241, 0.2);
+    background: rgba(9, 105, 218, 0.2);
     color: var(--text-primary);
+}
+
+/* GitHub-specific styling */
+.github-accent {
+    color: var(--text-accent);
+}
+
+.github-border {
+    border-color: var(--border-accent);
+}
+
+.github-bg {
+    background: var(--bg-accent);
 }
