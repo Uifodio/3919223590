@@ -1,7 +1,7 @@
-/* Modern Server Administrator - GitHub Dark Theme */
+/* Modern Server Administrator - Professional Dark Theme with Perfect Visibility */
 
 :root {
-    /* GitHub Color Palette */
+    /* Professional Color Palette */
     --primary: #0969da;
     --primary-dark: #0860ca;
     --primary-light: #218bff;
@@ -11,28 +11,32 @@
     --error: #d1242f;
     --info: #0969da;
     
-    /* GitHub Dark Background Colors */
+    /* Dark Background Colors */
     --bg-primary: #0d1117;
     --bg-secondary: #161b22;
     --bg-tertiary: #21262d;
     --bg-card: #161b22;
     --bg-hover: #21262d;
     --bg-accent: #30363d;
+    --bg-input: #0d1117;
     
-    /* GitHub Text Colors */
+    /* High Contrast Text Colors */
     --text-primary: #f0f6fc;
-    --text-secondary: #8b949e;
-    --text-muted: #656d76;
+    --text-secondary: #c9d1d9;
+    --text-muted: #8b949e;
     --text-inverse: #0d1117;
     --text-accent: #58a6ff;
+    --text-input: #f0f6fc;
+    --text-placeholder: #8b949e;
     
-    /* GitHub Border Colors */
+    /* Border Colors */
     --border-primary: #30363d;
     --border-secondary: #21262d;
     --border-focus: var(--primary);
     --border-accent: #58a6ff;
+    --border-input: #30363d;
     
-    /* GitHub Shadows */
+    /* Shadows */
     --shadow-sm: 0 1px 0 rgba(1, 4, 9, 0.85);
     --shadow-md: 0 3px 6px rgba(1, 4, 9, 0.15), 0 2px 4px rgba(1, 4, 9, 0.1);
     --shadow-lg: 0 8px 24px rgba(1, 4, 9, 0.2);
@@ -142,6 +146,7 @@ body {
     gap: var(--space-2);
     font-size: 0.875rem;
     font-weight: 500;
+    color: var(--text-primary);
 }
 
 .status-dot {
@@ -243,8 +248,8 @@ body {
     align-items: center;
     gap: var(--space-2);
     font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-secondary);
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .form-group label i {
@@ -257,15 +262,15 @@ body {
     gap: var(--space-2);
 }
 
-/* Form Controls */
+/* Form Controls - FIXED VISIBILITY */
 input[type="text"],
 input[type="number"],
 select {
-    background: var(--bg-secondary);
-    border: 2px solid var(--border-primary);
+    background: var(--bg-input);
+    border: 2px solid var(--border-input);
     border-radius: var(--radius-md);
     padding: var(--space-3) var(--space-4);
-    color: var(--text-primary);
+    color: var(--text-input);
     font-size: 0.875rem;
     font-weight: 500;
     transition: all var(--transition-fast);
@@ -279,35 +284,35 @@ select:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.2);
-    background: var(--bg-tertiary);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 input[type="text"]:read-only {
     background: var(--bg-primary);
-    color: var(--text-secondary);
+    color: var(--text-muted);
     border-color: var(--border-secondary);
     cursor: not-allowed;
 }
 
 input[type="text"]::placeholder,
 input[type="number"]::placeholder {
-    color: var(--text-muted);
-    opacity: 0.8;
+    color: var(--text-placeholder);
+    opacity: 0.9;
+    font-weight: 400;
 }
 
-input[type="text"]:focus,
-input[type="number"]:focus,
-select:focus {
-    outline: none;
-    border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
-    background: var(--bg-secondary);
+/* Select dropdown styling */
+select {
+    background: var(--bg-input);
+    color: var(--text-input);
+    cursor: pointer;
 }
 
-input[type="text"]:read-only {
+select option {
     background: var(--bg-secondary);
-    color: var(--text-muted);
-    cursor: not-allowed;
+    color: var(--text-primary);
+    padding: var(--space-2);
 }
 
 /* Buttons */
@@ -320,13 +325,14 @@ input[type="text"]:read-only {
     border: none;
     border-radius: var(--radius-md);
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-fast);
     text-decoration: none;
     white-space: nowrap;
     position: relative;
     overflow: hidden;
+    color: white;
 }
 
 .btn:disabled {
@@ -359,7 +365,7 @@ input[type="text"]:read-only {
 .btn-outline {
     background: transparent;
     color: var(--text-primary);
-    border: 1px solid var(--border-primary);
+    border: 2px solid var(--border-primary);
 }
 
 .btn-outline:hover:not(:disabled) {
@@ -403,7 +409,7 @@ input[type="text"]:read-only {
     font-size: 1rem;
 }
 
-/* Server Cards */
+/* Server Cards - FIXED TEXT VISIBILITY */
 .servers-container {
     padding: var(--space-6);
     display: grid;
@@ -465,6 +471,7 @@ input[type="text"]:read-only {
 .server-info p {
     font-size: 0.875rem;
     color: var(--text-secondary);
+    font-weight: 500;
 }
 
 .server-status {
@@ -524,7 +531,7 @@ input[type="text"]:read-only {
 .detail-value {
     font-size: 0.875rem;
     color: var(--text-primary);
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .server-actions {
@@ -543,6 +550,7 @@ input[type="text"]:read-only {
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    font-weight: 500;
 }
 
 .action-btn.view-logs {
@@ -575,7 +583,7 @@ input[type="text"]:read-only {
     transform: translateY(-1px);
 }
 
-/* File Manager */
+/* File Manager - FIXED TEXT VISIBILITY */
 .file-table-container {
     padding: var(--space-6);
     overflow-x: auto;
@@ -609,8 +617,9 @@ input[type="text"]:read-only {
 }
 
 .file-table td {
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-size: 0.875rem;
+    font-weight: 500;
 }
 
 .file-table tbody tr:hover {
@@ -642,11 +651,13 @@ input[type="text"]:read-only {
     font-size: 1.25rem;
     margin-bottom: var(--space-2);
     color: var(--text-secondary);
+    font-weight: 600;
 }
 
 .empty-state p {
     font-size: 0.875rem;
     opacity: 0.8;
+    color: var(--text-muted);
 }
 
 /* Modals */
@@ -902,15 +913,50 @@ select:focus-visible {
     color: var(--text-primary);
 }
 
-/* GitHub-specific styling */
-.github-accent {
-    color: var(--text-accent);
+/* Checkbox styling */
+input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
 }
 
-.github-border {
-    border-color: var(--border-accent);
+/* Action buttons in file table */
+.action-buttons {
+    display: flex;
+    gap: var(--space-2);
 }
 
-.github-bg {
-    background: var(--bg-accent);
+.action-buttons .action-btn {
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.75rem;
+}
+
+/* Ensure all text is visible */
+* {
+    color: inherit;
+}
+
+/* Force text visibility in specific elements */
+.server-info h3,
+.server-info p,
+.detail-value,
+.file-table td,
+.file-table th,
+.modal-header h3,
+#systemInfoContent,
+#logContent {
+    color: var(--text-primary) !important;
+}
+
+/* Input text visibility */
+input[type="text"],
+input[type="number"],
+select {
+    color: var(--text-input) !important;
+}
+
+input[type="text"]::placeholder,
+input[type="number"]::placeholder {
+    color: var(--text-placeholder) !important;
 }

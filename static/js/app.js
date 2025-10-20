@@ -210,8 +210,8 @@ class ServerAdmin {
             container.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-server"></i>
-                    <h3>No servers running</h3>
-                    <p>Add a server to get started with your development</p>
+                    <h3 style="color: var(--text-primary);">No servers running</h3>
+                    <p style="color: var(--text-secondary);">Add a server to get started with your development</p>
                 </div>
             `;
             document.getElementById('serverCount').textContent = '0 servers running';
@@ -228,8 +228,8 @@ class ServerAdmin {
             serverCard.innerHTML = `
                 <div class="server-header">
                     <div class="server-info">
-                        <h3>${server.name}</h3>
-                        <p>${server.folder.split('/').pop()}</p>
+                        <h3 style="color: var(--text-primary); font-weight: 600;">${server.name}</h3>
+                        <p style="color: var(--text-secondary); font-weight: 500;">${server.folder.split('/').pop()}</p>
                     </div>
                     <div class="server-status">
                         <span class="status-badge status-${server.status.toLowerCase()}">${server.status}</span>
@@ -239,19 +239,19 @@ class ServerAdmin {
                 <div class="server-details">
                     <div class="detail-item">
                         <div class="detail-label">Port</div>
-                        <div class="detail-value">${server.port}</div>
+                        <div class="detail-value" style="color: var(--text-primary); font-weight: 600;">${server.port}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Type</div>
-                        <div class="detail-value">${server.type}</div>
+                        <div class="detail-value" style="color: var(--text-primary); font-weight: 600;">${server.type}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Started</div>
-                        <div class="detail-value">${server.start_time}</div>
+                        <div class="detail-value" style="color: var(--text-primary); font-weight: 600;">${server.start_time}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">URL</div>
-                        <div class="detail-value">http://localhost:${server.port}</div>
+                        <div class="detail-value" style="color: var(--text-primary); font-weight: 600;">http://localhost:${server.port}</div>
                     </div>
                 </div>
                 
@@ -365,8 +365,8 @@ class ServerAdmin {
                 <tr>
                     <td colspan="6" class="empty-state">
                         <i class="fas fa-folder-open"></i>
-                        <h3>No files found</h3>
-                        <p>Select a folder or upload some files</p>
+                        <h3 style="color: var(--text-primary);">No files found</h3>
+                        <p style="color: var(--text-secondary);">Select a folder or upload some files</p>
                     </td>
                 </tr>
             `;
@@ -377,10 +377,10 @@ class ServerAdmin {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><input type="checkbox" class="file-checkbox" data-filename="${file.name}"></td>
-                <td><i class="fas ${this.getFileIcon(file.type)} file-icon"></i>${file.name}</td>
-                <td>${file.size}</td>
-                <td>${file.type}</td>
-                <td>${file.modified}</td>
+                <td style="color: var(--text-primary); font-weight: 500;"><i class="fas ${this.getFileIcon(file.type)} file-icon"></i>${file.name}</td>
+                <td style="color: var(--text-primary); font-weight: 500;">${file.size}</td>
+                <td style="color: var(--text-primary); font-weight: 500;">${file.type}</td>
+                <td style="color: var(--text-primary); font-weight: 500;">${file.modified}</td>
                 <td>
                     <div class="action-buttons">
                         <button class="action-btn view-logs" onclick="serverAdmin.openFile('${file.name}')">
@@ -544,12 +544,16 @@ class ServerAdmin {
             const nodeInfo = await nodeResponse.json();
             
             if (!phpInfo.available) {
-                this.showNotification('PHP is not available - PHP servers will not work', 'warning');
+                this.showNotification('PHP is not available - PHP servers will not work. Use the Install PHP button.', 'warning');
                 document.getElementById('installPhpBtn').style.display = 'inline-flex';
+            } else {
+                this.showNotification(`PHP detected: ${phpInfo.version}`, 'success');
             }
             
             if (!nodeInfo.available) {
                 this.showNotification('Node.js is not available - Node.js servers will not work', 'warning');
+            } else {
+                this.showNotification(`Node.js detected: ${nodeInfo.version}`, 'success');
             }
         } catch (error) {
             console.error('Error checking system requirements:', error);

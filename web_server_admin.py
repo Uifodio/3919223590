@@ -141,6 +141,18 @@ def get_php_path():
                 return result.stdout.strip().split('\n')[0]
         except:
             pass
+        
+        # Try common PHP installation paths
+        common_paths = [
+            r'C:\php\php.exe',
+            r'C:\xampp\php\php.exe',
+            r'C:\wamp\bin\php\php.exe',
+            r'C:\laragon\bin\php\php.exe'
+        ]
+        
+        for path in common_paths:
+            if os.path.exists(path):
+                return path
     
     return 'php'
 
@@ -149,16 +161,24 @@ def start_server_process(name, folder, port, server_type):
     try:
         if server_type == "PHP":
             php_path = get_php_path()
-            if not os.path.exists(php_path) and not check_php_available():
-                return False, "PHP is not installed. Please install PHP or use the auto-installer."
+            
+            # Check if PHP is available
+            if not check_php_available() and not os.path.exists(php_path):
+                return False, "PHP is not installed. Please install PHP or use the auto-installer button."
             
             # Use PHP built-in server with proper configuration
-            process = subprocess.Popen([
-                php_path, '-S', f'localhost:{port}', '-t', folder,
-                '-d', 'display_errors=1',
-                '-d', 'log_errors=1',
-                '-d', 'error_log=php_errors.log'
-            ], cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            try:
+                process = subprocess.Popen([
+                    php_path, '-S', f'localhost:{port}', '-t', folder,
+                    '-d', 'display_errors=1',
+                    '-d', 'log_errors=1',
+                    '-d', 'error_log=php_errors.log',
+                    '-d', 'error_reporting=E_ALL'
+                ], cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            except FileNotFoundError:
+                return False, f"PHP executable not found at {php_path}. Please install PHP or use the auto-installer."
+            except Exception as e:
+                return False, f"Error starting PHP server: {str(e)}"
             
         elif server_type == "HTTP":
             # Use Python's built-in HTTP server
