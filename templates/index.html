@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Server Administrator</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-rocket"></i> Modern Server Administrator</h1>
+                <div class="status-indicator">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Ready</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Control Panel -->
+        <section class="control-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-cogs"></i> Server Control Panel</h2>
+            </div>
+            <div class="panel-content">
+                <div class="form-group">
+                    <label for="folderPath">Website Folder:</label>
+                    <div class="input-group">
+                        <input type="text" id="folderPath" placeholder="Select website folder..." readonly>
+                        <button type="button" id="browseFolder" class="btn btn-secondary">
+                            <i class="fas fa-folder-open"></i> Browse
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="serverPort">Port:</label>
+                        <input type="number" id="serverPort" value="8000" min="1000" max="65535">
+                    </div>
+                    <div class="form-group">
+                        <label for="serverType">Type:</label>
+                        <select id="serverType">
+                            <option value="HTTP">HTTP</option>
+                            <option value="HTTPS">HTTPS</option>
+                            <option value="PHP">PHP</option>
+                            <option value="Node.js">Node.js</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button id="addServer" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Add Server
+                    </button>
+                    <button id="refreshAll" class="btn btn-primary">
+                        <i class="fas fa-sync"></i> Refresh All
+                    </button>
+                    <button id="systemInfo" class="btn btn-info">
+                        <i class="fas fa-info-circle"></i> System Info
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Server List -->
+        <section class="server-list">
+            <div class="section-header">
+                <h2><i class="fas fa-server"></i> Active Servers</h2>
+                <span class="server-count" id="serverCount">0 servers running</span>
+            </div>
+            <div class="server-table-container">
+                <table class="server-table" id="serverTable">
+                    <thead>
+                        <tr>
+                            <th>Server Name</th>
+                            <th>Port</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Folder</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="serverTableBody">
+                        <!-- Servers will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- File Manager -->
+        <section class="file-manager">
+            <div class="section-header">
+                <h2><i class="fas fa-folder"></i> File Manager</h2>
+                <div class="file-actions">
+                    <button id="openFolder" class="btn btn-secondary">
+                        <i class="fas fa-folder-open"></i> Open Folder
+                    </button>
+                    <button id="uploadFile" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> Upload File
+                    </button>
+                    <button id="uploadVideo" class="btn btn-primary">
+                        <i class="fas fa-video"></i> Upload Video
+                    </button>
+                    <button id="deleteFile" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Delete Selected
+                    </button>
+                    <button id="refreshFiles" class="btn btn-secondary">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="file-table-container">
+                <table class="file-table" id="fileTable">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll"></th>
+                            <th>File Name</th>
+                            <th>Size</th>
+                            <th>Type</th>
+                            <th>Modified</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fileTableBody">
+                        <!-- Files will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modals -->
+    <div id="logModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="logModalTitle">Server Logs</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="log-actions">
+                    <button id="refreshLogs" class="btn btn-secondary">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                    <button id="copyLogs" class="btn btn-primary">
+                        <i class="fas fa-copy"></i> Copy Logs
+                    </button>
+                    <button id="openBrowser" class="btn btn-success">
+                        <i class="fas fa-external-link-alt"></i> Open in Browser
+                    </button>
+                    <button id="stopServer" class="btn btn-danger">
+                        <i class="fas fa-stop"></i> Stop Server
+                    </button>
+                </div>
+                <div class="log-container">
+                    <pre id="logContent"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="systemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>System Information</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="systemInfoContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="fileInput" style="display: none;" multiple>
+    <input type="file" id="videoInput" style="display: none;" accept="video/*">
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
