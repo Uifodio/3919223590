@@ -24,7 +24,7 @@
                         <div class="status-dot" id="statusDot"></div>
                         <span id="statusText">Ready</span>
                     </div>
-                    <button class="btn btn-ghost" id="systemInfoBtn">
+                    <button class="btn btn-ghost" id="systemInfoBtn" title="System Information">
                         <i class="fas fa-info-circle"></i>
                     </button>
                 </div>
@@ -75,8 +75,8 @@
                                 Server Type
                             </label>
                             <select id="serverType">
-                                <option value="PHP">PHP Server</option>
                                 <option value="HTTP">HTTP Server</option>
+                                <option value="PHP">PHP Server</option>
                                 <option value="Node.js">Node.js Server</option>
                             </select>
                         </div>
@@ -114,23 +114,23 @@
                     Server Logs
                 </h3>
                 <div class="modal-actions">
-                    <button id="refreshLogsBtn" class="btn btn-ghost">
+                    <button id="refreshLogsBtn" class="btn btn-ghost" title="Refresh Logs">
                         <i class="fas fa-sync-alt"></i>
                     </button>
-                    <button id="copyLogsBtn" class="btn btn-ghost">
+                    <button id="copyLogsBtn" class="btn btn-ghost" title="Copy Logs">
                         <i class="fas fa-copy"></i>
                     </button>
-                    <button id="openBrowserBtn" class="btn btn-ghost">
+                    <button id="openBrowserBtn" class="btn btn-ghost" title="Open in Browser">
                         <i class="fas fa-external-link-alt"></i>
                     </button>
-                    <button class="btn btn-ghost close-modal">
+                    <button class="btn btn-ghost close-modal" title="Close">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
             </div>
             <div class="modal-body">
                 <div class="log-container">
-                    <pre id="logContent"></pre>
+                    <pre id="logContent">Loading logs...</pre>
                 </div>
             </div>
         </div>
@@ -144,12 +144,12 @@
                     <i class="fas fa-info-circle"></i>
                     System Information
                 </h3>
-                <button class="btn btn-ghost close-modal">
+                <button class="btn btn-ghost close-modal" title="Close">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="modal-body">
-                <div id="systemInfoContent"></div>
+                <div id="systemInfoContent">Loading system information...</div>
             </div>
         </div>
     </div>

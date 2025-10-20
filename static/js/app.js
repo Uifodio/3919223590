@@ -11,7 +11,7 @@ class ServerAdmin {
         this.bindEvents();
         this.loadServers();
         this.startAutoRefresh();
-        this.checkPHPStatus();
+        this.checkSystemRequirements();
     }
 
     bindEvents() {
@@ -47,6 +47,11 @@ class ServerAdmin {
                 this.closeAllModals();
             }
         });
+
+        // Form validation
+        document.getElementById('serverPort').addEventListener('input', (e) => {
+            this.validatePort(e.target);
+        });
     }
 
     async browseFolder() {
@@ -63,11 +68,21 @@ class ServerAdmin {
         }
     }
 
+    validatePort(input) {
+        const port = parseInt(input.value);
+        if (port < 1000 || port > 65535) {
+            input.style.borderColor = 'var(--error)';
+        } else {
+            input.style.borderColor = 'var(--border-primary)';
+        }
+    }
+
     async addServer() {
-        const folder = document.getElementById('folderPath').value;
+        const folder = document.getElementById('folderPath').value.trim();
         const port = parseInt(document.getElementById('serverPort').value);
         const serverType = document.getElementById('serverType').value;
 
+        // Validation
         if (!folder) {
             this.showNotification('Please select a website folder', 'error');
             return;
@@ -75,13 +90,6 @@ class ServerAdmin {
 
         if (!port || port < 1000 || port > 65535) {
             this.showNotification('Please enter a valid port number (1000-65535)', 'error');
-            return;
-        }
-
-        // Check if port is already in use
-        const isPortInUse = await this.checkPortInUse(port);
-        if (isPortInUse) {
-            this.showNotification(`Port ${port} is already in use`, 'error');
             return;
         }
 
@@ -110,24 +118,18 @@ class ServerAdmin {
                 this.showNotification(result.message, 'error');
             }
         } catch (error) {
-            this.showNotification('Error adding server', 'error');
+            this.showNotification('Error adding server: ' + error.message, 'error');
         } finally {
             addBtn.innerHTML = originalText;
             addBtn.disabled = false;
         }
     }
 
-    async checkPortInUse(port) {
-        try {
-            const response = await fetch(`/api/check_port/${port}`);
-            const result = await response.json();
-            return result.inUse;
-        } catch {
-            return false;
-        }
-    }
-
     async stopServer(serverName) {
+        if (!confirm(`Are you sure you want to stop ${serverName}?`)) {
+            return;
+        }
+
         try {
             const response = await fetch('/api/stop_server', {
                 method: 'POST',
@@ -146,7 +148,7 @@ class ServerAdmin {
                 this.showNotification(result.message, 'error');
             }
         } catch (error) {
-            this.showNotification('Error stopping server', 'error');
+            this.showNotification('Error stopping server: ' + error.message, 'error');
         }
     }
 
@@ -157,6 +159,7 @@ class ServerAdmin {
             this.renderServers(servers);
         } catch (error) {
             console.error('Error loading servers:', error);
+            this.showNotification('Error loading servers', 'error');
         }
     }
 
@@ -270,6 +273,7 @@ class ServerAdmin {
             logContent.scrollTop = logContent.scrollHeight;
         } catch (error) {
             console.error('Error loading logs:', error);
+            document.getElementById('logContent').textContent = 'Error loading logs: ' + error.message;
         }
     }
 
@@ -283,7 +287,7 @@ class ServerAdmin {
                 this.showNotification(result.message, 'error');
             }
         } catch (error) {
-            this.showNotification('Error opening browser', 'error');
+            this.showNotification('Error opening browser: ' + error.message, 'error');
         }
     }
 
@@ -325,24 +329,35 @@ class ServerAdmin {
                 <p><strong>Active Servers:</strong> ${info.active_servers}</p>
                 <p><strong>PHP Available:</strong> ${info.php_available ? 'Yes' : 'No'}</p>
                 ${info.php_version ? `<p><strong>PHP Version:</strong> ${info.php_version}</p>` : ''}
+                <p><strong>Node.js Available:</strong> ${info.node_available ? 'Yes' : 'No'}</p>
+                ${info.node_version ? `<p><strong>Node.js Version:</strong> ${info.node_version}</p>` : ''}
             `;
             
             document.getElementById('systemModal').classList.add('show');
         } catch (error) {
-            this.showNotification('Error loading system info', 'error');
+            this.showNotification('Error loading system info: ' + error.message, 'error');
         }
     }
 
-    async checkPHPStatus() {
+    async checkSystemRequirements() {
         try {
-            const response = await fetch('/api/check_php');
-            const result = await response.json();
+            const [phpResponse, nodeResponse] = await Promise.all([
+                fetch('/api/check_php'),
+                fetch('/api/check_node')
+            ]);
             
-            if (!result.available) {
+            const phpInfo = await phpResponse.json();
+            const nodeInfo = await nodeResponse.json();
+            
+            if (!phpInfo.available) {
                 this.showNotification('PHP is not available - PHP servers will not work', 'warning');
             }
+            
+            if (!nodeInfo.available) {
+                this.showNotification('Node.js is not available - Node.js servers will not work', 'warning');
+            }
         } catch (error) {
-            console.error('Error checking PHP status:', error);
+            console.error('Error checking system requirements:', error);
         }
     }
 
