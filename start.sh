@@ -1,8 +1,8 @@
 #!/bin/bash
 # Modern Server Administrator - Startup Script
 
-echo "🚀 Modern Server Administrator"
-echo "=============================="
+echo "🚀 Modern Server Administrator - Professional Edition"
+echo "======================================================"
 echo ""
 
 # Check if Python 3 is available
@@ -23,6 +23,15 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "✓ Dependencies ready"
+
+# Check PHP availability
+echo "Checking PHP availability..."
+if command -v php &> /dev/null; then
+    echo "✓ PHP found: $(php --version | head -n1)"
+else
+    echo "⚠️  PHP not found - PHP servers will not work"
+    echo "   Install PHP to enable PHP server support"
+fi
 
 # Create demo folder if it doesn't exist
 if [ ! -d "demo_website" ]; then

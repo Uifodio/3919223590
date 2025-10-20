@@ -6,8 +6,8 @@
     <title>Demo Website - Modern Server Admin</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
             margin: 0;
             padding: 0;
             min-height: 100vh;
@@ -18,39 +18,49 @@
         }
         .container {
             text-align: center;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 40px;
-            border-radius: 20px;
+            background: rgba(30, 41, 59, 0.8);
+            padding: 3rem;
+            border-radius: 1rem;
             backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
         }
         h1 {
             font-size: 3rem;
-            margin-bottom: 20px;
-            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #6366f1, #8b5cf6);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         p {
-            font-size: 1.2rem;
-            margin-bottom: 30px;
-            opacity: 0.9;
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            color: #cbd5e1;
         }
         .features {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-top: 30px;
+            gap: 1.5rem;
+            margin-top: 2rem;
         }
         .feature {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(51, 65, 85, 0.5);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid #475569;
         }
         .feature h3 {
             margin-top: 0;
-            color: #4ecdc4;
+            color: #6366f1;
+        }
+        .status {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
         }
     </style>
 </head>
@@ -58,7 +68,7 @@
     <div class="container">
         <h1>🚀 Demo Website</h1>
         <p>This is a sample website created by Modern Server Administrator</p>
-        <p>Your server is running successfully!</p>
+        <div class="status">Server Running Successfully</div>
         
         <div class="features">
             <div class="feature">
