@@ -1,1 +1,2 @@
-pygments
+# Professional Web Server Manager
+# No external dependencies required - uses only Python standard library
