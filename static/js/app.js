@@ -286,23 +286,8 @@ class ServerAdmin {
             const serverCard = document.createElement('div');
             serverCard.className = `server-card ${server.status.toLowerCase()}`;
             
-            // Create the HTML content step by step to avoid template string issues
-            let actionsHTML = '';
-            if (server.status === 'Running') {
-                actionsHTML = `
-                    <button class="action-btn stop-server" onclick="serverAdmin.stopServer('${server.name}')" title="Stop Server">
-                        <i class="fas fa-stop"></i>
-                        Stop Server
-                    </button>`;
-            } else {
-                actionsHTML = `
-                    <button class="action-btn start-server" onclick="serverAdmin.startServer('${server.name}')" title="Start Server">
-                        <i class="fas fa-play"></i>
-                        Start Server
-                    </button>`;
-            }
-            
-            serverCard.innerHTML = `
+            // Build the HTML step by step to avoid template string issues
+            let html = `
                 <div class="server-header">
                     <div class="server-info">
                         <h3 style="color: var(--text-primary); font-weight: 600;">${server.name}</h3>
@@ -340,8 +325,24 @@ class ServerAdmin {
                     <button class="action-btn open-browser" onclick="serverAdmin.openServerInBrowser('${server.name}')" title="Open in Browser">
                         <i class="fas fa-external-link-alt"></i>
                         Open Browser
-                    </button>
-                    ${actionsHTML}
+                    </button>`;
+            
+            // Add start/stop button based on status
+            if (server.status === 'Running') {
+                html += `
+                    <button class="action-btn stop-server" onclick="serverAdmin.stopServer('${server.name}')" title="Stop Server">
+                        <i class="fas fa-stop"></i>
+                        Stop Server
+                    </button>`;
+            } else {
+                html += `
+                    <button class="action-btn start-server" onclick="serverAdmin.startServer('${server.name}')" title="Start Server">
+                        <i class="fas fa-play"></i>
+                        Start Server
+                    </button>`;
+            }
+            
+            html += `
                     <button class="action-btn delete-server" onclick="serverAdmin.deleteServer('${server.name}')" title="Delete Server">
                         <i class="fas fa-trash"></i>
                         Delete
@@ -349,6 +350,7 @@ class ServerAdmin {
                 </div>
             `;
             
+            serverCard.innerHTML = html;
             container.appendChild(serverCard);
         });
 
