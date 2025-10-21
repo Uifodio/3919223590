@@ -286,6 +286,22 @@ class ServerAdmin {
             const serverCard = document.createElement('div');
             serverCard.className = `server-card ${server.status.toLowerCase()}`;
             
+            // Create the HTML content step by step to avoid template string issues
+            let actionsHTML = '';
+            if (server.status === 'Running') {
+                actionsHTML = `
+                    <button class="action-btn stop-server" onclick="serverAdmin.stopServer('${server.name}')" title="Stop Server">
+                        <i class="fas fa-stop"></i>
+                        Stop Server
+                    </button>`;
+            } else {
+                actionsHTML = `
+                    <button class="action-btn start-server" onclick="serverAdmin.startServer('${server.name}')" title="Start Server">
+                        <i class="fas fa-play"></i>
+                        Start Server
+                    </button>`;
+            }
+            
             serverCard.innerHTML = `
                 <div class="server-header">
                     <div class="server-info">
@@ -325,10 +341,7 @@ class ServerAdmin {
                         <i class="fas fa-external-link-alt"></i>
                         Open Browser
                     </button>
-                    <button class="action-btn ${server.status === 'Running' ? 'stop-server' : 'start-server'}" onclick="serverAdmin.${server.status === 'Running' ? 'stopServer' : 'startServer'}('${server.name}')" title="${server.status === 'Running' ? 'Stop Server' : 'Start Server'}">
-                        <i class="fas fa-${server.status === 'Running' ? 'stop' : 'play'}"></i>
-                        ${server.status === 'Running' ? 'Stop Server' : 'Start Server'}
-                    </button>
+                    ${actionsHTML}
                     <button class="action-btn delete-server" onclick="serverAdmin.deleteServer('${server.name}')" title="Delete Server">
                         <i class="fas fa-trash"></i>
                         Delete
