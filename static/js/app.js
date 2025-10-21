@@ -22,8 +22,6 @@ class ServerAdmin {
         document.getElementById('addServerBtn').addEventListener('click', () => this.addServer());
         document.getElementById('refreshAllBtn').addEventListener('click', () => this.refreshAll());
         document.getElementById('systemInfoBtn').addEventListener('click', () => this.showSystemInfo());
-        document.getElementById('installPhpBtn').addEventListener('click', () => this.installPHP());
-        document.getElementById('installPhpBtnMain').addEventListener('click', () => this.installPHP());
 
 
         // Folder input

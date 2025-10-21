@@ -613,7 +613,18 @@ def get_server_logs(server_name):
 @app.route('/api/servers')
 def get_servers():
     """Get all servers"""
-    return jsonify(servers)
+    # Create a JSON-serializable version of servers
+    serializable_servers = {}
+    for name, server in servers.items():
+        serializable_servers[name] = {
+            'name': server['name'],
+            'folder': server['folder'],
+            'port': server['port'],
+            'type': server['type'],
+            'status': server['status'],
+            'start_time': server['start_time']
+        }
+    return jsonify(serializable_servers)
 
 
 @app.route('/api/set_folder', methods=['POST'])
