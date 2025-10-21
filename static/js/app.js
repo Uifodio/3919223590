@@ -11,7 +11,6 @@ class ServerAdmin {
     init() {
         this.bindEvents();
         this.loadServers();
-        this.loadFiles();
         this.startAutoRefresh();
         this.checkSystemRequirements();
     }
@@ -25,16 +24,6 @@ class ServerAdmin {
         document.getElementById('systemInfoBtn').addEventListener('click', () => this.showSystemInfo());
         document.getElementById('installPhpBtn').addEventListener('click', () => this.installPHP());
 
-        // File manager events
-        document.getElementById('openFolderBtn').addEventListener('click', () => this.openFolder());
-        document.getElementById('uploadFileBtn').addEventListener('click', () => this.uploadFile());
-        document.getElementById('uploadVideoBtn').addEventListener('click', () => this.uploadVideo());
-        document.getElementById('deleteFileBtn').addEventListener('click', () => this.deleteFile());
-        document.getElementById('refreshFilesBtn').addEventListener('click', () => this.loadFiles());
-
-        // File input events
-        document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileUpload(e, 'file'));
-        document.getElementById('videoInput').addEventListener('change', (e) => this.handleFileUpload(e, 'video'));
 
         // Folder input
         document.getElementById('folderInput').addEventListener('change', (e) => this.handleFolderSelection(e));
@@ -122,7 +111,6 @@ class ServerAdmin {
             const result = await response.json();
             if (result.success) {
                 this.showNotification(result.message, 'success');
-                this.loadFiles();
             } else {
                 this.showNotification(result.message, 'error');
             }
@@ -215,6 +203,56 @@ class ServerAdmin {
         }
     }
 
+    async startServer(serverName) {
+        try {
+            const response = await fetch('/api/start_server', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name: serverName })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+                this.loadServers();
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error starting server: ' + error.message, 'error');
+        }
+    }
+
+    async deleteServer(serverName) {
+        if (!confirm(`Are you sure you want to delete server "${serverName}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/delete_server', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name: serverName })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+                this.loadServers();
+            } else {
+                this.showNotification(result.message, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error deleting server: ' + error.message, 'error');
+        }
+    }
+
     async loadServers() {
         try {
             const response = await fetch('/api/servers');
@@ -280,17 +318,27 @@ class ServerAdmin {
                 </div>
                 
                 <div class="server-actions">
-                    <button class="action-btn view-logs" onclick="serverAdmin.showLogs('${server.name}')">
+                    <button class="action-btn view-logs" onclick="serverAdmin.showLogs('${server.name}')" title="View Server Logs">
                         <i class="fas fa-file-alt"></i>
                         View Logs
                     </button>
-                    <button class="action-btn open-browser" onclick="serverAdmin.openServerInBrowser('${server.name}')">
+                    <button class="action-btn open-browser" onclick="serverAdmin.openServerInBrowser('${server.name}')" title="Open in Browser">
                         <i class="fas fa-external-link-alt"></i>
                         Open Browser
                     </button>
-                    <button class="action-btn stop-server" onclick="serverAdmin.stopServer('${server.name}')">
-                        <i class="fas fa-stop"></i>
-                        Stop Server
+                    ${server.status === 'Running' ? 
+                        `<button class="action-btn stop-server" onclick="serverAdmin.stopServer('${server.name}')" title="Stop Server">
+                            <i class="fas fa-stop"></i>
+                            Stop Server
+                        </button>` :
+                        `<button class="action-btn start-server" onclick="serverAdmin.startServer('${server.name}')" title="Start Server">
+                            <i class="fas fa-play"></i>
+                            Start Server
+                        </button>`
+                    }
+                    <button class="action-btn delete-server" onclick="serverAdmin.deleteServer('${server.name}')" title="Delete Server">
+                        <i class="fas fa-trash"></i>
+                        Delete
                     </button>
                 </div>
             `;
@@ -369,162 +417,9 @@ class ServerAdmin {
         }
     }
 
-    async loadFiles() {
-        try {
-            const response = await fetch('/api/files');
-            const data = await response.json();
-            this.renderFiles(data.files);
-        } catch (error) {
-            console.error('Error loading files:', error);
-            this.showNotification('Error loading files', 'error');
-        }
-    }
-
-    renderFiles(files) {
-        const tbody = document.getElementById('fileTableBody');
-        tbody.innerHTML = '';
-
-        if (files.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="empty-state">
-                        <i class="fas fa-folder-open"></i>
-                        <h3 style="color: var(--text-primary);">No files found</h3>
-                        <p style="color: var(--text-secondary);">Select a folder or upload some files</p>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        files.forEach(file => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><input type="checkbox" class="file-checkbox" data-filename="${file.name}"></td>
-                <td style="color: var(--text-primary); font-weight: 500;"><i class="fas ${this.getFileIcon(file.type)} file-icon"></i>${file.name}</td>
-                <td style="color: var(--text-primary); font-weight: 500;">${file.size}</td>
-                <td style="color: var(--text-primary); font-weight: 500;">${file.type}</td>
-                <td style="color: var(--text-primary); font-weight: 500;">${file.modified}</td>
-                <td>
-                    <div class="action-buttons">
-                        <button class="action-btn view-logs" onclick="serverAdmin.openFile('${file.name}')">
-                            <i class="fas fa-eye"></i> View
-                        </button>
-                        <button class="action-btn stop-server" onclick="serverAdmin.deleteFileByName('${file.name}')">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-    }
-
-    getFileIcon(type) {
-        if (type.startsWith('video/')) return 'fa-video';
-        if (type.startsWith('image/')) return 'fa-image';
-        if (type.startsWith('audio/')) return 'fa-music';
-        if (type.includes('pdf')) return 'fa-file-pdf';
-        if (type.includes('text')) return 'fa-file-alt';
-        if (type.includes('javascript')) return 'fa-file-code';
-        if (type.includes('css')) return 'fa-file-code';
-        if (type.includes('html')) return 'fa-file-code';
-        if (type.includes('php')) return 'fa-file-code';
-        return 'fa-file';
-    }
-
-    uploadFile() {
-        document.getElementById('fileInput').click();
-    }
-
-    uploadVideo() {
-        document.getElementById('videoInput').click();
-    }
-
-    async handleFileUpload(event, type) {
-        const files = event.target.files;
-        if (files.length === 0) return;
-
-        for (let file of files) {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-                if (result.success) {
-                    this.showNotification(result.message, 'success');
-                } else {
-                    this.showNotification(result.message, 'error');
-                }
-            } catch (error) {
-                this.showNotification('Error uploading file', 'error');
-            }
-        }
-
-        this.loadFiles();
-        event.target.value = '';
-    }
-
-    async deleteFile() {
-        const selectedFiles = Array.from(document.querySelectorAll('.file-checkbox:checked'));
-        if (selectedFiles.length === 0) {
-            this.showNotification('Please select files to delete', 'error');
-            return;
-        }
-
-        if (!confirm(`Are you sure you want to delete ${selectedFiles.length} file(s)?`)) {
-            return;
-        }
-
-        for (let checkbox of selectedFiles) {
-            const filename = checkbox.dataset.filename;
-            await this.deleteFileByName(filename);
-        }
-
-        this.loadFiles();
-    }
-
-    async deleteFileByName(filename) {
-        try {
-            const response = await fetch('/api/delete_file', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ filename })
-            });
-            const result = await response.json();
-            if (result.success) {
-                this.showNotification(result.message, 'success');
-            } else {
-                this.showNotification(result.message, 'error');
-            }
-        } catch (error) {
-            this.showNotification('Error deleting file', 'error');
-        }
-    }
-
-    openFile(filename) {
-        this.showNotification(`Opening ${filename}`, 'info');
-    }
-
-    openFolder() {
-        this.showNotification('Opening folder in file manager', 'info');
-    }
-
-    toggleSelectAll(checked) {
-        document.querySelectorAll('.file-checkbox').forEach(checkbox => {
-            checkbox.checked = checked;
-        });
-    }
 
     async refreshAll() {
         await this.loadServers();
-        await this.loadFiles();
         this.updateStatus('Refreshed', 'success');
     }
 

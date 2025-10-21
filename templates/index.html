@@ -111,52 +111,6 @@
                 </div>
             </section>
 
-            <!-- File Manager -->
-            <section class="file-manager-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-folder"></i> File Manager</h2>
-                    <div class="file-actions">
-                        <button id="openFolderBtn" class="btn btn-secondary">
-                            <i class="fas fa-folder-open"></i>
-                            Open Folder
-                        </button>
-                        <button id="uploadFileBtn" class="btn btn-primary">
-                            <i class="fas fa-upload"></i>
-                            Upload File
-                        </button>
-                        <button id="uploadVideoBtn" class="btn btn-primary">
-                            <i class="fas fa-video"></i>
-                            Upload Video
-                        </button>
-                        <button id="deleteFileBtn" class="btn btn-danger">
-                            <i class="fas fa-trash"></i>
-                            Delete Selected
-                        </button>
-                        <button id="refreshFilesBtn" class="btn btn-secondary">
-                            <i class="fas fa-sync"></i>
-                            Refresh
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="file-table-container">
-                    <table class="file-table" id="fileTable">
-                        <thead>
-                            <tr>
-                                <th><input type="checkbox" id="selectAllFiles"></th>
-                                <th>File Name</th>
-                                <th>Size</th>
-                                <th>Type</th>
-                                <th>Modified</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="fileTableBody">
-                            <!-- Files will be populated here -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
         </main>
     </div>
 
@@ -212,13 +166,8 @@
     <!-- Notification Container -->
     <div id="notificationContainer" class="notification-container"></div>
 
-    <!-- Hidden file inputs -->
+    <!-- Hidden folder input -->
     <input type="file" id="folderInput" style="display: none;" webkitdirectory directory multiple>
-    <input type="file" id="fileInput" style="display: none;" multiple>
-    <input type="file" id="videoInput" style="display: none;" accept="video/*">
-    
-    <!-- Alternative folder input for better compatibility -->
-    <input type="text" id="manualFolderInput" style="display: none;" placeholder="Enter folder path manually">
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>

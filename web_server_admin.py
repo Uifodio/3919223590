@@ -74,84 +74,117 @@ def check_node_available():
         return False
 
 def install_php_windows():
-    """Install PHP on Windows"""
+    """Install PHP on Windows with fallback options"""
     try:
         print("Installing PHP for Windows...")
         
-        # Create temp directory
-        temp_dir = tempfile.mkdtemp()
-        php_zip = os.path.join(temp_dir, 'php.zip')
+        # Try multiple PHP versions and sources
+        php_urls = [
+            "https://windows.php.net/downloads/releases/php-8.3.0-Win32-vs16-x64.zip",
+            "https://windows.php.net/downloads/releases/php-8.2.12-Win32-vs16-x64.zip",
+            "https://windows.php.net/downloads/releases/php-8.1.25-Win32-vs16-x64.zip"
+        ]
         
-        # Use a more reliable PHP download URL
-        php_url = "https://windows.php.net/downloads/releases/php-8.3.0-Win32-vs16-x64.zip"
-        print(f"Downloading PHP from {php_url}...")
-        
-        # Create SSL context to ignore certificate errors
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        
-        # Download with progress
-        try:
-            with urllib.request.urlopen(php_url, context=ssl_context, timeout=30) as response:
-                total_size = int(response.headers.get('Content-Length', 0))
-                downloaded = 0
-                
-                with open(php_zip, 'wb') as f:
-                    while True:
-                        chunk = response.read(8192)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total_size > 0:
-                            percent = (downloaded / total_size) * 100
-                            print(f"Downloaded {percent:.1f}%")
-        except Exception as e:
-            return False, f"Failed to download PHP: {str(e)}"
-        
-        # Extract PHP
-        try:
-            with zipfile.ZipFile(php_zip, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
-        except Exception as e:
-            return False, f"Failed to extract PHP: {str(e)}"
-        
-        # Find PHP directory
-        php_dir = None
-        for item in os.listdir(temp_dir):
-            if item.startswith('php-'):
-                php_dir = os.path.join(temp_dir, item)
-                break
-        
-        if not php_dir:
-            return False, "Could not find PHP directory in downloaded files"
-        
-        # Copy PHP to application directory
-        app_php_dir = os.path.join(os.getcwd(), 'php')
-        if os.path.exists(app_php_dir):
-            shutil.rmtree(app_php_dir)
-        
-        try:
-            shutil.copytree(php_dir, app_php_dir)
-        except Exception as e:
-            return False, f"Failed to copy PHP files: {str(e)}"
-        
-        # Add PHP to PATH for this session
-        php_exe = os.path.join(app_php_dir, 'php.exe')
-        if os.path.exists(php_exe):
-            os.environ['PATH'] = app_php_dir + os.pathsep + os.environ['PATH']
-            # Test PHP installation
+        for i, php_url in enumerate(php_urls):
             try:
-                result = subprocess.run([php_exe, '--version'], capture_output=True, text=True, timeout=10)
-                if result.returncode == 0:
-                    return True, f"PHP installed successfully: {result.stdout.split()[1]}"
+                print(f"Trying PHP source {i+1}/{len(php_urls)}: {php_url}")
+                
+                # Create temp directory
+                temp_dir = tempfile.mkdtemp()
+                php_zip = os.path.join(temp_dir, 'php.zip')
+                
+                # Create SSL context to ignore certificate errors
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                
+                # Download with progress
+                try:
+                    with urllib.request.urlopen(php_url, context=ssl_context, timeout=30) as response:
+                        total_size = int(response.headers.get('Content-Length', 0))
+                        downloaded = 0
+                        
+                        with open(php_zip, 'wb') as f:
+                            while True:
+                                chunk = response.read(8192)
+                                if not chunk:
+                                    break
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                                if total_size > 0:
+                                    percent = (downloaded / total_size) * 100
+                                    print(f"Downloaded {percent:.1f}%")
+                except Exception as e:
+                    print(f"Failed to download from {php_url}: {str(e)}")
+                    continue
+                
+                # Extract PHP
+                try:
+                    with zipfile.ZipFile(php_zip, 'r') as zip_ref:
+                        zip_ref.extractall(temp_dir)
+                except Exception as e:
+                    print(f"Failed to extract PHP: {str(e)}")
+                    continue
+                
+                # Find PHP directory
+                php_dir = None
+                for item in os.listdir(temp_dir):
+                    if item.startswith('php-'):
+                        php_dir = os.path.join(temp_dir, item)
+                        break
+                
+                if not php_dir:
+                    print("Could not find PHP directory in downloaded files")
+                    continue
+                
+                # Copy PHP to application directory
+                app_php_dir = os.path.join(os.getcwd(), 'php')
+                if os.path.exists(app_php_dir):
+                    shutil.rmtree(app_php_dir)
+                
+                try:
+                    shutil.copytree(php_dir, app_php_dir)
+                except Exception as e:
+                    print(f"Failed to copy PHP files: {str(e)}")
+                    continue
+                
+                # Add PHP to PATH for this session
+                php_exe = os.path.join(app_php_dir, 'php.exe')
+                if os.path.exists(php_exe):
+                    os.environ['PATH'] = app_php_dir + os.pathsep + os.environ['PATH']
+                    # Test PHP installation
+                    try:
+                        result = subprocess.run([php_exe, '--version'], capture_output=True, text=True, timeout=10)
+                        if result.returncode == 0:
+                            return True, f"PHP installed successfully: {result.stdout.split()[1]}"
+                        else:
+                            print("PHP installed but not working properly")
+                            continue
+                    except Exception as e:
+                        print(f"PHP installed but test failed: {str(e)}")
+                        continue
                 else:
-                    return False, "PHP installed but not working properly"
+                    print("PHP executable not found after installation")
+                    continue
+                    
             except Exception as e:
-                return False, f"PHP installed but test failed: {str(e)}"
-        else:
-            return False, "PHP executable not found after installation"
+                print(f"Error with PHP source {i+1}: {str(e)}")
+                continue
+        
+        # If all automatic downloads failed, provide manual installation instructions
+        return False, """Automatic PHP installation failed. Please install PHP manually:
+
+1. Download PHP from: https://windows.php.net/download/
+2. Extract to C:\\php\\ or any folder
+3. Add PHP folder to your system PATH
+4. Or place php.exe in the application folder
+
+Alternatively, you can:
+- Install XAMPP: https://www.apachefriends.org/
+- Install WAMP: https://www.wampserver.com/
+- Install Laragon: https://laragon.org/
+
+Then restart this application."""
             
     except Exception as e:
         return False, f"Error installing PHP: {str(e)}"
@@ -462,6 +495,96 @@ def stop_server():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error stopping server: {str(e)}'})
 
+@app.route('/api/start_server', methods=['POST'])
+def start_server():
+    """Start a stopped server"""
+    try:
+        data = request.get_json()
+        server_name = data.get('name')
+        
+        if server_name not in servers:
+            return jsonify({'success': False, 'message': 'Server not found'})
+        
+        server = servers[server_name]
+        
+        if server['status'] == 'Running':
+            return jsonify({'success': False, 'message': 'Server is already running'})
+        
+        # Check if port is still available
+        if is_port_in_use(server['port']):
+            return jsonify({'success': False, 'message': f'Port {server["port"]} is now in use by another process'})
+        
+        # Start the server process
+        success, message = start_server_process(server_name, server['folder'], server['port'], server['type'])
+        
+        if success:
+            server['status'] = 'Running'
+            server['start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            return jsonify({'success': True, 'message': f'Server {server_name} started successfully'})
+        else:
+            return jsonify({'success': False, 'message': message})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error starting server: {str(e)}'})
+
+@app.route('/api/delete_server', methods=['POST'])
+def delete_server():
+    """Delete a server completely"""
+    try:
+        data = request.get_json()
+        server_name = data.get('name')
+        
+        if server_name not in servers:
+            return jsonify({'success': False, 'message': 'Server not found'})
+        
+        server = servers[server_name]
+        
+        # Stop the server if it's running
+        if server['status'] == 'Running' and server_name in server_processes:
+            try:
+                server_processes[server_name].terminate()
+                server_processes[server_name].wait(timeout=5)
+            except:
+                try:
+                    server_processes[server_name].kill()
+                    server_processes[server_name].wait()
+                except:
+                    pass
+            del server_processes[server_name]
+        
+        # Clean up logs
+        if server_name in log_queues:
+            del log_queues[server_name]
+        
+        # Remove from servers dictionary
+        del servers[server_name]
+        
+        return jsonify({'success': True, 'message': f'Server {server_name} deleted successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error deleting server: {str(e)}'})
+
+@app.route('/api/open_browser/<server_name>')
+def open_browser(server_name):
+    """Open server in browser"""
+    try:
+        if server_name not in servers:
+            return jsonify({'success': False, 'message': 'Server not found'})
+        
+        server = servers[server_name]
+        url = f"http://localhost:{server['port']}"
+        
+        # Open in default browser
+        if is_windows():
+            os.system(f'start {url}')
+        elif platform.system() == 'Darwin':  # macOS
+            os.system(f'open {url}')
+        else:  # Linux
+            os.system(f'xdg-open {url}')
+        
+        return jsonify({'success': True, 'message': f'Opening {url} in browser'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error opening browser: {str(e)}'})
+
 @app.route('/api/server_logs/<server_name>')
 def get_server_logs(server_name):
     """Get server logs"""
@@ -485,76 +608,6 @@ def get_servers():
     """Get all servers"""
     return jsonify(servers)
 
-@app.route('/api/files')
-def get_files():
-    """Get files in current folder"""
-    if not current_folder or not os.path.exists(current_folder):
-        return jsonify({'files': []})
-    
-    files = []
-    try:
-        for filename in os.listdir(current_folder):
-            file_path = os.path.join(current_folder, filename)
-            if os.path.isfile(file_path):
-                stat = os.stat(file_path)
-                file_type = mimetypes.guess_type(filename)[0] or "Unknown"
-                
-                files.append({
-                    'name': filename,
-                    'size': get_file_size(file_path),
-                    'type': file_type,
-                    'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
-                    'path': file_path
-                })
-    except Exception as e:
-        print(f"Error getting files: {e}")
-    
-    return jsonify({'files': files})
-
-@app.route('/api/upload', methods=['POST'])
-def upload_file():
-    """Upload a file"""
-    if 'file' not in request.files:
-        return jsonify({'success': False, 'message': 'No file selected'})
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'success': False, 'message': 'No file selected'})
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        if current_folder:
-            file_path = os.path.join(current_folder, filename)
-        else:
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
-        
-        file.save(file_path)
-        return jsonify({'success': True, 'message': f'File {filename} uploaded successfully'})
-    
-    return jsonify({'success': False, 'message': 'Invalid file type'})
-
-@app.route('/api/delete_file', methods=['POST'])
-def delete_file():
-    """Delete a file"""
-    try:
-        data = request.get_json()
-        filename = data.get('filename')
-        
-        if not filename:
-            return jsonify({'success': False, 'message': 'No filename provided'})
-        
-        if current_folder:
-            file_path = os.path.join(current_folder, filename)
-        else:
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
-        
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            return jsonify({'success': True, 'message': f'File {filename} deleted successfully'})
-        else:
-            return jsonify({'success': False, 'message': 'File not found'})
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Error deleting file: {str(e)}'})
 
 @app.route('/api/set_folder', methods=['POST'])
 def set_folder():
@@ -618,18 +671,6 @@ def get_node_version():
         pass
     return "Unknown"
 
-@app.route('/api/open_browser/<server_name>')
-def open_browser(server_name):
-    """Open server in browser"""
-    try:
-        if server_name in servers:
-            port = servers[server_name]['port']
-            url = f'http://localhost:{port}'
-            webbrowser.open(url)
-            return jsonify({'success': True, 'message': f'Opening {url}'})
-        return jsonify({'success': False, 'message': 'Server not found'})
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Error opening browser: {str(e)}'})
 
 @app.route('/api/install_php', methods=['POST'])
 def install_php():
