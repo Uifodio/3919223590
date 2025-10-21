@@ -57,10 +57,14 @@
                                 Website Folder
                             </label>
                             <div class="input-group">
-                                <input type="text" id="folderPath" placeholder="Select your website folder..." readonly style="color: var(--text-primary); background: var(--bg-input); border: 2px solid var(--border-input);">
+                                <input type="text" id="folderPath" placeholder="Select your website folder or enter path manually..." style="color: var(--text-primary); background: var(--bg-input); border: 2px solid var(--border-input);">
                                 <button type="button" id="browseFolderBtn" class="btn btn-outline">
                                     <i class="fas fa-folder-open"></i>
                                     Browse
+                                </button>
+                                <button type="button" id="manualFolderBtn" class="btn btn-outline">
+                                    <i class="fas fa-edit"></i>
+                                    Manual
                                 </button>
                             </div>
                         </div>
@@ -212,6 +216,9 @@
     <input type="file" id="folderInput" style="display: none;" webkitdirectory directory multiple>
     <input type="file" id="fileInput" style="display: none;" multiple>
     <input type="file" id="videoInput" style="display: none;" accept="video/*">
+    
+    <!-- Alternative folder input for better compatibility -->
+    <input type="text" id="manualFolderInput" style="display: none;" placeholder="Enter folder path manually">
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>

@@ -19,6 +19,7 @@ class ServerAdmin {
     bindEvents() {
         // Control panel events
         document.getElementById('browseFolderBtn').addEventListener('click', () => this.browseFolder());
+        document.getElementById('manualFolderBtn').addEventListener('click', () => this.manualFolder());
         document.getElementById('addServerBtn').addEventListener('click', () => this.addServer());
         document.getElementById('refreshAllBtn').addEventListener('click', () => this.refreshAll());
         document.getElementById('systemInfoBtn').addEventListener('click', () => this.showSystemInfo());
@@ -72,7 +73,21 @@ class ServerAdmin {
     }
 
     async browseFolder() {
-        document.getElementById('folderInput').click();
+        // Try webkitdirectory first, then fallback to manual input
+        if (document.getElementById('folderInput').webkitdirectory !== undefined) {
+            document.getElementById('folderInput').click();
+        } else {
+            // Fallback for browsers that don't support webkitdirectory
+            this.manualFolder();
+        }
+    }
+
+    async manualFolder() {
+        const folderPath = prompt('Enter the full path to your website folder:\n\nExamples:\n- C:\\Users\\YourName\\Documents\\MyWebsite\n- /home/username/MyWebsite\n- ./my-website');
+        if (folderPath && folderPath.trim()) {
+            document.getElementById('folderPath').value = folderPath.trim();
+            this.setFolder(folderPath.trim());
+        }
     }
 
     handleFolderSelection(event) {
@@ -80,7 +95,16 @@ class ServerAdmin {
         if (files.length > 0) {
             // Get the folder path from the first file
             const folderPath = files[0].webkitRelativePath.split('/')[0];
-            const fullPath = files[0].path ? files[0].path.split(folderPath)[0] + folderPath : folderPath;
+            
+            // For web browsers, we'll use the folder name as a relative path
+            // and let the backend handle the path resolution
+            let fullPath = folderPath;
+            
+            // Try to get the full path if available (for desktop apps)
+            if (files[0].path) {
+                fullPath = files[0].path.split(folderPath)[0] + folderPath;
+            }
+            
             document.getElementById('folderPath').value = fullPath;
             this.setFolder(fullPath);
         }

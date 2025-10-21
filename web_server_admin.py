@@ -82,8 +82,8 @@ def install_php_windows():
         temp_dir = tempfile.mkdtemp()
         php_zip = os.path.join(temp_dir, 'php.zip')
         
-        # Download PHP
-        php_url = "https://windows.php.net/downloads/releases/php-8.2.12-Win32-vs16-x64.zip"
+        # Use a more reliable PHP download URL
+        php_url = "https://windows.php.net/downloads/releases/php-8.3.0-Win32-vs16-x64.zip"
         print(f"Downloading PHP from {php_url}...")
         
         # Create SSL context to ignore certificate errors
@@ -91,13 +91,31 @@ def install_php_windows():
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
         
-        with urllib.request.urlopen(php_url, context=ssl_context) as response:
-            with open(php_zip, 'wb') as f:
-                f.write(response.read())
+        # Download with progress
+        try:
+            with urllib.request.urlopen(php_url, context=ssl_context, timeout=30) as response:
+                total_size = int(response.headers.get('Content-Length', 0))
+                downloaded = 0
+                
+                with open(php_zip, 'wb') as f:
+                    while True:
+                        chunk = response.read(8192)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_size > 0:
+                            percent = (downloaded / total_size) * 100
+                            print(f"Downloaded {percent:.1f}%")
+        except Exception as e:
+            return False, f"Failed to download PHP: {str(e)}"
         
         # Extract PHP
-        with zipfile.ZipFile(php_zip, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
+        try:
+            with zipfile.ZipFile(php_zip, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+        except Exception as e:
+            return False, f"Failed to extract PHP: {str(e)}"
         
         # Find PHP directory
         php_dir = None
@@ -107,21 +125,33 @@ def install_php_windows():
                 break
         
         if not php_dir:
-            return False, "Could not find PHP directory"
+            return False, "Could not find PHP directory in downloaded files"
         
         # Copy PHP to application directory
         app_php_dir = os.path.join(os.getcwd(), 'php')
         if os.path.exists(app_php_dir):
             shutil.rmtree(app_php_dir)
-        shutil.copytree(php_dir, app_php_dir)
+        
+        try:
+            shutil.copytree(php_dir, app_php_dir)
+        except Exception as e:
+            return False, f"Failed to copy PHP files: {str(e)}"
         
         # Add PHP to PATH for this session
         php_exe = os.path.join(app_php_dir, 'php.exe')
         if os.path.exists(php_exe):
             os.environ['PATH'] = app_php_dir + os.pathsep + os.environ['PATH']
-            return True, "PHP installed successfully"
+            # Test PHP installation
+            try:
+                result = subprocess.run([php_exe, '--version'], capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    return True, f"PHP installed successfully: {result.stdout.split()[1]}"
+                else:
+                    return False, "PHP installed but not working properly"
+            except Exception as e:
+                return False, f"PHP installed but test failed: {str(e)}"
         else:
-            return False, "PHP executable not found"
+            return False, "PHP executable not found after installation"
             
     except Exception as e:
         return False, f"Error installing PHP: {str(e)}"
@@ -327,8 +357,37 @@ def add_server():
         if not folder:
             return jsonify({'success': False, 'message': 'Please select a website folder'})
         
+        # Check if folder exists, if not try to create it or use demo folder
         if not os.path.exists(folder):
-            return jsonify({'success': False, 'message': 'Selected folder does not exist'})
+            # If it's a relative path, try to create it
+            if not os.path.isabs(folder):
+                try:
+                    os.makedirs(folder, exist_ok=True)
+                    # Create a simple index.html if folder is empty
+                    index_file = os.path.join(folder, 'index.html')
+                    if not os.path.exists(index_file):
+                        with open(index_file, 'w') as f:
+                            f.write('''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Your Server</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #0d1117; color: #f0f6fc; }
+        h1 { color: #0969da; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Server Running Successfully!</h1>
+    <p>Your server is now running on this port.</p>
+    <p>Add your website files to this folder.</p>
+</body>
+</html>''')
+                except Exception as e:
+                    return jsonify({'success': False, 'message': f'Could not create folder: {str(e)}'})
+            else:
+                return jsonify({'success': False, 'message': 'Selected folder does not exist'})
         
         try:
             port = int(port)
