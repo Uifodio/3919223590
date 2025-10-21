@@ -283,74 +283,118 @@ class ServerAdmin {
         Object.values(servers).forEach(server => {
             if (server.status === 'Running') runningCount++;
             
+            // Create server card container
             const serverCard = document.createElement('div');
             serverCard.className = `server-card ${server.status.toLowerCase()}`;
             
-            // Build the HTML step by step to avoid template string issues
-            let html = `
-                <div class="server-header">
-                    <div class="server-info">
-                        <h3 style="color: var(--text-primary); font-weight: 600;">${server.name}</h3>
-                        <p style="color: var(--text-secondary); font-weight: 500;">${server.folder.split('/').pop()}</p>
-                    </div>
-                    <div class="server-status">
-                        <span class="status-badge status-${server.status.toLowerCase()}">${server.status}</span>
-                    </div>
-                </div>
-                
-                <div class="server-details">
-                    <div class="detail-item">
-                        <div class="detail-label">Port</div>
-                        <div class="detail-value" style="color: var(--text-primary); font-weight: 600;">${server.port}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Type</div>
-                        <div class="detail-value" style="color: var(--text-primary); font-weight: 600;">${server.type}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Started</div>
-                        <div class="detail-value" style="color: var(--text-primary); font-weight: 600;">${server.start_time}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">URL</div>
-                        <div class="detail-value" style="color: var(--text-primary); font-weight: 600;">http://localhost:${server.port}</div>
-                    </div>
-                </div>
-                
-                <div class="server-actions">
-                    <button class="action-btn view-logs" onclick="serverAdmin.showLogs('${server.name}')" title="View Server Logs">
-                        <i class="fas fa-file-alt"></i>
-                        View Logs
-                    </button>
-                    <button class="action-btn open-browser" onclick="serverAdmin.openServerInBrowser('${server.name}')" title="Open in Browser">
-                        <i class="fas fa-external-link-alt"></i>
-                        Open Browser
-                    </button>`;
+            // Create header
+            const header = document.createElement('div');
+            header.className = 'server-header';
             
-            // Add start/stop button based on status
+            const serverInfo = document.createElement('div');
+            serverInfo.className = 'server-info';
+            
+            const serverName = document.createElement('h3');
+            serverName.style.cssText = 'color: var(--text-primary); font-weight: 600;';
+            serverName.textContent = server.name;
+            
+            const serverFolder = document.createElement('p');
+            serverFolder.style.cssText = 'color: var(--text-secondary); font-weight: 500;';
+            serverFolder.textContent = server.folder.split('/').pop();
+            
+            serverInfo.appendChild(serverName);
+            serverInfo.appendChild(serverFolder);
+            
+            const serverStatus = document.createElement('div');
+            serverStatus.className = 'server-status';
+            
+            const statusBadge = document.createElement('span');
+            statusBadge.className = `status-badge status-${server.status.toLowerCase()}`;
+            statusBadge.textContent = server.status;
+            
+            serverStatus.appendChild(statusBadge);
+            header.appendChild(serverInfo);
+            header.appendChild(serverStatus);
+            
+            // Create details
+            const details = document.createElement('div');
+            details.className = 'server-details';
+            
+            const detailsData = [
+                { label: 'Port', value: server.port },
+                { label: 'Type', value: server.type },
+                { label: 'Started', value: server.start_time },
+                { label: 'URL', value: `http://localhost:${server.port}` }
+            ];
+            
+            detailsData.forEach(item => {
+                const detailItem = document.createElement('div');
+                detailItem.className = 'detail-item';
+                
+                const label = document.createElement('div');
+                label.className = 'detail-label';
+                label.textContent = item.label;
+                
+                const value = document.createElement('div');
+                value.className = 'detail-value';
+                value.style.cssText = 'color: var(--text-primary); font-weight: 600;';
+                value.textContent = item.value;
+                
+                detailItem.appendChild(label);
+                detailItem.appendChild(value);
+                details.appendChild(detailItem);
+            });
+            
+            // Create actions container
+            const actions = document.createElement('div');
+            actions.className = 'server-actions';
+            
+            // Button 1: View Logs
+            const viewLogsBtn = document.createElement('button');
+            viewLogsBtn.className = 'action-btn view-logs';
+            viewLogsBtn.title = 'View Server Logs';
+            viewLogsBtn.innerHTML = '<i class="fas fa-file-alt"></i> View Logs';
+            viewLogsBtn.onclick = () => this.showLogs(server.name);
+            
+            // Button 2: Open Browser
+            const openBrowserBtn = document.createElement('button');
+            openBrowserBtn.className = 'action-btn open-browser';
+            openBrowserBtn.title = 'Open in Browser';
+            openBrowserBtn.innerHTML = '<i class="fas fa-external-link-alt"></i> Open Browser';
+            openBrowserBtn.onclick = () => this.openServerInBrowser(server.name);
+            
+            // Button 3: Start/Stop Server
+            const startStopBtn = document.createElement('button');
             if (server.status === 'Running') {
-                html += `
-                    <button class="action-btn stop-server" onclick="serverAdmin.stopServer('${server.name}')" title="Stop Server">
-                        <i class="fas fa-stop"></i>
-                        Stop Server
-                    </button>`;
+                startStopBtn.className = 'action-btn stop-server';
+                startStopBtn.title = 'Stop Server';
+                startStopBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Server';
+                startStopBtn.onclick = () => this.stopServer(server.name);
             } else {
-                html += `
-                    <button class="action-btn start-server" onclick="serverAdmin.startServer('${server.name}')" title="Start Server">
-                        <i class="fas fa-play"></i>
-                        Start Server
-                    </button>`;
+                startStopBtn.className = 'action-btn start-server';
+                startStopBtn.title = 'Start Server';
+                startStopBtn.innerHTML = '<i class="fas fa-play"></i> Start Server';
+                startStopBtn.onclick = () => this.startServer(server.name);
             }
             
-            html += `
-                    <button class="action-btn delete-server" onclick="serverAdmin.deleteServer('${server.name}')" title="Delete Server">
-                        <i class="fas fa-trash"></i>
-                        Delete
-                    </button>
-                </div>
-            `;
+            // Button 4: Delete Server
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'action-btn delete-server';
+            deleteBtn.title = 'Delete Server';
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+            deleteBtn.onclick = () => this.deleteServer(server.name);
             
-            serverCard.innerHTML = html;
+            // Add all buttons to actions container
+            actions.appendChild(viewLogsBtn);
+            actions.appendChild(openBrowserBtn);
+            actions.appendChild(startStopBtn);
+            actions.appendChild(deleteBtn);
+            
+            // Assemble the card
+            serverCard.appendChild(header);
+            serverCard.appendChild(details);
+            serverCard.appendChild(actions);
+            
             container.appendChild(serverCard);
         });
 

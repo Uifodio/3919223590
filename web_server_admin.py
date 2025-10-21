@@ -220,8 +220,10 @@ def get_php_path():
     return 'php'
 
 def start_server_process(name, folder, port, server_type):
-    """Start a server process with proper support for all types"""
+    """Start a server process with proper support for all types - BULLETPROOF VERSION"""
     try:
+        process = None
+        
         if server_type == "PHP":
             php_path = get_php_path()
             
@@ -245,9 +247,12 @@ def start_server_process(name, folder, port, server_type):
             
         elif server_type == "HTTP":
             # Use Python's built-in HTTP server
-            process = subprocess.Popen([
-                'python3', '-m', 'http.server', str(port)
-            ], cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            try:
+                process = subprocess.Popen([
+                    'python3', '-m', 'http.server', str(port)
+                ], cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            except Exception as e:
+                return False, f"Error starting HTTP server: {str(e)}"
             
         elif server_type == "Node.js":
             if not check_node_available():
@@ -380,7 +385,7 @@ def index():
 
 @app.route('/api/add_server', methods=['POST'])
 def add_server():
-    """Add a new server"""
+    """Add a new server - BULLETPROOF VERSION"""
     try:
         data = request.get_json()
         folder = data.get('folder', '').strip()
@@ -430,32 +435,50 @@ def add_server():
         if port < 1000 or port > 65535:
             return jsonify({'success': False, 'message': 'Port must be between 1000 and 65535'})
         
-        # Auto-increment port if already in use
+        # BULLETPROOF PORT MANAGEMENT - Check both port usage AND existing servers
         original_port = port
-        while is_port_in_use(port):
+        while True:
+            # Check if port is in use by system
+            port_in_use = is_port_in_use(port)
+            
+            # Check if port is already used by existing servers
+            port_used_by_server = any(server['port'] == port for server in servers.values())
+            
+            if not port_in_use and not port_used_by_server:
+                break  # Port is available
+                
             port += 1
             if port > 65535:
                 return jsonify({'success': False, 'message': f'No available ports found starting from {original_port}'})
         
-        # Generate server name
+        # Generate unique server name
         server_name = f"Server-{port}"
         counter = 1
         while server_name in servers:
             server_name = f"Server-{port}-{counter}"
             counter += 1
         
+        # Start the server process
         success, message = start_server_process(server_name, folder, port, server_type)
         
         if success:
+            # Store server info WITHOUT the process object (causes JSON serialization issues)
             servers[server_name] = {
                 'name': server_name,
                 'folder': folder,
                 'port': port,
                 'type': server_type,
                 'status': 'Running',
-                'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'process': server_processes.get(server_name)
+                'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
+            
+            # Store process separately for management
+            if server_name in server_processes:
+                # Process is already stored in server_processes
+                pass
+            else:
+                return jsonify({'success': False, 'message': 'Server process not started properly'})
+            
             return jsonify({'success': True, 'message': f'Server {server_name} started successfully on port {port}'})
         else:
             return jsonify({'success': False, 'message': message})
@@ -645,13 +668,31 @@ def set_folder():
 
 @app.route('/api/system_info')
 def get_system_info():
-    """Get system information"""
+    """Get system information - BULLETPROOF VERSION"""
     try:
         php_available = check_php_available()
         node_available = check_node_available()
         
+        # Get accurate OS information
+        os_name = platform.system()
+        os_version = platform.release()
+        
+        # Detect Windows version more accurately
+        if os_name == "Windows":
+            try:
+                import winreg
+                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
+                product_name = winreg.QueryValueEx(key, "ProductName")[0]
+                winreg.CloseKey(key)
+                if "Windows 11" in product_name:
+                    os_version = "11"
+                elif "Windows 10" in product_name:
+                    os_version = "10"
+            except:
+                pass
+        
         info = {
-            'os': f"{platform.system()} {platform.release()}",
+            'os': f"{os_name} {os_version}",
             'architecture': platform.architecture()[0],
             'python_version': platform.python_version(),
             'cpu_cores': psutil.cpu_count(),
@@ -660,9 +701,9 @@ def get_system_info():
             'disk_free': psutil.disk_usage('/').free // (1024**3),
             'active_servers': len([s for s in servers.values() if s['status'] == 'Running']),
             'php_available': php_available,
-            'php_version': get_php_version() if php_available else None,
+            'php_version': get_php_version() if php_available else "Not Available",
             'node_available': node_available,
-            'node_version': get_node_version() if node_available else None,
+            'node_version': get_node_version() if node_available else "Not Available",
             'current_folder': current_folder
         }
         return jsonify(info)
