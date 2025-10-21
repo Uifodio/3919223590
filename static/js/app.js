@@ -23,6 +23,7 @@ class ServerAdmin {
         document.getElementById('refreshAllBtn').addEventListener('click', () => this.refreshAll());
         document.getElementById('systemInfoBtn').addEventListener('click', () => this.showSystemInfo());
         document.getElementById('installPhpBtn').addEventListener('click', () => this.installPHP());
+        document.getElementById('installPhpBtnMain').addEventListener('click', () => this.installPHP());
 
 
         // Folder input
@@ -326,16 +327,10 @@ class ServerAdmin {
                         <i class="fas fa-external-link-alt"></i>
                         Open Browser
                     </button>
-                    ${server.status === 'Running' ? 
-                        `<button class="action-btn stop-server" onclick="serverAdmin.stopServer('${server.name}')" title="Stop Server">
-                            <i class="fas fa-stop"></i>
-                            Stop Server
-                        </button>` :
-                        `<button class="action-btn start-server" onclick="serverAdmin.startServer('${server.name}')" title="Start Server">
-                            <i class="fas fa-play"></i>
-                            Start Server
-                        </button>`
-                    }
+                    <button class="action-btn ${server.status === 'Running' ? 'stop-server' : 'start-server'}" onclick="serverAdmin.${server.status === 'Running' ? 'stopServer' : 'startServer'}('${server.name}')" title="${server.status === 'Running' ? 'Stop Server' : 'Start Server'}">
+                        <i class="fas fa-${server.status === 'Running' ? 'stop' : 'play'}"></i>
+                        ${server.status === 'Running' ? 'Stop Server' : 'Start Server'}
+                    </button>
                     <button class="action-btn delete-server" onclick="serverAdmin.deleteServer('${server.name}')" title="Delete Server">
                         <i class="fas fa-trash"></i>
                         Delete

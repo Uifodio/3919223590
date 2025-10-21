@@ -430,8 +430,12 @@ def add_server():
         if port < 1000 or port > 65535:
             return jsonify({'success': False, 'message': 'Port must be between 1000 and 65535'})
         
-        if is_port_in_use(port):
-            return jsonify({'success': False, 'message': f'Port {port} is already in use'})
+        # Auto-increment port if already in use
+        original_port = port
+        while is_port_in_use(port):
+            port += 1
+            if port > 65535:
+                return jsonify({'success': False, 'message': f'No available ports found starting from {original_port}'})
         
         # Generate server name
         server_name = f"Server-{port}"
@@ -449,7 +453,8 @@ def add_server():
                 'port': port,
                 'type': server_type,
                 'status': 'Running',
-                'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'process': server_processes.get(server_name)
             }
             return jsonify({'success': True, 'message': f'Server {server_name} started successfully on port {port}'})
         else:
@@ -489,6 +494,7 @@ def stop_server():
         
         if server_name in servers:
             servers[server_name]['status'] = 'Stopped'
+            servers[server_name]['process'] = None
         
         return jsonify({'success': True, 'message': f'Server {server_name} stopped successfully'})
         
@@ -520,6 +526,7 @@ def start_server():
         if success:
             server['status'] = 'Running'
             server['start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            server['process'] = server_processes.get(server_name)
             return jsonify({'success': True, 'message': f'Server {server_name} started successfully'})
         else:
             return jsonify({'success': False, 'message': message})
