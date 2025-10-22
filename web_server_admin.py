@@ -68,11 +68,13 @@ SITES_FOLDER = ROOT / 'sites'
 LOGS_FOLDER = ROOT / 'logs'
 PERSIST_FILE = ROOT / 'servers.json'
 PHP_LOCAL_FOLDER = ROOT / 'php'
+CADDY_FOLDER = ROOT / 'caddy'
+SETTINGS_FILE = ROOT / 'settings.json'
 
 ALLOWED_EXTENSIONS = {'txt','pdf','png','jpg','jpeg','gif','mp4','avi','mov','mkv','wmv','flv','webm',
                       'php','html','css','js','json','xml','md','py','sql','zip','rar','7z'}
 
-for d in (UPLOAD_FOLDER, SITES_FOLDER, LOGS_FOLDER, PHP_LOCAL_FOLDER):
+for d in (UPLOAD_FOLDER, SITES_FOLDER, LOGS_FOLDER, PHP_LOCAL_FOLDER, CADDY_FOLDER):
     os.makedirs(d, exist_ok=True)
 
 EXECUTOR = ThreadPoolExecutor(max_workers=RUNTIME_OPTIONS['MAX_WORKERS'])
@@ -143,6 +145,131 @@ def tail_lines(filepath, n=200):
         return data.splitlines()[-n:]
     except Exception:
         return []
+
+# -------------------------
+# Caddy Web Server Management
+# -------------------------
+def get_caddy_path():
+    """Get Caddy executable path"""
+    if platform.system() == 'Windows':
+        caddy_exe = CADDY_FOLDER / 'caddy.exe'
+    else:
+        caddy_exe = CADDY_FOLDER / 'caddy'
+    
+    if caddy_exe.exists():
+        return str(caddy_exe)
+    
+    # Fallback to system caddy
+    return shutil.which('caddy') or 'caddy'
+
+def download_caddy():
+    """Download and install Caddy web server"""
+    try:
+        if platform.system() == 'Windows':
+            url = "https://caddyserver.com/api/download?os=windows&arch=amd64&p=github.com%2Fcaddyserver%2Fcaddy%2Fv2%2Fmodules%2Fstandard"
+            filename = "caddy.exe"
+        else:
+            url = "https://caddyserver.com/api/download?os=linux&arch=amd64&p=github.com%2Fcaddyserver%2Fcaddy%2Fv2%2Fmodules%2Fstandard"
+            filename = "caddy"
+        
+        caddy_path = CADDY_FOLDER / filename
+        
+        if caddy_path.exists():
+            return True, "Caddy already installed"
+        
+        app_logger.info(f"Downloading Caddy from {url}")
+        
+        # Download Caddy
+        import urllib.request
+        urllib.request.urlretrieve(url, caddy_path)
+        
+        # Make executable on Unix systems
+        if platform.system() != 'Windows':
+            os.chmod(caddy_path, 0o755)
+        
+        app_logger.info(f"Caddy downloaded to {caddy_path}")
+        return True, f"Caddy installed successfully"
+        
+    except Exception as e:
+        app_logger.exception("Failed to download Caddy")
+        return False, f"Failed to download Caddy: {str(e)}"
+
+def check_caddy_available():
+    """Check if Caddy is available"""
+    try:
+        caddy_path = get_caddy_path()
+        result = subprocess.run([caddy_path, 'version'], capture_output=True, text=True, timeout=5)
+        return result.returncode == 0
+    except:
+        return False
+
+def create_caddy_config(site_name, site_path, port, server_type):
+    """Create Caddy configuration for a site"""
+    config_dir = CADDY_FOLDER / 'configs'
+    config_dir.mkdir(exist_ok=True)
+    
+    config_file = config_dir / f"{site_name}.Caddyfile"
+    
+    if server_type == 'PHP':
+        # Caddy with PHP-FPM
+        config_content = f""":{port} {{
+    root * {site_path}
+    file_server
+    
+    php_fastcgi unix//var/run/php/php-fpm.sock {{
+        index index.php index.html
+    }}
+    
+    log {{
+        output file {LOGS_FOLDER / f"{site_name}_caddy.log"}
+        format json
+    }}
+}}"""
+    else:
+        # Caddy for static files
+        config_content = f""":{port} {{
+    root * {site_path}
+    file_server
+    
+    log {{
+        output file {LOGS_FOLDER / f"{site_name}_caddy.log"}
+        format json
+    }}
+}}"""
+    
+    with open(config_file, 'w', encoding='utf-8') as f:
+        f.write(config_content)
+    
+    return str(config_file)
+
+def start_caddy_server(site_name, site_path, port, server_type):
+    """Start Caddy server for a site"""
+    try:
+        if not check_caddy_available():
+            # Try to download Caddy
+            success, message = download_caddy()
+            if not success:
+                return False, f"Caddy not available: {message}"
+        
+        caddy_path = get_caddy_path()
+        config_file = create_caddy_config(site_name, site_path, port, server_type)
+        
+        # Start Caddy process
+        process = subprocess.Popen([
+            caddy_path, 'run', '--config', config_file, '--adapter', 'caddyfile'
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        
+        # Give it a moment to start
+        time.sleep(1)
+        
+        if process.poll() is None:
+            return True, "Caddy server started"
+        else:
+            return False, "Caddy failed to start"
+            
+    except Exception as e:
+        app_logger.exception("Failed to start Caddy server")
+        return False, f"Failed to start Caddy: {str(e)}"
 
 # -------------------------
 # System checks
@@ -253,7 +380,7 @@ def import_folder_recursive(src: str, dest_basename: str = None) -> Tuple[bool,s
         return False, "Import failed"
 
 def extract_zip_to_sites(zip_path: str, dest_basename: str = None) -> Tuple[bool,str]:
-    """Extract ZIP file to sites folder with bulletproof path handling for mobile uploads"""
+    """Extract ZIP file to sites folder with proper structure preservation"""
     tmpdir = tempfile.mkdtemp(prefix='msa_extract_')
     try:
         with zipfile.ZipFile(zip_path, 'r') as z:
@@ -263,7 +390,7 @@ def extract_zip_to_sites(zip_path: str, dest_basename: str = None) -> Tuple[bool
             if not file_list:
                 return False, "ZIP file is empty or contains only system files"
             
-            # Extract all files
+            # Extract all files preserving directory structure
             z.extractall(tmpdir, members=file_list)
             
             # Find the root directory structure
@@ -271,7 +398,7 @@ def extract_zip_to_sites(zip_path: str, dest_basename: str = None) -> Tuple[bool
             entries = [p for p in extracted_path.iterdir() if not p.name.startswith('.')]
             
             if len(entries) == 1 and entries[0].is_dir():
-                # Single directory - use it as root
+                # Single directory - use it as root (this is the correct behavior)
                 target_name = dest_basename or entries[0].name
                 dest = SITES_FOLDER / secure_name(target_name)
                 
@@ -298,62 +425,13 @@ def extract_zip_to_sites(zip_path: str, dest_basename: str = None) -> Tuple[bool
             else:
                 return False, "No valid content found in ZIP file"
             
-            # Ensure we have at least an index file
-            index_files = ['index.html', 'index.php', 'index.htm', 'default.html']
-            has_index = any((dest / f).exists() for f in index_files)
+            # Check if we have a real index file (don't create dummy ones)
+            index_files = ['index.html', 'index.php', 'index.htm', 'default.html', 'index.js']
+            has_real_index = any((dest / f).exists() for f in index_files)
             
-            if not has_index:
-                # Create a basic index.html
-                index_content = '''<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Your Server</title>
-    <style>
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            text-align: center; 
-            padding: 50px; 
-            background: #0d1117; 
-            color: #f0f6fc; 
-            margin: 0;
-        }
-        .container { max-width: 600px; margin: 0 auto; }
-        h1 { color: #0969da; margin-bottom: 20px; }
-        .info { background: #161b22; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .file-list { text-align: left; margin-top: 20px; }
-        .file-item { padding: 5px 0; color: #c9d1d9; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚀 Server Running Successfully!</h1>
-        <div class="info">
-            <p>Your server is now running on this port.</p>
-            <p>Files have been uploaded and are ready to serve.</p>
-        </div>
-        <div class="file-list">
-            <h3>Uploaded Files:</h3>
-            <div id="fileList">Loading files...</div>
-        </div>
-    </div>
-    <script>
-        // List files in the directory
-        fetch('/')
-            .then(response => response.text())
-            .then(html => {
-                // Simple file listing (basic implementation)
-                document.getElementById('fileList').innerHTML = '<p>Files are available at their respective paths.</p>';
-            })
-            .catch(() => {
-                document.getElementById('fileList').innerHTML = '<p>Files uploaded successfully.</p>';
-            });
-    </script>
-</body>
-</html>'''
-                with open(dest / 'index.html', 'w', encoding='utf-8') as f:
-                    f.write(index_content)
+            if not has_real_index:
+                # Only create a minimal index if absolutely necessary
+                app_logger.warning(f"No index file found in {dest}, site may not work properly")
             
             app_logger.info("Extracted zip %s -> %s", zip_path, dest)
             return True, str(dest)
@@ -404,16 +482,43 @@ server.listen({port}, '{bind}', () => console.log('Node listening http://{bind}:
     return str(script)
 
 def start_server_process(name: str, folder: str, port: int, server_type: str, bind_all: bool = True, health_wait: float = 0.2) -> Tuple[bool,str]:
+    """Start server process using Caddy for production-grade support"""
     logger = get_server_logger(name)
     try:
         folder_abs = str(Path(folder).absolute())
-        if server_type == 'PHP':
-            php = get_php_path()
-            if not check_php_available():
-                return False, "PHP not available"
-            cmd = [php, '-S', f"{'0.0.0.0' if bind_all else '127.0.0.1'}:{int(port)}", '-t', folder_abs, '-d', 'display_errors=1', '-d', 'log_errors=1']
-        elif server_type == 'HTTP':
-            cmd = [sys.executable, '-m', 'http.server', str(int(port)), '--bind', ('0.0.0.0' if bind_all else '127.0.0.1')]
+        
+        # Use Caddy for all server types for production-grade support
+        if server_type in ['PHP', 'HTTP']:
+            # Try Caddy first (production-grade)
+            if check_caddy_available():
+                success, msg = start_caddy_server(name, folder_abs, port, server_type)
+                if success:
+                    # Find the Caddy process
+                    time.sleep(1)
+                    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                        try:
+                            if 'caddy' in proc.info['name'].lower() and str(port) in ' '.join(proc.info['cmdline']):
+                                proc_obj = subprocess.Popen(['echo', 'dummy'])  # Create a dummy process object
+                                proc_obj.pid = proc.info['pid']
+                                with LOCK:
+                                    server_processes[name] = proc_obj
+                                    log_queues.setdefault(name, queue.Queue())
+                                logger.info("Started Caddy server successfully")
+                                return True, "Caddy server started"
+                        except:
+                            continue
+                    return False, "Caddy started but process not found"
+                else:
+                    logger.warning(f"Caddy failed, falling back to built-in server: {msg}")
+            
+            # Fallback to built-in servers
+            if server_type == 'PHP':
+                php = get_php_path()
+                if not check_php_available():
+                    return False, "PHP not available"
+                cmd = [php, '-S', f"{'0.0.0.0' if bind_all else '127.0.0.1'}:{int(port)}", '-t', folder_abs, '-d', 'display_errors=1', '-d', 'log_errors=1']
+            elif server_type == 'HTTP':
+                cmd = [sys.executable, '-m', 'http.server', str(int(port)), '--bind', ('0.0.0.0' if bind_all else '127.0.0.1')]
         elif server_type == 'Node.js':
             nodeexec = shutil.which('node')
             if not nodeexec:
@@ -622,7 +727,8 @@ def discover_and_load():
                 else:
                     meta['status'] = 'Stopped'
 
-# call discovery/load
+# Load settings and discover sites
+load_settings_from_disk()
 discover_and_load()
 
 # If AUTO_RESTORE_RUNNING True, try to start servers that were previously 'Running' on disk
@@ -981,70 +1087,59 @@ def api_upload_folder():
         if not uploaded_files:
             return jsonify({'success': False, 'message': 'No files were successfully uploaded'})
         
-        # Create index.html if none exists
-        index_files = ['index.html', 'index.php', 'index.htm', 'default.html']
-        has_index = any((dest / f).exists() for f in index_files)
+        # Check if we have a real index file (don't create dummy ones)
+        index_files = ['index.html', 'index.php', 'index.htm', 'default.html', 'index.js']
+        has_real_index = any((dest / f).exists() for f in index_files)
         
-        if not has_index:
-            index_content = '''<!DOCTYPE html>
+        if not has_real_index:
+            # Only log a warning, don't create dummy files
+            app_logger.warning(f"No index file found in {dest}, site may not work properly")
+            # Create a simple directory listing instead
+            index_content = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Your Server</title>
+    <title>Directory Listing - {dest.name}</title>
     <style>
-        body { 
+        body {{ 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            text-align: center; 
-            padding: 50px; 
+            padding: 20px; 
             background: #0d1117; 
             color: #f0f6fc; 
             margin: 0;
-        }
-        .container { max-width: 600px; margin: 0 auto; }
-        h1 { color: #0969da; margin-bottom: 20px; }
-        .info { background: #161b22; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .file-list { text-align: left; margin-top: 20px; }
-        .file-item { padding: 5px 0; color: #c9d1d9; }
-        .success { color: #1a7f37; }
-        .error { color: #d1242f; }
+        }}
+        .container {{ max-width: 800px; margin: 0 auto; }}
+        h1 {{ color: #0969da; margin-bottom: 20px; }}
+        .info {{ background: #161b22; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+        .file-list {{ text-align: left; margin-top: 20px; }}
+        .file-item {{ padding: 8px 0; color: #c9d1d9; border-bottom: 1px solid #30363d; }}
+        .file-item:last-child {{ border-bottom: none; }}
+        .success {{ color: #1a7f37; }}
+        .error {{ color: #d1242f; }}
+        a {{ color: #58a6ff; text-decoration: none; }}
+        a:hover {{ text-decoration: underline; }}
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Server Running Successfully!</h1>
+        <h1>📁 Directory Listing</h1>
         <div class="info">
-            <p>Your files have been uploaded and are ready to serve.</p>
-            <p class="success">✓ {count} files uploaded successfully</p>
-            {errors_html}
+            <p>Files uploaded successfully. Click on any file to view it.</p>
+            <p class="success">✓ {len(uploaded_files)} files uploaded successfully</p>
+            {f'<p class="error">⚠ {len(errors)} files failed to upload</p>' if errors else ''}
         </div>
         <div class="file-list">
-            <h3>Uploaded Files:</h3>
-            {file_list_html}
+            <h3>Available Files:</h3>
+            {''.join([f'<div class="file-item"><a href="{file_path}">📄 {file_path}</a></div>' for file_path in uploaded_files[:50]])}
+            {f'<div class="file-item">... and {len(uploaded_files) - 50} more files</div>' if len(uploaded_files) > 50 else ''}
         </div>
     </div>
 </body>
 </html>'''
             
-            # Generate file list HTML
-            file_list_html = '<ul>'
-            for file_path in uploaded_files[:20]:  # Limit to first 20 files
-                file_list_html += f'<li class="file-item">📄 {file_path}</li>'
-            if len(uploaded_files) > 20:
-                file_list_html += f'<li class="file-item">... and {len(uploaded_files) - 20} more files</li>'
-            file_list_html += '</ul>'
-            
-            # Generate errors HTML
-            errors_html = ''
-            if errors:
-                errors_html = f'<p class="error">⚠ {len(errors)} files failed to upload</p>'
-            
             with open(dest / 'index.html', 'w', encoding='utf-8') as f:
-                f.write(index_content.format(
-                    count=len(uploaded_files),
-                    file_list_html=file_list_html,
-                    errors_html=errors_html
-                ))
+                f.write(index_content)
         
         registered = None
         if auto_register:
@@ -1294,6 +1389,52 @@ def api_check_node():
         app_logger.exception("api_check_node error")
         return jsonify({'available': False, 'version': None})
 
+@app.route('/api/check_caddy')
+def api_check_caddy():
+    try:
+        ok = check_caddy_available()
+        if ok:
+            caddy_path = get_caddy_path()
+            ver = subprocess.run([caddy_path, 'version'], capture_output=True, text=True).stdout.strip()
+        else:
+            ver = None
+        return jsonify({'available': ok, 'version': ver})
+    except Exception:
+        app_logger.exception("api_check_caddy error")
+        return jsonify({'available': False, 'version': None})
+
+@app.route('/api/install_caddy', methods=['POST'])
+def api_install_caddy():
+    try:
+        success, message = download_caddy()
+        return jsonify({'success': success, 'message': message})
+    except Exception as e:
+        app_logger.exception("api_install_caddy error")
+        return jsonify({'success': False, 'message': str(e)})
+
+def load_settings_from_disk():
+    """Load settings from disk on startup"""
+    try:
+        if SETTINGS_FILE.exists():
+            with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+                saved_settings = json.load(f)
+            # Update RUNTIME_OPTIONS with saved settings
+            for key, value in saved_settings.items():
+                if key in RUNTIME_OPTIONS:
+                    RUNTIME_OPTIONS[key] = value
+            app_logger.info("Settings loaded from disk")
+    except Exception as e:
+        app_logger.warning(f"Failed to load settings from disk: {e}")
+
+def save_settings_to_disk():
+    """Save current settings to disk"""
+    try:
+        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(RUNTIME_OPTIONS, f, indent=2)
+        app_logger.info("Settings saved to disk")
+    except Exception as e:
+        app_logger.warning(f"Failed to save settings to disk: {e}")
+
 @app.route('/api/settings')
 def api_get_settings():
     """Get current runtime settings"""
@@ -1308,7 +1449,7 @@ def api_get_settings():
 
 @app.route('/api/settings', methods=['POST'])
 def api_update_settings():
-    """Update runtime settings"""
+    """Update runtime settings with proper validation and persistence"""
     try:
         data = request.get_json() or {}
         updated = {}
@@ -1316,7 +1457,7 @@ def api_update_settings():
         # Validate and update settings
         for key, value in data.items():
             if key in RUNTIME_OPTIONS:
-                # Type validation
+                # Type validation and bounds checking
                 if key in ['AUTO_REFRESH_ON_LOAD', 'AUTO_RESTORE_RUNNING', 'AUTO_START_DISCOVERED', 
                           'BIND_ALL_DEFAULT', 'DELETE_SITE_ON_REMOVE', 'ALLOW_REMOTE_OPEN_BROWSER']:
                     RUNTIME_OPTIONS[key] = bool(value)
@@ -1332,17 +1473,21 @@ def api_update_settings():
                     updated[key] = RUNTIME_OPTIONS[key]
         
         # Save settings to disk
-        settings_file = ROOT / 'settings.json'
-        try:
-            with open(settings_file, 'w', encoding='utf-8') as f:
-                json.dump(RUNTIME_OPTIONS, f, indent=2)
-        except Exception:
-            app_logger.warning("Failed to save settings to disk")
+        save_settings_to_disk()
+        
+        # Apply settings immediately
+        if 'AUTO_REFRESH_INTERVAL' in updated:
+            # Restart monitor with new interval
+            global monitor_thread
+            if 'monitor_thread' in globals():
+                monitor_thread.cancel()
+            start_monitor_thread()
         
         return jsonify({
             'success': True,
-            'message': 'Settings updated successfully',
-            'updated': updated
+            'message': 'Settings updated and saved successfully',
+            'updated': updated,
+            'current_settings': RUNTIME_OPTIONS.copy()
         })
     except Exception as e:
         app_logger.exception("api_update_settings error")

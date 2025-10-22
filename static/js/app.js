@@ -200,9 +200,17 @@ class ServerAdmin {
                 const loadedMB = (ev.loaded / (1024 * 1024)).toFixed(1);
                 const totalMB = (ev.total / (1024 * 1024)).toFixed(1);
                 
-                progressBar.querySelector('.bar').style.width = percent + '%';
-                if (progressLabel) progressLabel.textContent = `Uploading... ${percent}%`;
-                if (progressSize) progressSize.textContent = `${loadedMB}MB / ${totalMB}MB`;
+                const bar = progressBar.querySelector('.bar');
+                if (bar) bar.style.width = percent + '%';
+                
+                if (progressLabel) {
+                    progressLabel.textContent = `Uploading... ${percent}%`;
+                    progressLabel.className = 'progress-text';
+                }
+                if (progressSize) {
+                    progressSize.textContent = `${loadedMB}MB / ${totalMB}MB`;
+                    progressSize.className = 'progress-size';
+                }
             }
         };
 
@@ -212,10 +220,17 @@ class ServerAdmin {
             const progressLabel = document.getElementById('uploadProgressLabel');
             const progressSize = document.getElementById('uploadProgressSize');
             if (progressBar) { 
-                progressBar.querySelector('.bar').style.width = '0%'; 
+                const bar = progressBar.querySelector('.bar');
+                if (bar) bar.style.width = '0%';
             }
-            if (progressLabel) progressLabel.textContent = 'No upload in progress';
-            if (progressSize) progressSize.textContent = '';
+            if (progressLabel) {
+                progressLabel.textContent = 'No upload in progress';
+                progressLabel.className = '';
+            }
+            if (progressSize) {
+                progressSize.textContent = '';
+                progressSize.className = '';
+            }
             try {
                 const res = JSON.parse(xhr.responseText);
                 if (res.success) {
@@ -277,9 +292,17 @@ class ServerAdmin {
                 const loadedMB = (ev.loaded / (1024 * 1024)).toFixed(1);
                 const totalMB = (ev.total / (1024 * 1024)).toFixed(1);
                 
-                progressBar.querySelector('.bar').style.width = percent + '%';
-                if (progressLabel) progressLabel.textContent = `Uploading... ${percent}%`;
-                if (progressSize) progressSize.textContent = `${loadedMB}MB / ${totalMB}MB`;
+                const bar = progressBar.querySelector('.bar');
+                if (bar) bar.style.width = percent + '%';
+                
+                if (progressLabel) {
+                    progressLabel.textContent = `Uploading... ${percent}%`;
+                    progressLabel.className = 'progress-text';
+                }
+                if (progressSize) {
+                    progressSize.textContent = `${loadedMB}MB / ${totalMB}MB`;
+                    progressSize.className = 'progress-size';
+                }
             }
         };
         xhr.onload = async () => {
@@ -288,10 +311,17 @@ class ServerAdmin {
             const progressLabel = document.getElementById('uploadProgressLabel');
             const progressSize = document.getElementById('uploadProgressSize');
             if (progressBar) { 
-                progressBar.querySelector('.bar').style.width = '0%'; 
+                const bar = progressBar.querySelector('.bar');
+                if (bar) bar.style.width = '0%';
             }
-            if (progressLabel) progressLabel.textContent = 'No upload in progress';
-            if (progressSize) progressSize.textContent = '';
+            if (progressLabel) {
+                progressLabel.textContent = 'No upload in progress';
+                progressLabel.className = '';
+            }
+            if (progressSize) {
+                progressSize.textContent = '';
+                progressSize.className = '';
+            }
             try {
                 const res = JSON.parse(xhr.responseText);
                 if (res.success) {
