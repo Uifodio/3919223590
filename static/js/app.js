@@ -192,17 +192,30 @@ class ServerAdmin {
 
         xhr.upload.onprogress = (ev) => {
             const progressBar = document.getElementById('uploadProgress');
+            const progressLabel = document.getElementById('uploadProgressLabel');
+            const progressSize = document.getElementById('uploadProgressSize');
+            
             if (progressBar && ev.lengthComputable) {
                 const percent = Math.round((ev.loaded / ev.total) * 100);
-                progressBar.style.width = percent + '%';
-                progressBar.textContent = `${percent}%`;
+                const loadedMB = (ev.loaded / (1024 * 1024)).toFixed(1);
+                const totalMB = (ev.total / (1024 * 1024)).toFixed(1);
+                
+                progressBar.querySelector('.bar').style.width = percent + '%';
+                if (progressLabel) progressLabel.textContent = `Uploading... ${percent}%`;
+                if (progressSize) progressSize.textContent = `${loadedMB}MB / ${totalMB}MB`;
             }
         };
 
         xhr.onload = async () => {
             if (uploadBtn) { uploadBtn.innerHTML = origHTML; uploadBtn.disabled = false; }
             const progressBar = document.getElementById('uploadProgress');
-            if (progressBar) { progressBar.style.width = '0%'; progressBar.textContent = ''; }
+            const progressLabel = document.getElementById('uploadProgressLabel');
+            const progressSize = document.getElementById('uploadProgressSize');
+            if (progressBar) { 
+                progressBar.querySelector('.bar').style.width = '0%'; 
+            }
+            if (progressLabel) progressLabel.textContent = 'No upload in progress';
+            if (progressSize) progressSize.textContent = '';
             try {
                 const res = JSON.parse(xhr.responseText);
                 if (res.success) {
@@ -256,16 +269,29 @@ class ServerAdmin {
 
         xhr.upload.onprogress = (ev) => {
             const progressBar = document.getElementById('uploadProgress');
+            const progressLabel = document.getElementById('uploadProgressLabel');
+            const progressSize = document.getElementById('uploadProgressSize');
+            
             if (progressBar && ev.lengthComputable) {
                 const percent = Math.round((ev.loaded / ev.total) * 100);
-                progressBar.style.width = percent + '%';
-                progressBar.textContent = `${percent}%`;
+                const loadedMB = (ev.loaded / (1024 * 1024)).toFixed(1);
+                const totalMB = (ev.total / (1024 * 1024)).toFixed(1);
+                
+                progressBar.querySelector('.bar').style.width = percent + '%';
+                if (progressLabel) progressLabel.textContent = `Uploading... ${percent}%`;
+                if (progressSize) progressSize.textContent = `${loadedMB}MB / ${totalMB}MB`;
             }
         };
         xhr.onload = async () => {
             if (uploadBtn) { uploadBtn.innerHTML = origHtml; uploadBtn.disabled = false; }
             const progressBar = document.getElementById('uploadProgress');
-            if (progressBar) { progressBar.style.width = '0%'; progressBar.textContent = ''; }
+            const progressLabel = document.getElementById('uploadProgressLabel');
+            const progressSize = document.getElementById('uploadProgressSize');
+            if (progressBar) { 
+                progressBar.querySelector('.bar').style.width = '0%'; 
+            }
+            if (progressLabel) progressLabel.textContent = 'No upload in progress';
+            if (progressSize) progressSize.textContent = '';
             try {
                 const res = JSON.parse(xhr.responseText);
                 if (res.success) {
@@ -530,7 +556,7 @@ class ServerAdmin {
     }
 
     /****************
-     * Logs UI
+     * Logs UI with Live Streaming
      ****************/
     async showLogs(serverName) {
         this.currentServer = serverName;
@@ -538,9 +564,14 @@ class ServerAdmin {
         if (title) title.innerHTML = `<i class="fas fa-file-alt"></i> Logs - ${serverName}`;
         const modal = document.getElementById('logModal');
         if (modal) modal.classList.add('show');
-        // Immediately load logs and start polling
+        
+        // Show live indicator
+        const liveBadge = document.getElementById('logLiveBadge');
+        if (liveBadge) liveBadge.style.display = 'flex';
+        
+        // Immediately load logs and start live streaming
         await this.refreshLogs();
-        this.startLogsAutoRefresh();
+        this.startLiveLogStream();
     }
 
     async refreshLogs() {
@@ -571,16 +602,83 @@ class ServerAdmin {
         }
     }
 
-    startLogsAutoRefresh() {
-        // stop existing
+    startLiveLogStream() {
+        // Stop existing streams
+        this.stopLiveLogStream();
+        
+        if (!this.currentServer) return;
+        
+        // Try Server-Sent Events first
+        if (typeof EventSource !== 'undefined') {
+            try {
+                this.eventSource = new EventSource(`/api/server_logs_stream/${encodeURIComponent(this.currentServer)}`);
+                
+                this.eventSource.onmessage = (event) => {
+                    try {
+                        const logEntry = JSON.parse(event.data);
+                        if (logEntry.type === 'heartbeat') return;
+                        this.appendLogEntry(logEntry);
+                    } catch (e) {
+                        console.warn('Failed to parse log entry:', e);
+                    }
+                };
+                
+                this.eventSource.onerror = (error) => {
+                    console.warn('SSE connection error, falling back to polling:', error);
+                    this.eventSource.close();
+                    this.eventSource = null;
+                    this.startLogsPolling();
+                };
+                
+                return;
+            } catch (e) {
+                console.warn('SSE not supported, falling back to polling:', e);
+            }
+        }
+        
+        // Fallback to polling
+        this.startLogsPolling();
+    }
+    
+    startLogsPolling() {
         this.stopLogsAutoRefresh();
         this.logsInterval = setInterval(() => this.refreshLogs(), 2000);
+    }
+
+    stopLiveLogStream() {
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+        }
+        this.stopLogsAutoRefresh();
     }
 
     stopLogsAutoRefresh() {
         if (this.logsInterval) {
             clearInterval(this.logsInterval);
             this.logsInterval = null;
+        }
+    }
+    
+    appendLogEntry(logEntry) {
+        const logContent = document.getElementById('logContent');
+        if (!logContent) return;
+        
+        const logLine = document.createElement('div');
+        const timestamp = logEntry.timestamp || new Date().toLocaleTimeString();
+        const message = logEntry.message || '';
+        const type = logEntry.type || 'info';
+        
+        logLine.innerHTML = `<span style="color: var(--text-muted);">[${timestamp}]</span> <span style="color:${type === 'error' ? 'var(--error)' : 'var(--text-primary)'};">${this.escapeHtml(message)}</span>`;
+        logContent.appendChild(logLine);
+        
+        // Auto-scroll to bottom
+        logContent.scrollTop = logContent.scrollHeight;
+        
+        // Limit number of log lines to prevent memory issues
+        const maxLines = 1000;
+        while (logContent.children.length > maxLines) {
+            logContent.removeChild(logContent.firstChild);
         }
     }
 
@@ -680,6 +778,76 @@ class ServerAdmin {
             console.error('Error checking system requirements:', error);
         }
     }
+    
+    async loadSettings() {
+        try {
+            const response = await fetch('/api/settings');
+            const data = await response.json();
+            if (data.success) {
+                this.updateSettingsUI(data.settings);
+            }
+        } catch (error) {
+            console.error('Error loading settings:', error);
+        }
+    }
+    
+    updateSettingsUI(settings) {
+        // Update toggle states based on backend settings
+        const toggles = {
+            'chkAutoRefresh': settings.AUTO_REFRESH_ON_LOAD,
+            'chkAutoRestore': settings.AUTO_RESTORE_RUNNING,
+            'chkBindAll': settings.BIND_ALL_DEFAULT,
+            'chkAllowRemoteOpen': settings.ALLOW_REMOTE_OPEN_BROWSER,
+            'chkDeleteFiles': settings.DELETE_SITE_ON_REMOVE
+        };
+        
+        Object.entries(toggles).forEach(([id, value]) => {
+            const checkbox = document.getElementById(id);
+            if (checkbox) {
+                checkbox.checked = value;
+                const toggle = checkbox.closest('.toggle');
+                if (toggle) {
+                    if (value) toggle.classList.add('on');
+                    else toggle.classList.remove('on');
+                }
+            }
+        });
+    }
+    
+    async saveSettings() {
+        try {
+            const settings = {};
+            const toggles = {
+                'chkAutoRefresh': 'AUTO_REFRESH_ON_LOAD',
+                'chkAutoRestore': 'AUTO_RESTORE_RUNNING',
+                'chkBindAll': 'BIND_ALL_DEFAULT',
+                'chkAllowRemoteOpen': 'ALLOW_REMOTE_OPEN_BROWSER',
+                'chkDeleteFiles': 'DELETE_SITE_ON_REMOVE'
+            };
+            
+            Object.entries(toggles).forEach(([id, key]) => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) {
+                    settings[key] = checkbox.checked;
+                }
+            });
+            
+            const response = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                this.showNotification('Settings saved successfully', 'success');
+            } else {
+                this.showNotification('Failed to save settings', 'error');
+            }
+        } catch (error) {
+            this.showNotification('Error saving settings: ' + error.message, 'error');
+        }
+    }
 
     async installPHP() {
         const installBtn = document.getElementById('installPhpBtn');
@@ -706,8 +874,13 @@ class ServerAdmin {
 
     closeModal(modal) {
         if (modal) modal.classList.remove('show');
-        // stop any log polling when closing logs modal
-        if (modal && modal.id === 'logModal') this.stopLogsAutoRefresh();
+        // stop any log streaming when closing logs modal
+        if (modal && modal.id === 'logModal') {
+            this.stopLiveLogStream();
+            // Hide live indicator
+            const liveBadge = document.getElementById('logLiveBadge');
+            if (liveBadge) liveBadge.style.display = 'none';
+        }
     }
 
     closeAllModals() {
@@ -760,23 +933,55 @@ class ServerAdmin {
     }
 
     /****************
-     * Auto refresh + cleanup
+     * Auto refresh + cleanup with mobile optimization
      ****************/
     startAutoRefresh() {
         // Immediately refresh on start (ensures UI is always up-to-date)
         this.loadServers();
-        // Use 30s poll by default like previous code (but first load is instant)
-        const interval = 30000;
+        
+        // Adaptive refresh interval based on device type
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const interval = isMobile ? 15000 : 30000; // More frequent updates on mobile
+        
         if (this.autoRefreshInterval) clearInterval(this.autoRefreshInterval);
         this.autoRefreshInterval = setInterval(() => {
             this.loadServers();
         }, interval);
+        
+        // Also check for server status changes more frequently
+        this.startStatusCheck();
+    }
+    
+    startStatusCheck() {
+        if (this.statusInterval) clearInterval(this.statusInterval);
+        this.statusInterval = setInterval(async () => {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                if (status.success) {
+                    this.updateServerCount(status.running_servers, status.total_servers);
+                }
+            } catch (e) {
+                console.warn('Status check failed:', e);
+            }
+        }, 5000); // Check every 5 seconds
+    }
+    
+    updateServerCount(running, total) {
+        const countElement = document.getElementById('serverCount');
+        if (countElement) {
+            countElement.textContent = `${running} of ${total} servers running`;
+        }
     }
 
     stopAutoRefresh() {
         if (this.autoRefreshInterval) {
             clearInterval(this.autoRefreshInterval);
             this.autoRefreshInterval = null;
+        }
+        if (this.statusInterval) {
+            clearInterval(this.statusInterval);
+            this.statusInterval = null;
         }
     }
 

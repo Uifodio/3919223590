@@ -292,8 +292,13 @@
                         </div>
                     </div>
 
-                    <div style="margin-top: 0.75rem; color: var(--text-muted); font-size: 0.9rem;">
-                        Note: these toggles reflect UI-level settings. Wire them to a backend `/api/settings` endpoint when ready. The backend we provided stores these in a `RUNTIME_OPTIONS` block (server-side).
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-primary); display: flex; justify-content: space-between; align-items: center;">
+                        <div style="color: var(--text-muted); font-size: 0.9rem;">
+                            Settings are automatically saved when changed.
+                        </div>
+                        <button id="saveSettingsBtn" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
                     </div>
                 </div>
             </div>
@@ -325,6 +330,20 @@
             if (settingsBtn && settingsModal) {
                 settingsBtn.addEventListener('click', () => {
                     settingsModal.classList.add('show');
+                    // Load current settings when opening modal
+                    if (window.serverAdmin && typeof window.serverAdmin.loadSettings === 'function') {
+                        window.serverAdmin.loadSettings();
+                    }
+                });
+            }
+            
+            // Wire up save settings button
+            const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+            if (saveSettingsBtn) {
+                saveSettingsBtn.addEventListener('click', () => {
+                    if (window.serverAdmin && typeof window.serverAdmin.saveSettings === 'function') {
+                        window.serverAdmin.saveSettings();
+                    }
                 });
             }
 
@@ -336,25 +355,27 @@
                 });
             });
 
-            // Provide simple visual toggle behavior
-            document.querySelectorAll('.toggle').forEach(t => {
-                const cb = t.querySelector('input[type="checkbox"]');
-                const knob = t.querySelector('.knob');
-                if (!cb || !knob) return;
-                // initialize visual state
-                if (cb.checked) t.classList.add('on'); else t.classList.remove('on');
-                cb.addEventListener('change', () => {
+                // Provide simple visual toggle behavior with save functionality
+                document.querySelectorAll('.toggle').forEach(t => {
+                    const cb = t.querySelector('input[type="checkbox"]');
+                    const knob = t.querySelector('.knob');
+                    if (!cb || !knob) return;
+                    // initialize visual state
                     if (cb.checked) t.classList.add('on'); else t.classList.remove('on');
-                    // Optionally: send settings to backend here via fetch('/api/settings', { method: 'POST', body: JSON.stringify({...}) })
-                    // We intentionally do not call an endpoint here because the backend needs to expose /api/settings to receive them.
+                    cb.addEventListener('change', () => {
+                        if (cb.checked) t.classList.add('on'); else t.classList.remove('on');
+                        // Auto-save settings when changed
+                        if (window.serverAdmin && typeof window.serverAdmin.saveSettings === 'function') {
+                            window.serverAdmin.saveSettings();
+                        }
+                    });
+                    // Make toggles clickable by element
+                    t.addEventListener('click', (e) => {
+                        if (e.target.tagName.toLowerCase() === 'input') return;
+                        cb.checked = !cb.checked;
+                        cb.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
                 });
-                // Make toggles clickable by element
-                t.addEventListener('click', (e) => {
-                    if (e.target.tagName.toLowerCase() === 'input') return;
-                    cb.checked = !cb.checked;
-                    cb.dispatchEvent(new Event('change', { bubbles: true }));
-                });
-            });
 
             // Close modal when clicking outside content
             document.querySelectorAll('.modal').forEach(modal => {

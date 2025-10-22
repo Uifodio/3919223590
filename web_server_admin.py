@@ -253,26 +253,116 @@ def import_folder_recursive(src: str, dest_basename: str = None) -> Tuple[bool,s
         return False, "Import failed"
 
 def extract_zip_to_sites(zip_path: str, dest_basename: str = None) -> Tuple[bool,str]:
+    """Extract ZIP file to sites folder with bulletproof path handling for mobile uploads"""
     tmpdir = tempfile.mkdtemp(prefix='msa_extract_')
     try:
         with zipfile.ZipFile(zip_path, 'r') as z:
-            z.extractall(tmpdir)
-        entries = [p for p in Path(tmpdir).iterdir() if not p.name.startswith('__MACOSX')]
-        if len(entries) == 1 and entries[0].is_dir():
-            target_name = dest_basename or entries[0].name
-            dest = SITES_FOLDER / secure_name(target_name)
-            shutil.move(str(entries[0]), str(dest))
-        else:
-            target_name = dest_basename or f"site-{int(time.time())}"
-            dest = SITES_FOLDER / secure_name(target_name)
-            os.makedirs(dest, exist_ok=True)
-            for item in Path(tmpdir).iterdir():
-                shutil.move(str(item), str(dest / item.name))
-        app_logger.info("Extracted zip %s -> %s", zip_path, dest)
-        return True, str(dest)
-    except Exception:
+            # Get list of files and filter out system files
+            file_list = [f for f in z.namelist() if not f.startswith('__MACOSX') and not f.startswith('.DS_Store')]
+            
+            if not file_list:
+                return False, "ZIP file is empty or contains only system files"
+            
+            # Extract all files
+            z.extractall(tmpdir, members=file_list)
+            
+            # Find the root directory structure
+            extracted_path = Path(tmpdir)
+            entries = [p for p in extracted_path.iterdir() if not p.name.startswith('.')]
+            
+            if len(entries) == 1 and entries[0].is_dir():
+                # Single directory - use it as root
+                target_name = dest_basename or entries[0].name
+                dest = SITES_FOLDER / secure_name(target_name)
+                
+                # Move directory atomically
+                if dest.exists():
+                    shutil.rmtree(dest)
+                shutil.move(str(entries[0]), str(dest))
+                
+            elif len(entries) > 1:
+                # Multiple files/directories - create a container directory
+                target_name = dest_basename or f"site-{int(time.time())}"
+                dest = SITES_FOLDER / secure_name(target_name)
+                os.makedirs(dest, exist_ok=True)
+                
+                # Move all items into the container
+                for item in entries:
+                    dest_item = dest / item.name
+                    if item.is_dir():
+                        if dest_item.exists():
+                            shutil.rmtree(dest_item)
+                        shutil.move(str(item), str(dest_item))
+                    else:
+                        shutil.move(str(item), str(dest_item))
+            else:
+                return False, "No valid content found in ZIP file"
+            
+            # Ensure we have at least an index file
+            index_files = ['index.html', 'index.php', 'index.htm', 'default.html']
+            has_index = any((dest / f).exists() for f in index_files)
+            
+            if not has_index:
+                # Create a basic index.html
+                index_content = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Your Server</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            text-align: center; 
+            padding: 50px; 
+            background: #0d1117; 
+            color: #f0f6fc; 
+            margin: 0;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { color: #0969da; margin-bottom: 20px; }
+        .info { background: #161b22; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .file-list { text-align: left; margin-top: 20px; }
+        .file-item { padding: 5px 0; color: #c9d1d9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Server Running Successfully!</h1>
+        <div class="info">
+            <p>Your server is now running on this port.</p>
+            <p>Files have been uploaded and are ready to serve.</p>
+        </div>
+        <div class="file-list">
+            <h3>Uploaded Files:</h3>
+            <div id="fileList">Loading files...</div>
+        </div>
+    </div>
+    <script>
+        // List files in the directory
+        fetch('/')
+            .then(response => response.text())
+            .then(html => {
+                // Simple file listing (basic implementation)
+                document.getElementById('fileList').innerHTML = '<p>Files are available at their respective paths.</p>';
+            })
+            .catch(() => {
+                document.getElementById('fileList').innerHTML = '<p>Files uploaded successfully.</p>';
+            });
+    </script>
+</body>
+</html>'''
+                with open(dest / 'index.html', 'w', encoding='utf-8') as f:
+                    f.write(index_content)
+            
+            app_logger.info("Extracted zip %s -> %s", zip_path, dest)
+            return True, str(dest)
+            
+    except zipfile.BadZipFile:
+        return False, "Invalid ZIP file format"
+    except Exception as e:
         app_logger.exception("extract_zip failed")
-        return False, "Extraction failed"
+        return False, f"Extraction failed: {str(e)}"
     finally:
         try:
             shutil.rmtree(tmpdir)
@@ -400,31 +490,90 @@ def _monitor_process_io(name: str, proc: subprocess.Popen):
 # Background monitor & persistence
 # -------------------------
 def monitor_loop():
+    """Enhanced background monitor with auto-refresh and persistence"""
     app_logger.info("Background monitor started (interval %s)", RUNTIME_OPTIONS['AUTO_REFRESH_INTERVAL'])
     interval = float(RUNTIME_OPTIONS['AUTO_REFRESH_INTERVAL'])
+    last_cleanup = time.time()
+    
     while True:
         try:
-            # update server entries: mark Running if process exists & listening; else Stopped
             with LOCK:
+                # Update server statuses
                 for name, meta in list(servers.items()):
                     proc = server_processes.get(name)
                     port = meta.get('port')
+                    
                     if proc:
                         if proc.poll() is None:
-                            meta['status'] = 'Running'
+                            # Process is running
+                            if meta.get('status') != 'Running':
+                                meta['status'] = 'Running'
+                                meta['start_time'] = now_str()
                         else:
+                            # Process has died
                             meta['status'] = 'Stopped'
+                            # Clean up dead process
+                            server_processes.pop(name, None)
+                            log_queues.pop(name, None)
                     else:
-                        # if no process, but port is in use by some other program, consider it 'Running (external)'
+                        # No process - check if port is in use by external process
                         if port and is_port_in_use(port, '0.0.0.0'):
-                            meta['status'] = 'Running'
+                            if meta.get('status') != 'Running':
+                                meta['status'] = 'Running (External)'
                         else:
                             meta['status'] = 'Stopped'
-            # persist every cycle
+                
+                # Periodic cleanup of orphaned processes
+                if time.time() - last_cleanup > 300:  # Every 5 minutes
+                    cleanup_orphaned_processes()
+                    last_cleanup = time.time()
+                
+                # Auto-restart servers if enabled
+                if RUNTIME_OPTIONS['AUTO_RESTORE_RUNNING']:
+                    for name, meta in servers.items():
+                        if meta.get('status') == 'Stopped' and meta.get('auto_restart', False):
+                            port = meta.get('port')
+                            if port and not is_port_in_use(port, '0.0.0.0'):
+                                success, msg = start_server_process(
+                                    name, meta['folder'], port, meta.get('type', 'HTTP'),
+                                    bind_all=RUNTIME_OPTIONS['BIND_ALL_DEFAULT']
+                                )
+                                if success:
+                                    meta['status'] = 'Running'
+                                    meta['start_time'] = now_str()
+                                    app_logger.info(f"Auto-restarted server {name}")
+            
+            # Persist state
             save_servers_to_disk()
-        except Exception:
-            app_logger.exception("monitor_loop error")
+            
+        except Exception as e:
+            app_logger.exception("monitor_loop error: %s", str(e))
+        
         time.sleep(interval)
+
+def cleanup_orphaned_processes():
+    """Clean up orphaned processes that are no longer tracked"""
+    try:
+        with LOCK:
+            # Get all tracked process PIDs
+            tracked_pids = set()
+            for proc in server_processes.values():
+                if proc and proc.poll() is None:
+                    tracked_pids.add(proc.pid)
+            
+            # Find orphaned log queues
+            orphaned_queues = []
+            for name, queue in log_queues.items():
+                if name not in servers:
+                    orphaned_queues.append(name)
+            
+            # Clean up orphaned queues
+            for name in orphaned_queues:
+                log_queues.pop(name, None)
+                app_logger.info(f"Cleaned up orphaned log queue for {name}")
+                
+    except Exception as e:
+        app_logger.exception("cleanup_orphaned_processes error: %s", str(e))
 
 # Start monitor thread
 t = threading.Thread(target=monitor_loop, daemon=True)
@@ -520,12 +669,54 @@ def api_servers():
 
 @app.route('/api/refresh', methods=['POST'])
 def api_refresh():
-    # manual refresh endpoint (UI can call)
+    """Manual refresh endpoint with performance optimizations"""
     try:
+        start_time = time.time()
         discover_and_load()
-        return jsonify({'success': True, 'message': 'Refreshed'})
+        
+        # Update server statuses
+        with LOCK:
+            for name, meta in list(servers.items()):
+                proc = server_processes.get(name)
+                port = meta.get('port')
+                
+                if proc and proc.poll() is None:
+                    meta['status'] = 'Running'
+                elif port and is_port_in_use(port, '0.0.0.0'):
+                    meta['status'] = 'Running (External)'
+                else:
+                    meta['status'] = 'Stopped'
+        
+        save_servers_to_disk()
+        
+        duration = time.time() - start_time
+        return jsonify({
+            'success': True, 
+            'message': f'Refreshed in {duration:.2f}s',
+            'duration': duration,
+            'timestamp': now_str()
+        })
     except Exception as e:
         app_logger.exception("api_refresh error")
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/api/status')
+def api_status():
+    """Quick status check for auto-refresh"""
+    try:
+        with LOCK:
+            running_count = len([s for s in servers.values() if s.get('status') == 'Running'])
+            total_count = len(servers)
+            
+        return jsonify({
+            'success': True,
+            'running_servers': running_count,
+            'total_servers': total_count,
+            'timestamp': now_str(),
+            'auto_refresh_interval': RUNTIME_OPTIONS['AUTO_REFRESH_INTERVAL']
+        })
+    except Exception as e:
+        app_logger.exception("api_status error")
         return jsonify({'success': False, 'message': str(e)})
 
 @app.route('/api/add_server', methods=['POST'])
@@ -728,92 +919,360 @@ def api_upload_zip():
 
 @app.route('/api/upload_folder', methods=['POST'])
 def api_upload_folder():
+    """Upload multiple files preserving directory structure - bulletproof for mobile"""
     try:
-        # clients should prefer zip. But support multiple files with folder_name
         files = request.files.getlist('files[]')
         folder_name = request.form.get('folder_name') or f"site-{int(time.time())}"
+        auto_register = request.form.get('auto_register', 'true').lower() != 'false'
+        auto_start = request.form.get('auto_start', 'false').lower() == 'true'
+        
         if not files:
-            return jsonify({'success': False, 'message': 'No files'})
+            return jsonify({'success': False, 'message': 'No files provided'})
+        
+        # Create destination directory
         dest = SITES_FOLDER / secure_name(folder_name)
         os.makedirs(dest, exist_ok=True)
+        
+        uploaded_files = []
+        errors = []
+        
         for f in files:
-            filename = f.filename
-            if '/' in filename or '\\' in filename:
-                parts = Path(filename).parts
-                subdir = dest.joinpath(*parts[:-1])
-                subdir.mkdir(parents=True, exist_ok=True)
-                f.save(str(subdir / secure_name(parts[-1])))
-            else:
-                f.save(str(dest / secure_name(filename)))
-        # register
-        base = secure_name(dest.name)
-        with LOCK:
-            n = base; i=1
-            while n in servers: n = f"{base}-{i}"; i+=1
-            servers[n] = {'name': n, 'folder': str(dest), 'port': None, 'type':'HTTP', 'status':'Stopped','start_time':None}
+            if not f.filename:
+                continue
+                
+            try:
+                # Handle both webkitRelativePath (from folder selection) and regular filenames
+                filename = f.filename
+                
+                # Check if this is from webkitdirectory (has webkitRelativePath)
+                if hasattr(f, 'webkitRelativePath') and f.webkitRelativePath:
+                    # Use webkitRelativePath to preserve directory structure
+                    relative_path = f.webkitRelativePath
+                    # Clean up the path
+                    path_parts = [p for p in relative_path.split('/') if p and p != '.']
+                else:
+                    # Regular file upload - check for path separators
+                    if '/' in filename or '\\' in filename:
+                        path_parts = [p for p in Path(filename).parts if p and p != '.']
+                    else:
+                        path_parts = [filename]
+                
+                if not path_parts:
+                    continue
+                
+                # Create the full destination path
+                if len(path_parts) == 1:
+                    # Single file
+                    dest_file = dest / secure_name(path_parts[0])
+                else:
+                    # File in subdirectory
+                    subdir = dest.joinpath(*[secure_name(p) for p in path_parts[:-1]])
+                    subdir.mkdir(parents=True, exist_ok=True)
+                    dest_file = subdir / secure_name(path_parts[-1])
+                
+                # Save the file
+                f.save(str(dest_file))
+                uploaded_files.append(str(dest_file.relative_to(dest)))
+                
+            except Exception as e:
+                errors.append(f"Failed to save {f.filename}: {str(e)}")
+                app_logger.warning("Failed to save file %s: %s", f.filename, str(e))
+        
+        if not uploaded_files:
+            return jsonify({'success': False, 'message': 'No files were successfully uploaded'})
+        
+        # Create index.html if none exists
+        index_files = ['index.html', 'index.php', 'index.htm', 'default.html']
+        has_index = any((dest / f).exists() for f in index_files)
+        
+        if not has_index:
+            index_content = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Your Server</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            text-align: center; 
+            padding: 50px; 
+            background: #0d1117; 
+            color: #f0f6fc; 
+            margin: 0;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { color: #0969da; margin-bottom: 20px; }
+        .info { background: #161b22; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .file-list { text-align: left; margin-top: 20px; }
+        .file-item { padding: 5px 0; color: #c9d1d9; }
+        .success { color: #1a7f37; }
+        .error { color: #d1242f; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Server Running Successfully!</h1>
+        <div class="info">
+            <p>Your files have been uploaded and are ready to serve.</p>
+            <p class="success">✓ {count} files uploaded successfully</p>
+            {errors_html}
+        </div>
+        <div class="file-list">
+            <h3>Uploaded Files:</h3>
+            {file_list_html}
+        </div>
+    </div>
+</body>
+</html>'''
+            
+            # Generate file list HTML
+            file_list_html = '<ul>'
+            for file_path in uploaded_files[:20]:  # Limit to first 20 files
+                file_list_html += f'<li class="file-item">📄 {file_path}</li>'
+            if len(uploaded_files) > 20:
+                file_list_html += f'<li class="file-item">... and {len(uploaded_files) - 20} more files</li>'
+            file_list_html += '</ul>'
+            
+            # Generate errors HTML
+            errors_html = ''
+            if errors:
+                errors_html = f'<p class="error">⚠ {len(errors)} files failed to upload</p>'
+            
+            with open(dest / 'index.html', 'w', encoding='utf-8') as f:
+                f.write(index_content.format(
+                    count=len(uploaded_files),
+                    file_list_html=file_list_html,
+                    errors_html=errors_html
+                ))
+        
+        registered = None
+        if auto_register:
+            base = secure_name(dest.name)
+            with LOCK:
+                n = base
+                i = 1
+                while n in servers:
+                    n = f"{base}-{i}"
+                    i += 1
+                servers[n] = {
+                    'name': n, 
+                    'folder': str(dest), 
+                    'port': None, 
+                    'type': 'HTTP', 
+                    'status': 'Stopped',
+                    'start_time': None
+                }
+                registered = n
+            
+            if auto_start:
+                # Find available port
+                port = 8000
+                while is_port_in_use(port, '0.0.0.0') or any(s.get('port') == port for s in servers.values()):
+                    port += 1
+                    if port > 65535:
+                        break
+                
+                success, msg = start_server_process(registered, str(dest), port, 'HTTP', bind_all=RUNTIME_OPTIONS['BIND_ALL_DEFAULT'])
+                if success:
+                    with LOCK:
+                        servers[registered]['port'] = port
+                        servers[registered]['status'] = 'Running'
+                        servers[registered]['start_time'] = now_str()
+                else:
+                    return jsonify({
+                        'success': False, 
+                        'message': f'Uploaded successfully but failed to auto-start: {msg}', 
+                        'registered': registered
+                    })
+        
         save_servers_to_disk()
-        return jsonify({'success': True, 'registered': n, 'site_path': str(dest)})
-    except Exception:
+        
+        result = {
+            'success': True, 
+            'site_path': str(dest),
+            'uploaded_files': len(uploaded_files),
+            'errors': len(errors)
+        }
+        if registered:
+            result['registered'] = registered
+        
+        return jsonify(result)
+        
+    except Exception as e:
         app_logger.exception("api_upload_folder error")
-        return jsonify({'success': False, 'message': 'Error'})
+        return jsonify({'success': False, 'message': f'Upload failed: {str(e)}'})
 
 @app.route('/api/open_browser/<server_name>')
 def api_open_browser(server_name):
+    """Open server in browser - bulletproof for mobile and remote access"""
     try:
         if server_name not in servers:
             return jsonify({'success': False, 'message': 'Server not found'})
+        
         meta = servers[server_name]
         port = meta.get('port')
         if not port:
             return jsonify({'success': False, 'message': 'Server not started'})
-        # Determine host IP to return (so remote clients can open it)
-        host_ip = request.host.split(':')[0]
-        if host_ip in ('0.0.0.0', ''):
-            # try to find machine IP
+        
+        # Get client information
+        client_ip = request.remote_addr
+        user_agent = request.headers.get('User-Agent', '')
+        is_mobile = any(mobile in user_agent.lower() for mobile in ['mobile', 'android', 'iphone', 'ipad', 'tablet'])
+        
+        # Determine the best URL to return
+        if RUNTIME_OPTIONS['ALLOW_REMOTE_OPEN_BROWSER']:
+            # Try to get the server's external IP
             try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s.connect(("8.8.8.8", 80))
-                host_ip = s.getsockname()[0]
-                s.close()
+                # First try to get the IP from the request
+                host_ip = request.host.split(':')[0]
+                if host_ip in ('0.0.0.0', '', 'localhost', '127.0.0.1'):
+                    # Get the actual server IP
+                    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    s.connect(("8.8.8.8", 80))
+                    host_ip = s.getsockname()[0]
+                    s.close()
             except Exception:
-                host_ip = request.remote_addr or '127.0.0.1'
-        # if remote open not allowed, return localhost/127.0.0.1
-        if not RUNTIME_OPTIONS['ALLOW_REMOTE_OPEN_BROWSER']:
+                # Fallback to client IP or localhost
+                host_ip = client_ip or '127.0.0.1'
+        else:
+            # Force localhost only
             host_ip = '127.0.0.1'
-        url = f"http://{host_ip}:{port}"
-        # if client wants local host to open
-        if request.args.get('open_local','false').lower() == 'true':
+        
+        # Build URLs for different scenarios
+        urls = {
+            'primary': f"http://{host_ip}:{port}",
+            'localhost': f"http://127.0.0.1:{port}",
+            'local_ip': f"http://{host_ip}:{port}"
+        }
+        
+        # For mobile devices, prefer the external IP
+        if is_mobile and RUNTIME_OPTIONS['ALLOW_REMOTE_OPEN_BROWSER']:
+            primary_url = urls['local_ip']
+        else:
+            primary_url = urls['primary']
+        
+        # Check if server is actually running
+        if not is_port_in_use(port, '0.0.0.0'):
+            return jsonify({
+                'success': False, 
+                'message': 'Server is not actually running on the specified port',
+                'url': primary_url
+            })
+        
+        # Prepare response
+        response_data = {
+            'success': True,
+            'url': primary_url,
+            'urls': urls,
+            'server_name': server_name,
+            'port': port,
+            'client_ip': client_ip,
+            'is_mobile': is_mobile,
+            'message': f'Server accessible at {primary_url}'
+        }
+        
+        # If client specifically requests local opening
+        if request.args.get('open_local', 'false').lower() == 'true':
             try:
                 import webbrowser
-                webbrowser.open(url)
-                return jsonify({'success': True, 'url': url, 'message': 'Opening locally'})
+                webbrowser.open(primary_url)
+                response_data['message'] = 'Opening in local browser'
             except Exception as e:
-                return jsonify({'success': False, 'url': url, 'message': f'Failed to open local: {e}'})
-        return jsonify({'success': True, 'url': url})
-    except Exception:
+                response_data['message'] = f'URL ready but failed to open locally: {str(e)}'
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
         app_logger.exception("api_open_browser error")
-        return jsonify({'success': False, 'message': 'Error'})
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
 @app.route('/api/server_logs/<server_name>')
 def api_server_logs(server_name):
+    """Get server logs with live streaming support"""
     try:
         logs = []
+        live_data = False
+        
+        # Get live logs from queue first
         if server_name in log_queues:
             q = log_queues[server_name]
             try:
                 while not q.empty():
-                    logs.append(q.get_nowait())
-            except:
+                    log_entry = q.get_nowait()
+                    logs.append(log_entry)
+                    live_data = True
+            except Exception:
                 pass
+        
+        # If no live logs, get from file
         if not logs:
             logfile = LOGS_FOLDER / f"{server_name}.log"
             if logfile.exists():
                 lines = tail_lines(str(logfile), n=RUNTIME_OPTIONS['LOG_TAIL_LINES'])
                 logs = [{'timestamp': None, 'message': l, 'type': 'info'} for l in lines]
-        return jsonify({'logs': logs})
-    except Exception:
+        
+        # Check if server is running for live indicator
+        server_running = False
+        if server_name in servers:
+            server_running = servers[server_name].get('status') == 'Running'
+        
+        return jsonify({
+            'logs': logs,
+            'live_data': live_data,
+            'server_running': server_running,
+            'timestamp': now_str()
+        })
+    except Exception as e:
         app_logger.exception("api_server_logs error")
-        return jsonify({'logs': [], 'error':'Error'})
+        return jsonify({'logs': [], 'error': str(e), 'live_data': False})
+
+@app.route('/api/server_logs_stream/<server_name>')
+def api_server_logs_stream(server_name):
+    """Server-Sent Events endpoint for live log streaming"""
+    def generate_logs():
+        try:
+            while True:
+                logs = []
+                live_data = False
+                
+                # Get live logs from queue
+                if server_name in log_queues:
+                    q = log_queues[server_name]
+                    try:
+                        while not q.empty():
+                            log_entry = q.get_nowait()
+                            logs.append(log_entry)
+                            live_data = True
+                    except Exception:
+                        pass
+                
+                # Send logs as SSE
+                if logs:
+                    for log in logs:
+                        yield f"data: {json.dumps(log)}\n\n"
+                else:
+                    # Send heartbeat
+                    yield f"data: {json.dumps({'timestamp': now_str(), 'message': '', 'type': 'heartbeat'})}\n\n"
+                
+                time.sleep(1)  # 1 second interval
+                
+        except GeneratorExit:
+            app_logger.info(f"Log stream closed for {server_name}")
+        except Exception as e:
+            app_logger.exception(f"Log stream error for {server_name}")
+            yield f"data: {json.dumps({'error': str(e), 'type': 'error'})}\n\n"
+    
+    return app.response_class(
+        generate_logs(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Cache-Control'
+        }
+    )
 
 @app.route('/api/check_php')
 def api_check_php():
@@ -835,21 +1294,104 @@ def api_check_node():
         app_logger.exception("api_check_node error")
         return jsonify({'available': False, 'version': None})
 
+@app.route('/api/settings')
+def api_get_settings():
+    """Get current runtime settings"""
+    try:
+        return jsonify({
+            'success': True,
+            'settings': RUNTIME_OPTIONS.copy()
+        })
+    except Exception as e:
+        app_logger.exception("api_get_settings error")
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/api/settings', methods=['POST'])
+def api_update_settings():
+    """Update runtime settings"""
+    try:
+        data = request.get_json() or {}
+        updated = {}
+        
+        # Validate and update settings
+        for key, value in data.items():
+            if key in RUNTIME_OPTIONS:
+                # Type validation
+                if key in ['AUTO_REFRESH_ON_LOAD', 'AUTO_RESTORE_RUNNING', 'AUTO_START_DISCOVERED', 
+                          'BIND_ALL_DEFAULT', 'DELETE_SITE_ON_REMOVE', 'ALLOW_REMOTE_OPEN_BROWSER']:
+                    RUNTIME_OPTIONS[key] = bool(value)
+                    updated[key] = bool(value)
+                elif key == 'AUTO_REFRESH_INTERVAL':
+                    RUNTIME_OPTIONS[key] = max(0.5, min(60.0, float(value)))
+                    updated[key] = RUNTIME_OPTIONS[key]
+                elif key == 'MAX_WORKERS':
+                    RUNTIME_OPTIONS[key] = max(1, min(100, int(value)))
+                    updated[key] = RUNTIME_OPTIONS[key]
+                elif key == 'LOG_TAIL_LINES':
+                    RUNTIME_OPTIONS[key] = max(10, min(1000, int(value)))
+                    updated[key] = RUNTIME_OPTIONS[key]
+        
+        # Save settings to disk
+        settings_file = ROOT / 'settings.json'
+        try:
+            with open(settings_file, 'w', encoding='utf-8') as f:
+                json.dump(RUNTIME_OPTIONS, f, indent=2)
+        except Exception:
+            app_logger.warning("Failed to save settings to disk")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Settings updated successfully',
+            'updated': updated
+        })
+    except Exception as e:
+        app_logger.exception("api_update_settings error")
+        return jsonify({'success': False, 'message': str(e)})
+
 @app.route('/api/system_info')
 def api_system_info():
     try:
-        os_name = platform.system(); os_ver = platform.release()
+        os_name = platform.system()
+        os_ver = platform.release()
+        
+        # Enhanced system info
         info = {
             'os': f"{os_name} {os_ver}",
+            'architecture': platform.architecture()[0] if platform.architecture() else 'Unknown',
             'cpu_cores': (psutil.cpu_count() if PSUTIL_AVAILABLE else None),
             'python_version': platform.python_version(),
             'active_servers': len([s for s in servers.values() if s.get('status')=='Running']),
-            'sites_folder': str(SITES_FOLDER)
+            'total_servers': len(servers),
+            'sites_folder': str(SITES_FOLDER),
+            'php_available': check_php_available(),
+            'node_available': check_node_available(),
+            'memory_total': (psutil.virtual_memory().total // (1024**3) if PSUTIL_AVAILABLE else None),
+            'memory_available': (psutil.virtual_memory().available // (1024**3) if PSUTIL_AVAILABLE else None),
+            'disk_free': (psutil.disk_usage('/').free // (1024**3) if PSUTIL_AVAILABLE else None)
         }
+        
+        # Add PHP version if available
+        if info['php_available']:
+            try:
+                php_ver = subprocess.run([get_php_path(), '--version'], capture_output=True, text=True, timeout=3)
+                if php_ver.returncode == 0:
+                    info['php_version'] = php_ver.stdout.splitlines()[0] if php_ver.stdout else 'Unknown'
+            except:
+                info['php_version'] = 'Unknown'
+        
+        # Add Node.js version if available
+        if info['node_available']:
+            try:
+                node_ver = subprocess.run([get_node_path(), '--version'], capture_output=True, text=True, timeout=3)
+                if node_ver.returncode == 0:
+                    info['node_version'] = node_ver.stdout.strip()
+            except:
+                info['node_version'] = 'Unknown'
+        
         return jsonify(info)
-    except Exception:
+    except Exception as e:
         app_logger.exception("api_system_info error")
-        return jsonify({})
+        return jsonify({'error': str(e)})
 
 # -------------------------
 # Graceful shutdown
