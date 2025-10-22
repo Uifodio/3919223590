@@ -1,806 +1,895 @@
 #!/usr/bin/env python3
 """
-Modern Server Administrator - Professional Edition
-A bulletproof, professional server management tool with all features
+Modern Server Administrator - Production (final polish)
+
+- Persistent server registry (servers.json)
+- Background monitor for auto-refresh (updates UI without manual refresh)
+- Fixed open_browser (returns usable URL, optional local open)
+- Robust uploads (zip, multiple-files), atomic extraction & recursive import
+- Per-server rotating logs + in-memory queues (UI tail + file fallback)
+- ThreadPoolExecutor for async IO
+- Toggleable runtime options (exposed as constants for now)
 """
 
 import os
+import sys
 import json
+import shutil
+import socket
+import queue
+import tempfile
+import zipfile
 import subprocess
 import threading
 import time
-import webbrowser
 from datetime import datetime
-import psutil
-import platform
-import shutil
-import queue
-import signal
-import sys
-import socket
 from pathlib import Path
-import mimetypes
-import tempfile
-import zipfile
-import urllib.request
-import ssl
+from concurrent.futures import ThreadPoolExecutor
+from typing import Tuple
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
+import logging
+import logging.handlers
+import platform
+
+# Optional speed: if psutil is available use it for port checks; otherwise fallback
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except Exception:
+    PSUTIL_AVAILABLE = False
+
+from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 
+# -------------------------
+# Runtime options (expose these)
+# -------------------------
+RUNTIME_OPTIONS = {
+    'AUTO_REFRESH_ON_LOAD': True,      # backend ensures fresh server states when dashboard loads
+    'AUTO_REFRESH_INTERVAL': 2.0,      # seconds between background refreshes (low = faster UI updates)
+    'AUTO_RESTORE_RUNNING': False,     # attempt to restart servers that were running at shutdown
+    'AUTO_START_DISCOVERED': False,    # whether to auto-start discovered sites in sites/
+    'BIND_ALL_DEFAULT': True,          # child servers bind to 0.0.0.0 by default for multi-device access
+    'MAX_WORKERS': 32,                 # threadpool size for concurrent uploads/etc.
+    'LOG_TAIL_LINES': 200,             # fallback lines read from file if in-memory queue empty
+    'DELETE_SITE_ON_REMOVE': False,    # default behavior when deleting a server
+    'ALLOW_REMOTE_OPEN_BROWSER': True  # allow returning remote host IP in open_browser response
+}
+
+# -------------------------
+# Paths and globals
+# -------------------------
 app = Flask(__name__)
 app.secret_key = 'modern_server_admin_2024'
 
-# Global variables
-servers = {}
-server_processes = {}
-log_queues = {}
-current_folder = None
+ROOT = Path.cwd()
+UPLOAD_FOLDER = ROOT / 'uploads'
+SITES_FOLDER = ROOT / 'sites'
+LOGS_FOLDER = ROOT / 'logs'
+PERSIST_FILE = ROOT / 'servers.json'
+PHP_LOCAL_FOLDER = ROOT / 'php'
 
-# Configuration
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm', 'php', 'html', 'css', 'js', 'json', 'xml', 'md', 'py', 'sql', 'zip', 'rar', '7z'}
+ALLOWED_EXTENSIONS = {'txt','pdf','png','jpg','jpeg','gif','mp4','avi','mov','mkv','wmv','flv','webm',
+                      'php','html','css','js','json','xml','md','py','sql','zip','rar','7z'}
 
-# Ensure upload folder exists
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+for d in (UPLOAD_FOLDER, SITES_FOLDER, LOGS_FOLDER, PHP_LOCAL_FOLDER):
+    os.makedirs(d, exist_ok=True)
 
-def is_windows():
-    """Check if running on Windows"""
-    return platform.system() == 'Windows'
+EXECUTOR = ThreadPoolExecutor(max_workers=RUNTIME_OPTIONS['MAX_WORKERS'])
 
-def is_port_in_use(port):
-    """Check if port is already in use"""
+# in-memory state
+servers = {}           # name -> metadata (persisted)
+server_processes = {}  # name -> subprocess.Popen
+log_queues = {}        # name -> Queue()
+
+LOCK = threading.RLock()
+
+# Logging
+app_logger = logging.getLogger('msa_app')
+app_logger.setLevel(logging.DEBUG)
+fh = logging.handlers.RotatingFileHandler(str(LOGS_FOLDER / 'msa_app.log'), maxBytes=5_000_000, backupCount=5, encoding='utf-8')
+fh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
+app_logger.addHandler(fh)
+app_logger.addHandler(logging.StreamHandler(sys.stdout))
+
+# -------------------------
+# Utility functions
+# -------------------------
+def now_str():
+    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+def human_size(path):
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(1)
-            return s.connect_ex(('localhost', port)) == 0
+        s = os.path.getsize(path)
+        for unit in ['B','KB','MB','GB','TB']:
+            if s < 1024.0: return f"{s:.1f} {unit}"
+            s /= 1024.0
     except:
+        return "Unknown"
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.',1)[1].lower() in ALLOWED_EXTENSIONS
+
+def secure_name(n):
+    return secure_filename(n) or f"site-{int(time.time())}"
+
+# port check: prefer psutil for faster accurate checking; fallback to socket connect
+def is_port_in_use(port:int, host='0.0.0.0') -> bool:
+    try:
+        if PSUTIL_AVAILABLE:
+            for conn in psutil.net_connections():
+                if conn.laddr and conn.laddr.port == int(port):
+                    # if host specified, check ip matches or host is wildcard
+                    if host in ('0.0.0.0','') or (conn.laddr.ip == host) or conn.laddr.ip in ('0.0.0.0','127.0.0.1','::'):
+                        return True
+            return False
+        else:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.4)
+                return s.connect_ex(('127.0.0.1', int(port))) == 0
+    except Exception:
         return False
 
-def check_php_available():
-    """Check if PHP is available on the system"""
+def tail_lines(filepath, n=200):
     try:
-        result = subprocess.run(['php', '--version'], capture_output=True, text=True, timeout=5)
-        return result.returncode == 0
-    except:
-        return False
-
-def check_node_available():
-    """Check if Node.js is available on the system"""
-    try:
-        result = subprocess.run(['node', '--version'], capture_output=True, text=True, timeout=5)
-        return result.returncode == 0
-    except:
-        return False
-
-def install_php_windows():
-    """Install PHP on Windows with fallback options"""
-    try:
-        print("Installing PHP for Windows...")
-        
-        # Try multiple PHP versions and sources
-        php_urls = [
-            "https://windows.php.net/downloads/releases/php-8.3.0-Win32-vs16-x64.zip",
-            "https://windows.php.net/downloads/releases/php-8.2.12-Win32-vs16-x64.zip",
-            "https://windows.php.net/downloads/releases/php-8.1.25-Win32-vs16-x64.zip"
-        ]
-        
-        for i, php_url in enumerate(php_urls):
+        with open(filepath, 'rb') as f:
+            avg = 200
+            to_read = n * avg
             try:
-                print(f"Trying PHP source {i+1}/{len(php_urls)}: {php_url}")
-                
-                # Create temp directory
-                temp_dir = tempfile.mkdtemp()
-                php_zip = os.path.join(temp_dir, 'php.zip')
-                
-                # Create SSL context to ignore certificate errors
-                ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
-                
-                # Download with progress
-                try:
-                    with urllib.request.urlopen(php_url, context=ssl_context, timeout=30) as response:
-                        total_size = int(response.headers.get('Content-Length', 0))
-                        downloaded = 0
-                        
-                        with open(php_zip, 'wb') as f:
-                            while True:
-                                chunk = response.read(8192)
-                                if not chunk:
-                                    break
-                                f.write(chunk)
-                                downloaded += len(chunk)
-                                if total_size > 0:
-                                    percent = (downloaded / total_size) * 100
-                                    print(f"Downloaded {percent:.1f}%")
-                except Exception as e:
-                    print(f"Failed to download from {php_url}: {str(e)}")
-                    continue
-                
-                # Extract PHP
-                try:
-                    with zipfile.ZipFile(php_zip, 'r') as zip_ref:
-                        zip_ref.extractall(temp_dir)
-                except Exception as e:
-                    print(f"Failed to extract PHP: {str(e)}")
-                    continue
-                
-                # Find PHP directory
-                php_dir = None
-                for item in os.listdir(temp_dir):
-                    if item.startswith('php-'):
-                        php_dir = os.path.join(temp_dir, item)
-                        break
-                
-                if not php_dir:
-                    print("Could not find PHP directory in downloaded files")
-                    continue
-                
-                # Copy PHP to application directory
-                app_php_dir = os.path.join(os.getcwd(), 'php')
-                if os.path.exists(app_php_dir):
-                    shutil.rmtree(app_php_dir)
-                
-                try:
-                    shutil.copytree(php_dir, app_php_dir)
-                except Exception as e:
-                    print(f"Failed to copy PHP files: {str(e)}")
-                    continue
-                
-                # Add PHP to PATH for this session
-                php_exe = os.path.join(app_php_dir, 'php.exe')
-                if os.path.exists(php_exe):
-                    os.environ['PATH'] = app_php_dir + os.pathsep + os.environ['PATH']
-                    # Test PHP installation
-                    try:
-                        result = subprocess.run([php_exe, '--version'], capture_output=True, text=True, timeout=10)
-                        if result.returncode == 0:
-                            return True, f"PHP installed successfully: {result.stdout.split()[1]}"
-                        else:
-                            print("PHP installed but not working properly")
-                            continue
-                    except Exception as e:
-                        print(f"PHP installed but test failed: {str(e)}")
-                        continue
-                else:
-                    print("PHP executable not found after installation")
-                    continue
-                    
-            except Exception as e:
-                print(f"Error with PHP source {i+1}: {str(e)}")
-                continue
-        
-        # If all automatic downloads failed, provide manual installation instructions
-        return False, """Automatic PHP installation failed. Please install PHP manually:
+                f.seek(-to_read, os.SEEK_END)
+            except OSError:
+                f.seek(0)
+            data = f.read().decode(errors='replace')
+        return data.splitlines()[-n:]
+    except Exception:
+        return []
 
-1. Download PHP from: https://windows.php.net/download/
-2. Extract to C:\\php\\ or any folder
-3. Add PHP folder to your system PATH
-4. Or place php.exe in the application folder
-
-Alternatively, you can:
-- Install XAMPP: https://www.apachefriends.org/
-- Install WAMP: https://www.wampserver.com/
-- Install Laragon: https://laragon.org/
-
-Then restart this application."""
-            
-    except Exception as e:
-        return False, f"Error installing PHP: {str(e)}"
-
+# -------------------------
+# System checks
+# -------------------------
 def get_php_path():
-    """Get PHP executable path"""
-    if is_windows():
-        # Check if we have local PHP installation
-        local_php = os.path.join(os.getcwd(), 'php', 'php.exe')
-        if os.path.exists(local_php):
-            return local_php
-        
-        # Check system PATH
-        try:
-            result = subprocess.run(['where', 'php'], capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                return result.stdout.strip().split('\n')[0]
-        except:
-            pass
-        
-        # Try common PHP installation paths
-        common_paths = [
-            r'C:\php\php.exe',
-            r'C:\xampp\php\php.exe',
-            r'C:\wamp\bin\php\php.exe',
-            r'C:\laragon\bin\php\php.exe'
-        ]
-        
-        for path in common_paths:
-            if os.path.exists(path):
-                return path
-    
+    local = str(PHP_LOCAL_FOLDER / ('php.exe' if platform.system() == 'Windows' else 'php'))
+    if Path(local).exists(): return local
+    w = shutil.which('php')
+    if w: return w
+    if platform.system() == 'Windows':
+        for p in [r'C:\php\php.exe', r'C:\xampp\php\php.exe', r'C:\wamp\bin\php\php.exe']:
+            if Path(p).exists(): return p
     return 'php'
 
-def start_server_process(name, folder, port, server_type):
-    """Start a server process with proper support for all types - BULLETPROOF VERSION"""
+def check_php_available():
     try:
-        process = None
-        
-        if server_type == "PHP":
-            php_path = get_php_path()
-            
-            # Check if PHP is available
-            if not check_php_available() and not os.path.exists(php_path):
-                return False, "PHP is not installed. Please install PHP or use the auto-installer button."
-            
-            # Use PHP built-in server with proper configuration
-            try:
-                process = subprocess.Popen([
-                    php_path, '-S', f'localhost:{port}', '-t', folder,
-                    '-d', 'display_errors=1',
-                    '-d', 'log_errors=1',
-                    '-d', 'error_log=php_errors.log',
-                    '-d', 'error_reporting=E_ALL'
-                ], cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            except FileNotFoundError:
-                return False, f"PHP executable not found at {php_path}. Please install PHP or use the auto-installer."
-            except Exception as e:
-                return False, f"Error starting PHP server: {str(e)}"
-            
-        elif server_type == "HTTP":
-            # Use Python's built-in HTTP server
-            try:
-                process = subprocess.Popen([
-                    'python3', '-m', 'http.server', str(port)
-                ], cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            except Exception as e:
-                return False, f"Error starting HTTP server: {str(e)}"
-            
-        elif server_type == "Node.js":
-            if not check_node_available():
-                return False, "Node.js is not installed or not in PATH. Please install Node.js to use Node.js servers."
-            
-            # Create a simple Node.js server script
-            node_script = f"""
+        p = get_php_path()
+        r = subprocess.run([p,'--version'], capture_output=True, text=True, timeout=3)
+        return r.returncode == 0
+    except:
+        return False
+
+def get_node_path():
+    return shutil.which('node') or 'node'
+
+def check_node_available():
+    try:
+        n = get_node_path()
+        r = subprocess.run([n,'--version'], capture_output=True, text=True, timeout=3)
+        return r.returncode == 0
+    except:
+        return False
+
+# -------------------------
+# Logging helpers
+# -------------------------
+def get_server_logger(name):
+    logger = logging.getLogger(f"msa_server_{name}")
+    if logger.handlers:
+        return logger
+    logger.setLevel(logging.INFO)
+    log_file = LOGS_FOLDER / f"{name}.log"
+    fh = logging.handlers.RotatingFileHandler(str(log_file), maxBytes=2_000_000, backupCount=3, encoding='utf-8')
+    fh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
+    logger.addHandler(fh)
+    return logger
+
+# -------------------------
+# Persistence helpers
+# -------------------------
+def save_servers_to_disk():
+    try:
+        with LOCK:
+            minimal = {}
+            for name, meta in servers.items():
+                # only persist serializable fields
+                minimal[name] = {
+                    'name': meta.get('name'),
+                    'folder': meta.get('folder'),
+                    'port': meta.get('port'),
+                    'type': meta.get('type'),
+                    'status': meta.get('status'),
+                    'start_time': meta.get('start_time')
+                }
+        with open(PERSIST_FILE, 'w', encoding='utf-8') as f:
+            json.dump(minimal, f, indent=2)
+    except Exception:
+        app_logger.exception("save_servers_to_disk failed")
+
+def load_servers_from_disk():
+    if not PERSIST_FILE.exists():
+        return
+    try:
+        with open(PERSIST_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        with LOCK:
+            for name, meta in data.items():
+                # only register if folder still exists
+                folder = meta.get('folder')
+                if folder and Path(folder).exists():
+                    servers[name] = {
+                        'name': meta.get('name', name),
+                        'folder': folder,
+                        'port': meta.get('port'),
+                        'type': meta.get('type', 'HTTP'),
+                        'status': meta.get('status','Stopped'),
+                        'start_time': meta.get('start_time')
+                    }
+    except Exception:
+        app_logger.exception("load_servers_from_disk failed")
+
+# -------------------------
+# Folder import / upload
+# -------------------------
+def import_folder_recursive(src: str, dest_basename: str = None) -> Tuple[bool,str]:
+    srcp = Path(src)
+    if not srcp.exists() or not srcp.is_dir():
+        return False, "Source not a directory"
+    if not dest_basename:
+        dest_basename = f"{srcp.name}-{int(time.time())}"
+    dest = SITES_FOLDER / secure_name(dest_basename)
+    try:
+        shutil.copytree(srcp, dest, dirs_exist_ok=True)
+        app_logger.info("Imported folder %s -> %s", src, dest)
+        return True, str(dest)
+    except Exception:
+        app_logger.exception("import_folder failed")
+        return False, "Import failed"
+
+def extract_zip_to_sites(zip_path: str, dest_basename: str = None) -> Tuple[bool,str]:
+    tmpdir = tempfile.mkdtemp(prefix='msa_extract_')
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as z:
+            z.extractall(tmpdir)
+        entries = [p for p in Path(tmpdir).iterdir() if not p.name.startswith('__MACOSX')]
+        if len(entries) == 1 and entries[0].is_dir():
+            target_name = dest_basename or entries[0].name
+            dest = SITES_FOLDER / secure_name(target_name)
+            shutil.move(str(entries[0]), str(dest))
+        else:
+            target_name = dest_basename or f"site-{int(time.time())}"
+            dest = SITES_FOLDER / secure_name(target_name)
+            os.makedirs(dest, exist_ok=True)
+            for item in Path(tmpdir).iterdir():
+                shutil.move(str(item), str(dest / item.name))
+        app_logger.info("Extracted zip %s -> %s", zip_path, dest)
+        return True, str(dest)
+    except Exception:
+        app_logger.exception("extract_zip failed")
+        return False, "Extraction failed"
+    finally:
+        try:
+            shutil.rmtree(tmpdir)
+        except:
+            pass
+
+# -------------------------
+# Process management
+# -------------------------
+def _create_node_script(folder_abs: str, port:int, bind_all:bool=True) -> str:
+    bind = '0.0.0.0' if bind_all else '127.0.0.1'
+    script = Path(folder_abs) / f"msa_temp_server_{port}.js"
+    content = f"""
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
-
-const server = http.createServer((req, res) => {{
-    const parsedUrl = url.parse(req.url);
-    let pathname = parsedUrl.pathname;
-    
-    if (pathname === '/') {{
-        pathname = '/index.html';
+const siteRoot = {json.dumps(folder_abs)};
+const server = http.createServer((req,res) => {{
+  const parsed = url.parse(req.url);
+  let p = parsed.pathname;
+  if (p === '/') p = '/index.html';
+  const full = path.join(siteRoot, p);
+  fs.readFile(full, (err, data) => {{
+    if (err) {{
+      res.writeHead(404, {{'Content-Type':'text/html'}});
+      res.end('<h1>404</h1>');
+      return;
     }}
-    
-    const filePath = path.join('{folder}', pathname);
-    
-    fs.readFile(filePath, (err, data) => {{
-        if (err) {{
-            res.writeHead(404, {{'Content-Type': 'text/html'}});
-            res.end(`
-                <html>
-                    <head><title>404 Not Found</title></head>
-                    <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-                        <h1>404 - File Not Found</h1>
-                        <p>The requested file was not found on this server.</p>
-                    </body>
-                </html>
-            `);
-        }} else {{
-            const ext = path.extname(filePath);
-            const mimeTypes = {{
-                '.html': 'text/html',
-                '.css': 'text/css',
-                '.js': 'application/javascript',
-                '.json': 'application/json',
-                '.png': 'image/png',
-                '.jpg': 'image/jpeg',
-                '.gif': 'image/gif',
-                '.svg': 'image/svg+xml',
-                '.php': 'text/html'
-            }};
-            
-            const contentType = mimeTypes[ext] || 'text/plain';
-            res.writeHead(200, {{'Content-Type': contentType}});
-            res.end(data);
-        }}
-    }});
+    const ext = path.extname(full);
+    const mimes = {{'.html':'text/html','.css':'text/css','.js':'application/javascript','.json':'application/json','.png':'image/png','.jpg':'image/jpeg','.gif':'image/gif','.svg':'image/svg+xml'}};
+    res.writeHead(200, {{'Content-Type': mimes[ext] || 'text/plain'}});
+    res.end(data);
+  }});
 }});
-
-server.listen({port}, 'localhost', () => {{
-    console.log(`Node.js server running on http://localhost:{port}`);
-}});
+server.listen({port}, '{bind}', () => console.log('Node listening http://{bind}:{port}'));
 """
-            
-            # Write the Node.js script to a temporary file
-            script_path = os.path.join(folder, 'temp_server.js')
-            with open(script_path, 'w') as f:
-                f.write(node_script)
-            
-            process = subprocess.Popen([
-                'node', script_path
-            ], cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            
+    script.write_text(content, encoding='utf-8')
+    return str(script)
+
+def start_server_process(name: str, folder: str, port: int, server_type: str, bind_all: bool = True, health_wait: float = 0.2) -> Tuple[bool,str]:
+    logger = get_server_logger(name)
+    try:
+        folder_abs = str(Path(folder).absolute())
+        if server_type == 'PHP':
+            php = get_php_path()
+            if not check_php_available():
+                return False, "PHP not available"
+            cmd = [php, '-S', f"{'0.0.0.0' if bind_all else '127.0.0.1'}:{int(port)}", '-t', folder_abs, '-d', 'display_errors=1', '-d', 'log_errors=1']
+        elif server_type == 'HTTP':
+            cmd = [sys.executable, '-m', 'http.server', str(int(port)), '--bind', ('0.0.0.0' if bind_all else '127.0.0.1')]
+        elif server_type == 'Node.js':
+            nodeexec = shutil.which('node')
+            if not nodeexec:
+                return False, "Node.js not available"
+            script = _create_node_script(folder_abs, int(port), bind_all)
+            cmd = [nodeexec, script]
         else:
             return False, "Unsupported server type"
-        
-        server_processes[name] = process
-        log_queues[name] = queue.Queue()
-        
-        # Start log monitoring thread
-        log_thread = threading.Thread(target=monitor_server_logs, args=(name, process))
-        log_thread.daemon = True
-        log_thread.start()
-        
-        return True, "Server started successfully"
-        
-    except Exception as e:
-        return False, f"Error starting server: {str(e)}"
 
-def monitor_server_logs(name, process):
-    """Monitor server logs in a separate thread"""
-    while process.poll() is None:
+        proc = subprocess.Popen(cmd, cwd=folder_abs, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+        with LOCK:
+            server_processes[name] = proc
+            log_queues.setdefault(name, queue.Queue())
+        threading.Thread(target=_monitor_process_io, args=(name, proc), daemon=True).start()
+
+        time.sleep(health_wait)
+        if proc.poll() is not None:
+            try:
+                err = proc.stderr.read() if proc.stderr else ''
+                out = proc.stdout.read() if proc.stdout else ''
+            except:
+                err = out = ''
+            with LOCK:
+                server_processes.pop(name, None)
+                log_queues.pop(name, None)
+            msg = (err.strip() or out.strip() or "Exiting immediately")
+            logger.error("Health-check failed: %s", msg)
+            return False, msg
+
+        logger.info("Started process successfully")
+        return True, "Started"
+    except Exception:
+        app_logger.exception("start_server_process failed")
+        return False, "Failed to start process"
+
+def _monitor_process_io(name: str, proc: subprocess.Popen):
+    logger = get_server_logger(name)
+    q = log_queues.setdefault(name, queue.Queue())
+    def push(m,t='info'):
         try:
-            output = process.stdout.readline()
-            if output:
-                log_queues[name].put({
-                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'message': output.strip(),
-                    'type': 'info'
-                })
-            
-            # Also capture stderr for errors
-            error_output = process.stderr.readline()
-            if error_output:
-                log_queues[name].put({
-                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'message': error_output.strip(),
-                    'type': 'error'
-                })
+            q.put({'timestamp': now_str(), 'message': m, 'type': t})
         except:
-            break
-
-def allowed_file(filename):
-    """Check if file extension is allowed"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def get_file_size(filepath):
-    """Get human readable file size"""
+            pass
     try:
-        size = os.path.getsize(filepath)
-        for unit in ['B', 'KB', 'MB', 'GB']:
-            if size < 1024.0:
-                return f"{size:.1f} {unit}"
-            size /= 1024.0
-        return f"{size:.1f} TB"
-    except:
-        return "Unknown"
+        while True:
+            out = proc.stdout.readline() if proc.stdout else ''
+            err = proc.stderr.readline() if proc.stderr else ''
+            if out:
+                logger.info(out.rstrip('\n'))
+                push(out.rstrip('\n'), 'info')
+            if err:
+                logger.error(err.rstrip('\n'))
+                push(err.rstrip('\n'), 'error')
+            if proc.poll() is not None:
+                try:
+                    rem = proc.stdout.read() if proc.stdout else ''
+                    for l in rem.splitlines(): logger.info(l); push(l,'info')
+                except: pass
+                try:
+                    rem = proc.stderr.read() if proc.stderr else ''
+                    for l in rem.splitlines(): logger.error(l); push(l,'error')
+                except: pass
+                break
+            time.sleep(0.02)
+    except Exception:
+        logger.exception("monitor io error")
+    finally:
+        with LOCK:
+            if name in servers:
+                servers[name]['status'] = 'Stopped'
+        logger.info("Process monitor ended")
 
+# -------------------------
+# Background monitor & persistence
+# -------------------------
+def monitor_loop():
+    app_logger.info("Background monitor started (interval %s)", RUNTIME_OPTIONS['AUTO_REFRESH_INTERVAL'])
+    interval = float(RUNTIME_OPTIONS['AUTO_REFRESH_INTERVAL'])
+    while True:
+        try:
+            # update server entries: mark Running if process exists & listening; else Stopped
+            with LOCK:
+                for name, meta in list(servers.items()):
+                    proc = server_processes.get(name)
+                    port = meta.get('port')
+                    if proc:
+                        if proc.poll() is None:
+                            meta['status'] = 'Running'
+                        else:
+                            meta['status'] = 'Stopped'
+                    else:
+                        # if no process, but port is in use by some other program, consider it 'Running (external)'
+                        if port and is_port_in_use(port, '0.0.0.0'):
+                            meta['status'] = 'Running'
+                        else:
+                            meta['status'] = 'Stopped'
+            # persist every cycle
+            save_servers_to_disk()
+        except Exception:
+            app_logger.exception("monitor_loop error")
+        time.sleep(interval)
+
+# Start monitor thread
+t = threading.Thread(target=monitor_loop, daemon=True)
+t.start()
+
+# -------------------------
+# Discover sites on boot & load persisted servers
+# -------------------------
+def discover_and_load():
+    # load persisted
+    load_servers_from_disk()
+    # scan sites folder and register any non-registered folders
+    for entry in SITES_FOLDER.iterdir():
+        if entry.is_dir():
+            name_base = secure_name(entry.name)
+            with LOCK:
+                if name_base not in servers:
+                    # choose unique name
+                    n = name_base
+                    i = 1
+                    while n in servers:
+                        n = f"{name_base}-{i}"; i += 1
+                    servers[n] = {
+                        'name': n,
+                        'folder': str(entry),
+                        'port': None,
+                        'type': 'HTTP',
+                        'status': 'Stopped',
+                        'start_time': None
+                    }
+    # optionally auto-start discovered (disabled by default)
+    if RUNTIME_OPTIONS['AUTO_START_DISCOVERED']:
+        with LOCK:
+            to_start = [ (n,s) for n,s in servers.items() if s.get('status')!='Running' ]
+        for name, meta in to_start:
+            if not meta.get('port'):
+                p = 8000
+                while p < 65535 and (is_port_in_use(p,'0.0.0.0') or any(s.get('port')==p for s in servers.values())):
+                    p += 1
+                meta['port'] = p
+            success,msg = start_server_process(name, meta['folder'], meta['port'], meta['type'], bind_all=RUNTIME_OPTIONS['BIND_ALL_DEFAULT'])
+            with LOCK:
+                if success:
+                    meta['status'] = 'Running'
+                    meta['start_time'] = now_str()
+                else:
+                    meta['status'] = 'Stopped'
+
+# call discovery/load
+discover_and_load()
+
+# If AUTO_RESTORE_RUNNING True, try to start servers that were previously 'Running' on disk
+if RUNTIME_OPTIONS['AUTO_RESTORE_RUNNING']:
+    with LOCK:
+        to_restore = [ (n,m) for n,m in servers.items() if m.get('status')=='Running' ]
+    for name, meta in to_restore:
+        port = meta.get('port') or 8000
+        while is_port_in_use(port,'0.0.0.0') or any(s.get('port')==port for s in servers.values() if s['name']!=name):
+            port += 1
+            if port > 65535: break
+        success, msg = start_server_process(name, meta['folder'], port, meta.get('type','HTTP'), bind_all=RUNTIME_OPTIONS['BIND_ALL_DEFAULT'])
+        with LOCK:
+            if success:
+                meta['status'] = 'Running'
+                meta['port'] = port
+                meta['start_time'] = now_str()
+            else:
+                meta['status'] = 'Stopped'
+
+# -------------------------
 # Routes
+# -------------------------
 @app.route('/')
 def index():
-    """Main dashboard"""
-    return render_template('index.html', servers=servers, current_folder=current_folder)
-
-@app.route('/api/add_server', methods=['POST'])
-def add_server():
-    """Add a new server - BULLETPROOF VERSION"""
-    try:
-        data = request.get_json()
-        folder = data.get('folder', '').strip()
-        port = data.get('port', 8000)
-        server_type = data.get('type', 'HTTP')
-        
-        if not folder:
-            return jsonify({'success': False, 'message': 'Please select a website folder'})
-        
-        # Check if folder exists, if not try to create it or use demo folder
-        if not os.path.exists(folder):
-            # If it's a relative path, try to create it
-            if not os.path.isabs(folder):
-                try:
-                    os.makedirs(folder, exist_ok=True)
-                    # Create a simple index.html if folder is empty
-                    index_file = os.path.join(folder, 'index.html')
-                    if not os.path.exists(index_file):
-                        with open(index_file, 'w') as f:
-                            f.write('''<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Your Server</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #0d1117; color: #f0f6fc; }
-        h1 { color: #0969da; }
-    </style>
-</head>
-<body>
-    <h1>🚀 Server Running Successfully!</h1>
-    <p>Your server is now running on this port.</p>
-    <p>Add your website files to this folder.</p>
-</body>
-</html>''')
-                except Exception as e:
-                    return jsonify({'success': False, 'message': f'Could not create folder: {str(e)}'})
-            else:
-                return jsonify({'success': False, 'message': 'Selected folder does not exist'})
-        
-        try:
-            port = int(port)
-        except (ValueError, TypeError):
-            return jsonify({'success': False, 'message': 'Port must be a valid number'})
-        
-        if port < 1000 or port > 65535:
-            return jsonify({'success': False, 'message': 'Port must be between 1000 and 65535'})
-        
-        # BULLETPROOF PORT MANAGEMENT - Check both port usage AND existing servers
-        original_port = port
-        while True:
-            # Check if port is in use by system
-            port_in_use = is_port_in_use(port)
-            
-            # Check if port is already used by existing servers
-            port_used_by_server = any(server['port'] == port for server in servers.values())
-            
-            if not port_in_use and not port_used_by_server:
-                break  # Port is available
-                
-            port += 1
-            if port > 65535:
-                return jsonify({'success': False, 'message': f'No available ports found starting from {original_port}'})
-        
-        # Generate unique server name
-        server_name = f"Server-{port}"
-        counter = 1
-        while server_name in servers:
-            server_name = f"Server-{port}-{counter}"
-            counter += 1
-        
-        # Start the server process
-        success, message = start_server_process(server_name, folder, port, server_type)
-        
-        if success:
-            # Store server info WITHOUT the process object (causes JSON serialization issues)
-            servers[server_name] = {
-                'name': server_name,
-                'folder': folder,
-                'port': port,
-                'type': server_type,
-                'status': 'Running',
-                'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }
-            
-            # Store process separately for management
-            if server_name in server_processes:
-                # Process is already stored in server_processes
-                pass
-            else:
-                return jsonify({'success': False, 'message': 'Server process not started properly'})
-            
-            return jsonify({'success': True, 'message': f'Server {server_name} started successfully on port {port}'})
-        else:
-            return jsonify({'success': False, 'message': message})
-            
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Error adding server: {str(e)}'})
-
-@app.route('/api/stop_server', methods=['POST'])
-def stop_server():
-    """Stop a server"""
-    try:
-        data = request.get_json()
-        server_name = data.get('name')
-        
-        if not server_name or server_name not in server_processes:
-            return jsonify({'success': False, 'message': 'Server not found'})
-        
-        try:
-            # Gracefully terminate the process
-            server_processes[server_name].terminate()
-            
-            # Wait for graceful shutdown
-            try:
-                server_processes[server_name].wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                # Force kill if it doesn't stop gracefully
-                server_processes[server_name].kill()
-                server_processes[server_name].wait()
-        except:
-            pass
-        
-        # Clean up
-        del server_processes[server_name]
-        if server_name in log_queues:
-            del log_queues[server_name]
-        
-        if server_name in servers:
-            servers[server_name]['status'] = 'Stopped'
-            servers[server_name]['process'] = None
-        
-        return jsonify({'success': True, 'message': f'Server {server_name} stopped successfully'})
-        
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Error stopping server: {str(e)}'})
-
-@app.route('/api/start_server', methods=['POST'])
-def start_server():
-    """Start a stopped server"""
-    try:
-        data = request.get_json()
-        server_name = data.get('name')
-        
-        if server_name not in servers:
-            return jsonify({'success': False, 'message': 'Server not found'})
-        
-        server = servers[server_name]
-        
-        if server['status'] == 'Running':
-            return jsonify({'success': False, 'message': 'Server is already running'})
-        
-        # Check if port is still available
-        if is_port_in_use(server['port']):
-            return jsonify({'success': False, 'message': f'Port {server["port"]} is now in use by another process'})
-        
-        # Start the server process
-        success, message = start_server_process(server_name, server['folder'], server['port'], server['type'])
-        
-        if success:
-            server['status'] = 'Running'
-            server['start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            server['process'] = server_processes.get(server_name)
-            return jsonify({'success': True, 'message': f'Server {server_name} started successfully'})
-        else:
-            return jsonify({'success': False, 'message': message})
-            
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Error starting server: {str(e)}'})
-
-@app.route('/api/delete_server', methods=['POST'])
-def delete_server():
-    """Delete a server completely"""
-    try:
-        data = request.get_json()
-        server_name = data.get('name')
-        
-        if server_name not in servers:
-            return jsonify({'success': False, 'message': 'Server not found'})
-        
-        server = servers[server_name]
-        
-        # Stop the server if it's running
-        if server['status'] == 'Running' and server_name in server_processes:
-            try:
-                server_processes[server_name].terminate()
-                server_processes[server_name].wait(timeout=5)
-            except:
-                try:
-                    server_processes[server_name].kill()
-                    server_processes[server_name].wait()
-                except:
-                    pass
-            del server_processes[server_name]
-        
-        # Clean up logs
-        if server_name in log_queues:
-            del log_queues[server_name]
-        
-        # Remove from servers dictionary
-        del servers[server_name]
-        
-        return jsonify({'success': True, 'message': f'Server {server_name} deleted successfully'})
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Error deleting server: {str(e)}'})
-
-@app.route('/api/open_browser/<server_name>')
-def open_browser(server_name):
-    """Open server in browser"""
-    try:
-        if server_name not in servers:
-            return jsonify({'success': False, 'message': 'Server not found'})
-        
-        server = servers[server_name]
-        url = f"http://localhost:{server['port']}"
-        
-        # Open in default browser
-        if is_windows():
-            os.system(f'start {url}')
-        elif platform.system() == 'Darwin':  # macOS
-            os.system(f'open {url}')
-        else:  # Linux
-            os.system(f'xdg-open {url}')
-        
-        return jsonify({'success': True, 'message': f'Opening {url} in browser'})
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Error opening browser: {str(e)}'})
-
-@app.route('/api/server_logs/<server_name>')
-def get_server_logs(server_name):
-    """Get server logs"""
-    try:
-        if server_name not in log_queues:
-            return jsonify({'logs': []})
-        
-        logs = []
-        try:
-            while not log_queues[server_name].empty():
-                logs.append(log_queues[server_name].get_nowait())
-        except:
-            pass
-        
-        return jsonify({'logs': logs})
-    except Exception as e:
-        return jsonify({'logs': [], 'error': str(e)})
+    # UI unchanged; front-end will call /api/servers automatically
+    return render_template('index.html', servers=servers, current_folder=str(SITES_FOLDER))
 
 @app.route('/api/servers')
-def get_servers():
-    """Get all servers"""
-    # Create a JSON-serializable version of servers
-    serializable_servers = {}
-    for name, server in servers.items():
-        serializable_servers[name] = {
-            'name': server['name'],
-            'folder': server['folder'],
-            'port': server['port'],
-            'type': server['type'],
-            'status': server['status'],
-            'start_time': server['start_time']
-        }
-    return jsonify(serializable_servers)
+def api_servers():
+    # returns up-to-date server list (monitor loop keeps fresh)
+    with LOCK:
+        out = {}
+        for name, s in servers.items():
+            out[name] = {
+                'name': s.get('name'),
+                'folder': s.get('folder'),
+                'port': s.get('port'),
+                'type': s.get('type'),
+                'status': s.get('status'),
+                'start_time': s.get('start_time')
+            }
+    return jsonify(out)
 
-
-@app.route('/api/set_folder', methods=['POST'])
-def set_folder():
-    """Set current folder"""
-    global current_folder
+@app.route('/api/refresh', methods=['POST'])
+def api_refresh():
+    # manual refresh endpoint (UI can call)
     try:
-        data = request.get_json()
-        folder = data.get('folder')
-        
-        if folder and os.path.exists(folder):
-            current_folder = folder
-            return jsonify({'success': True, 'message': f'Folder set to {folder}'})
-        else:
-            return jsonify({'success': False, 'message': 'Invalid folder path'})
+        discover_and_load()
+        return jsonify({'success': True, 'message': 'Refreshed'})
     except Exception as e:
-        return jsonify({'success': False, 'message': f'Error setting folder: {str(e)}'})
+        app_logger.exception("api_refresh error")
+        return jsonify({'success': False, 'message': str(e)})
 
-@app.route('/api/system_info')
-def get_system_info():
-    """Get system information - BULLETPROOF VERSION"""
+@app.route('/api/add_server', methods=['POST'])
+def api_add_server():
     try:
-        php_available = check_php_available()
-        node_available = check_node_available()
-        
-        # Get accurate OS information
-        os_name = platform.system()
-        os_version = platform.release()
-        
-        # Detect Windows version more accurately
-        if os_name == "Windows":
+        data = request.get_json() or {}
+        folder = data.get('folder','').strip()
+        port = data.get('port', 8000)
+        server_type = data.get('type','HTTP')
+        auto_import = bool(data.get('auto_import', True))
+        auto_start = bool(data.get('auto_start', True))
+        if not folder:
+            return jsonify({'success': False, 'message': 'Select folder'})
+
+        folder_p = Path(folder)
+        if folder_p.exists() and folder_p.is_dir() and SITES_FOLDER in folder_p.parents:
+            final = str(folder_p)
+        elif folder_p.exists() and folder_p.is_dir() and auto_import:
+            ok,res = import_folder_recursive(str(folder_p), dest_basename=folder_p.name)
+            if not ok: return jsonify({'success': False, 'message': f'Import failed: {res}'})
+            final = res
+        else:
+            dest = SITES_FOLDER / secure_name(folder_p.name or f"site-{int(time.time())}")
+            os.makedirs(dest, exist_ok=True)
+            final = str(dest)
+
+        try:
+            port = int(port)
+        except:
+            return jsonify({'success': False, 'message': 'Invalid port'})
+        if port<1024 or port>65535: return jsonify({'success': False, 'message':'Port out of range'})
+
+        orig = port
+        while is_port_in_use(port,'0.0.0.0') or any(s.get('port')==port for s in servers.values()):
+            port += 1
+            if port>65535: return jsonify({'success': False, 'message':f'No free port from {orig}'})
+
+        base = secure_name(Path(final).name)
+        with LOCK:
+            server_name = base
+            i=1
+            while server_name in servers:
+                server_name = f"{base}-{i}"; i+=1
+            servers[server_name] = {
+                'name': server_name,
+                'folder': final,
+                'port': port,
+                'type': server_type,
+                'status': 'Stopped',
+                'start_time': None
+            }
+        # attempt start
+        success,msg = start_server_process(server_name, final, port, server_type, bind_all=RUNTIME_OPTIONS['BIND_ALL_DEFAULT'])
+        with LOCK:
+            if success:
+                servers[server_name]['status'] = 'Running'
+                servers[server_name]['start_time'] = now_str()
+            else:
+                servers.pop(server_name, None)
+                save_servers_to_disk()
+                return jsonify({'success': False, 'message': f'Start failed: {msg}'})
+        save_servers_to_disk()
+        return jsonify({'success': True, 'message': f'Started {server_name} on port {port}'})
+    except Exception:
+        app_logger.exception("api_add_server error")
+        return jsonify({'success': False, 'message': 'Error'})
+
+@app.route('/api/stop_server', methods=['POST'])
+def api_stop_server():
+    try:
+        data = request.get_json() or {}
+        name = data.get('name')
+        if not name: return jsonify({'success': False, 'message': 'Missing name'})
+        with LOCK:
+            proc = server_processes.get(name)
+        if not proc:
+            with LOCK:
+                if name in servers: servers[name]['status'] = 'Stopped'
+            save_servers_to_disk()
+            return jsonify({'success': False, 'message': 'Not running'})
+        try:
+            proc.terminate()
+            try: proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill(); proc.wait()
+        except: pass
+        with LOCK:
+            server_processes.pop(name, None)
+            log_queues.pop(name, None)
+            if name in servers: servers[name]['status'] = 'Stopped'
+        save_servers_to_disk()
+        return jsonify({'success': True, 'message': 'Stopped'})
+    except Exception:
+        app_logger.exception("api_stop_server error")
+        return jsonify({'success': False, 'message': 'Error'})
+
+@app.route('/api/start_server', methods=['POST'])
+def api_start_server():
+    try:
+        data = request.get_json() or {}
+        name = data.get('name')
+        if not name or name not in servers:
+            return jsonify({'success': False, 'message': 'Server not found'})
+        with LOCK:
+            meta = servers[name]
+        if meta.get('status') == 'Running':
+            return jsonify({'success': False, 'message': 'Already running'})
+        port = meta.get('port') or 8000
+        while is_port_in_use(port,'0.0.0.0') or any(s.get('port')==port for s in servers.values() if s['name']!=name):
+            port += 1
+            if port>65535: return jsonify({'success': False,'message':'No free port'})
+        success,msg = start_server_process(name, meta['folder'], port, meta.get('type','HTTP'), bind_all=RUNTIME_OPTIONS['BIND_ALL_DEFAULT'])
+        with LOCK:
+            if success:
+                meta['port'] = port
+                meta['status'] = 'Running'
+                meta['start_time'] = now_str()
+                save_servers_to_disk()
+                return jsonify({'success': True, 'message':'Started'})
+            else:
+                return jsonify({'success': False, 'message': msg})
+    except Exception:
+        app_logger.exception("api_start_server error")
+        return jsonify({'success': False, 'message': 'Error'})
+
+@app.route('/api/delete_server', methods=['POST'])
+def api_delete_server():
+    try:
+        data = request.get_json() or {}
+        name = data.get('name'); delete_files = bool(data.get('delete_files', RUNTIME_OPTIONS['DELETE_SITE_ON_REMOVE']))
+        if not name or name not in servers:
+            return jsonify({'success': False, 'message': 'Not found'})
+        with LOCK:
+            proc = server_processes.pop(name, None)
+        if proc:
             try:
-                import winreg
-                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
-                product_name = winreg.QueryValueEx(key, "ProductName")[0]
-                winreg.CloseKey(key)
-                if "Windows 11" in product_name:
-                    os_version = "11"
-                elif "Windows 10" in product_name:
-                    os_version = "10"
+                proc.terminate(); proc.wait(timeout=3)
+            except:
+                try: proc.kill(); proc.wait()
+                except: pass
+        with LOCK:
+            meta = servers.pop(name, None)
+            log_queues.pop(name, None)
+        if delete_files and meta and meta.get('folder'):
+            try:
+                shutil.rmtree(meta['folder'])
+            except Exception:
+                app_logger.exception("delete site files error")
+                return jsonify({'success': False, 'message': 'Server deleted but failed to delete files'})
+        save_servers_to_disk()
+        return jsonify({'success': True, 'message': 'Deleted'})
+    except Exception:
+        app_logger.exception("api_delete_server error")
+        return jsonify({'success': False, 'message': 'Error'})
+
+@app.route('/api/upload_zip', methods=['POST'])
+def api_upload_zip():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'No file'})
+        f = request.files['file']
+        if f.filename == '':
+            return jsonify({'success': False, 'message': 'Empty filename'})
+        if not (f.filename.lower().endswith('.zip') or allowed_file(f.filename)):
+            return jsonify({'success': False, 'message': 'Not allowed type'})
+        name = request.form.get('name')
+        auto_register = request.form.get('auto_register','true').lower()!='false'
+        auto_start = request.form.get('auto_start','false').lower()=='true'
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix='.zip')
+        os.close(tmp_fd)
+        f.save(tmp_path)
+        ok,res = extract_zip_to_sites(tmp_path, dest_basename=name)
+        os.remove(tmp_path)
+        if not ok:
+            return jsonify({'success': False, 'message': res})
+        site_path = res
+        registered = None
+        if auto_register:
+            base = secure_name(Path(site_path).name)
+            with LOCK:
+                n = base; i=1
+                while n in servers: n = f"{base}-{i}"; i+=1
+                servers[n] = {'name': n, 'folder': site_path, 'port': None, 'type':'HTTP', 'status':'Stopped','start_time':None}
+                registered = n
+            if auto_start:
+                p = 8000
+                while is_port_in_use(p,'0.0.0.0') or any(s.get('port')==p for s in servers.values()):
+                    p+=1
+                success,msg = start_server_process(registered, site_path, p, 'HTTP', bind_all=RUNTIME_OPTIONS['BIND_ALL_DEFAULT'])
+                if success:
+                    with LOCK:
+                        servers[registered]['port'] = p; servers[registered]['status']='Running'; servers[registered]['start_time']=now_str()
+                else:
+                    return jsonify({'success': False, 'message': f'Imported but failed to auto-start: {msg}', 'registered': registered})
+        save_servers_to_disk()
+        return jsonify({'success': True, 'site_path': site_path, 'registered': registered})
+    except Exception:
+        app_logger.exception("api_upload_zip error")
+        return jsonify({'success': False, 'message': 'Error'})
+
+@app.route('/api/upload_folder', methods=['POST'])
+def api_upload_folder():
+    try:
+        # clients should prefer zip. But support multiple files with folder_name
+        files = request.files.getlist('files[]')
+        folder_name = request.form.get('folder_name') or f"site-{int(time.time())}"
+        if not files:
+            return jsonify({'success': False, 'message': 'No files'})
+        dest = SITES_FOLDER / secure_name(folder_name)
+        os.makedirs(dest, exist_ok=True)
+        for f in files:
+            filename = f.filename
+            if '/' in filename or '\\' in filename:
+                parts = Path(filename).parts
+                subdir = dest.joinpath(*parts[:-1])
+                subdir.mkdir(parents=True, exist_ok=True)
+                f.save(str(subdir / secure_name(parts[-1])))
+            else:
+                f.save(str(dest / secure_name(filename)))
+        # register
+        base = secure_name(dest.name)
+        with LOCK:
+            n = base; i=1
+            while n in servers: n = f"{base}-{i}"; i+=1
+            servers[n] = {'name': n, 'folder': str(dest), 'port': None, 'type':'HTTP', 'status':'Stopped','start_time':None}
+        save_servers_to_disk()
+        return jsonify({'success': True, 'registered': n, 'site_path': str(dest)})
+    except Exception:
+        app_logger.exception("api_upload_folder error")
+        return jsonify({'success': False, 'message': 'Error'})
+
+@app.route('/api/open_browser/<server_name>')
+def api_open_browser(server_name):
+    try:
+        if server_name not in servers:
+            return jsonify({'success': False, 'message': 'Server not found'})
+        meta = servers[server_name]
+        port = meta.get('port')
+        if not port:
+            return jsonify({'success': False, 'message': 'Server not started'})
+        # Determine host IP to return (so remote clients can open it)
+        host_ip = request.host.split(':')[0]
+        if host_ip in ('0.0.0.0', ''):
+            # try to find machine IP
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                host_ip = s.getsockname()[0]
+                s.close()
+            except Exception:
+                host_ip = request.remote_addr or '127.0.0.1'
+        # if remote open not allowed, return localhost/127.0.0.1
+        if not RUNTIME_OPTIONS['ALLOW_REMOTE_OPEN_BROWSER']:
+            host_ip = '127.0.0.1'
+        url = f"http://{host_ip}:{port}"
+        # if client wants local host to open
+        if request.args.get('open_local','false').lower() == 'true':
+            try:
+                import webbrowser
+                webbrowser.open(url)
+                return jsonify({'success': True, 'url': url, 'message': 'Opening locally'})
+            except Exception as e:
+                return jsonify({'success': False, 'url': url, 'message': f'Failed to open local: {e}'})
+        return jsonify({'success': True, 'url': url})
+    except Exception:
+        app_logger.exception("api_open_browser error")
+        return jsonify({'success': False, 'message': 'Error'})
+
+@app.route('/api/server_logs/<server_name>')
+def api_server_logs(server_name):
+    try:
+        logs = []
+        if server_name in log_queues:
+            q = log_queues[server_name]
+            try:
+                while not q.empty():
+                    logs.append(q.get_nowait())
             except:
                 pass
-        
-        info = {
-            'os': f"{os_name} {os_version}",
-            'architecture': platform.architecture()[0],
-            'python_version': platform.python_version(),
-            'cpu_cores': psutil.cpu_count(),
-            'memory_total': psutil.virtual_memory().total // (1024**3),
-            'memory_available': psutil.virtual_memory().available // (1024**3),
-            'disk_free': psutil.disk_usage('/').free // (1024**3),
-            'active_servers': len([s for s in servers.values() if s['status'] == 'Running']),
-            'php_available': php_available,
-            'php_version': get_php_version() if php_available else "Not Available",
-            'node_available': node_available,
-            'node_version': get_node_version() if node_available else "Not Available",
-            'current_folder': current_folder
-        }
-        return jsonify(info)
-    except Exception as e:
-        return jsonify({'error': str(e)})
-
-def get_php_version():
-    """Get PHP version"""
-    try:
-        result = subprocess.run([get_php_path(), '--version'], capture_output=True, text=True, timeout=5)
-        if result.returncode == 0:
-            return result.stdout.split('\n')[0]
-    except:
-        pass
-    return "Unknown"
-
-def get_node_version():
-    """Get Node.js version"""
-    try:
-        result = subprocess.run(['node', '--version'], capture_output=True, text=True, timeout=5)
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except:
-        pass
-    return "Unknown"
-
-
-@app.route('/api/install_php', methods=['POST'])
-def install_php():
-    """Install PHP"""
-    try:
-        if not is_windows():
-            return jsonify({'success': False, 'message': 'PHP auto-installation is only available on Windows'})
-        
-        success, message = install_php_windows()
-        return jsonify({'success': success, 'message': message})
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Error installing PHP: {str(e)}'})
+        if not logs:
+            logfile = LOGS_FOLDER / f"{server_name}.log"
+            if logfile.exists():
+                lines = tail_lines(str(logfile), n=RUNTIME_OPTIONS['LOG_TAIL_LINES'])
+                logs = [{'timestamp': None, 'message': l, 'type': 'info'} for l in lines]
+        return jsonify({'logs': logs})
+    except Exception:
+        app_logger.exception("api_server_logs error")
+        return jsonify({'logs': [], 'error':'Error'})
 
 @app.route('/api/check_php')
-def check_php():
-    """Check PHP availability"""
+def api_check_php():
     try:
-        available = check_php_available()
-        version = get_php_version() if available else None
-        return jsonify({'available': available, 'version': version})
-    except Exception as e:
-        return jsonify({'available': False, 'version': None, 'error': str(e)})
+        ok = check_php_available()
+        ver = subprocess.run([get_php_path(),'--version'], capture_output=True, text=True).stdout.splitlines()[0] if ok else None
+        return jsonify({'available': ok, 'version': ver})
+    except Exception:
+        app_logger.exception("api_check_php error")
+        return jsonify({'available': False, 'version': None})
 
 @app.route('/api/check_node')
-def check_node():
-    """Check Node.js availability"""
+def api_check_node():
     try:
-        available = check_node_available()
-        version = get_node_version() if available else None
-        return jsonify({'available': available, 'version': version})
-    except Exception as e:
-        return jsonify({'available': False, 'version': None, 'error': str(e)})
+        ok = check_node_available()
+        ver = subprocess.run([get_node_path(),'--version'], capture_output=True, text=True).stdout.strip() if ok else None
+        return jsonify({'available': ok, 'version': ver})
+    except Exception:
+        app_logger.exception("api_check_node error")
+        return jsonify({'available': False, 'version': None})
 
-if __name__ == '__main__':
-    print("🚀 Modern Server Administrator - Professional Edition")
-    print("=" * 60)
-    print("Starting professional web interface...")
-    print("The application will be available at: http://localhost:5000")
-    print("Press Ctrl+C to stop the application")
-    print()
-    
-    # Check system requirements
-    print("Checking system requirements...")
-    
-    if check_php_available():
-        print("✓ PHP detected and ready")
-    else:
-        print("⚠️  PHP not detected - PHP servers will not work")
-        if is_windows():
-            print("   Use the 'Install PHP' button in the application to auto-install PHP")
-    
-    if check_node_available():
-        print("✓ Node.js detected and ready")
-    else:
-        print("⚠️  Node.js not detected - Node.js servers will not work")
-    
-    print("✓ Python HTTP server always available")
-    print()
-    
-    # Start the Flask application
+@app.route('/api/system_info')
+def api_system_info():
     try:
-        app.run(host='0.0.0.0', port=5000, debug=False)
-    except KeyboardInterrupt:
-        print("\nShutting down servers...")
-        for name, process in server_processes.items():
+        os_name = platform.system(); os_ver = platform.release()
+        info = {
+            'os': f"{os_name} {os_ver}",
+            'cpu_cores': (psutil.cpu_count() if PSUTIL_AVAILABLE else None),
+            'python_version': platform.python_version(),
+            'active_servers': len([s for s in servers.values() if s.get('status')=='Running']),
+            'sites_folder': str(SITES_FOLDER)
+        }
+        return jsonify(info)
+    except Exception:
+        app_logger.exception("api_system_info error")
+        return jsonify({})
+
+# -------------------------
+# Graceful shutdown
+# -------------------------
+def shutdown_all():
+    app_logger.info("Shutting down child servers")
+    with LOCK:
+        items = list(server_processes.items())
+    for name, proc in items:
+        try:
+            proc.terminate()
+            proc.wait(timeout=3)
+        except:
             try:
-                process.terminate()
-                process.wait(timeout=5)
+                proc.kill()
             except:
-                process.kill()
-        print("Goodbye!")
-    except Exception as e:
-        print(f"Error starting application: {e}")
+                pass
+        with LOCK:
+            server_processes.pop(name, None)
+            log_queues.pop(name, None)
+            if name in servers:
+                servers[name]['status'] = 'Stopped'
+    save_servers_to_disk()
+
+# -------------------------
+# Run app
+# -------------------------
+if __name__ == '__main__':
+    app_logger.info("Modern Server Administrator - production-ready (final)")
+    app_logger.info("Sites: %s, Logs: %s", SITES_FOLDER, LOGS_FOLDER)
+    app_logger.info("PHP available: %s, Node available: %s", check_php_available(), check_node_available())
+    # persist and ensure discovered sites are registered
+    save_servers_to_disk()
+    # Start Flask with binding so UI is reachable from devices
+    try:
+        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    except KeyboardInterrupt:
+        shutdown_all()
+        app_logger.info("Goodbye")
+    except Exception:
+        app_logger.exception("Fatal app error")
+        shutdown_all()
         sys.exit(1)
