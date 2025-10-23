@@ -1,0 +1,4 @@
+2025-10-23 00:35:42,677 INFO: Started process successfully
+2025-10-23 00:37:43,358 ERROR: 127.0.0.1 - - [23/Oct/2025 00:35:59] "GET / HTTP/1.1" 200 -
+2025-10-23 00:37:43,358 INFO: Process monitor ended
+2025-10-23 00:37:55,265 INFO: Started process successfully

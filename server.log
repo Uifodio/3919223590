@@ -1,0 +1,31 @@
+Background monitor started (interval 2.0)
+Modern Server Administrator - production-ready (final)
+Sites: /workspace/sites, Logs: /workspace/logs
+Caddy available: True, Node available: True
+ * Serving Flask app 'web_server_admin'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:3000
+ * Running on http://172.30.0.2:3000
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [23/Oct/2025 00:35:42] "POST /api/add_server HTTP/1.1" 200 -
+127.0.0.1 - - [23/Oct/2025 00:36:25] "GET /api/servers HTTP/1.1" 200 -
+127.0.0.1 - - [23/Oct/2025 00:37:00] "[33mPOST /api/stop_server/test-site-1 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [23/Oct/2025 00:37:43] "POST /api/stop_server HTTP/1.1" 200 -
+127.0.0.1 - - [23/Oct/2025 00:37:55] "POST /api/start_server HTTP/1.1" 200 -
+Settings saved to disk
+api_update_settings error
+Traceback (most recent call last):
+  File "/workspace/web_server_admin.py", line 1447, in api_update_settings
+    start_monitor_thread()
+    ^^^^^^^^^^^^^^^^^^^^
+NameError: name 'start_monitor_thread' is not defined
+127.0.0.1 - - [23/Oct/2025 00:38:07] "POST /api/settings HTTP/1.1" 200 -
+Settings saved to disk
+api_update_settings error
+Traceback (most recent call last):
+  File "/workspace/web_server_admin.py", line 1447, in api_update_settings
+    # Start new monitor thread
+NameError: name 'start_monitor_thread' is not defined
+127.0.0.1 - - [23/Oct/2025 00:38:23] "POST /api/settings HTTP/1.1" 200 -
