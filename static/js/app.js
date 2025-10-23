@@ -1,47 +1,58 @@
-// Workspace Server - Professional JavaScript
+// GitHub-inspired Professional Server Admin JavaScript
 
-class WorkspaceServer {
+class ServerAdmin {
     constructor() {
-        this.projects = {};
-        this.currentLogsProject = null;
+        this.servers = {};
+        this.currentLogsServer = null;
         this.autoRefreshInterval = null;
         this.init();
     }
 
     init() {
         this.bindEvents();
-        this.loadProjects();
+        this.loadServers();
         this.startAutoRefresh();
         this.hideLoading();
     }
 
     bindEvents() {
         // Header actions
-        document.getElementById('refreshBtn').addEventListener('click', () => this.refreshProjects());
-        document.getElementById('addProjectBtn').addEventListener('click', () => this.showAddProjectModal());
+        document.getElementById('refreshBtn').addEventListener('click', () => this.refreshServers());
+        document.getElementById('addServerBtn').addEventListener('click', () => this.showAddServerModal());
 
         // Modal events
         this.bindModalEvents();
 
         // Quick actions
-        document.getElementById('uploadProjectBtn').addEventListener('click', () => this.uploadProject());
-        document.getElementById('createStaticBtn').addEventListener('click', () => this.createQuickProject('static'));
-        document.getElementById('createPhpBtn').addEventListener('click', () => this.createQuickProject('php'));
-        document.getElementById('createNodeBtn').addEventListener('click', () => this.createQuickProject('nodejs'));
+        document.getElementById('uploadZipBtn').addEventListener('click', () => this.showUploadModal('zip'));
+        document.getElementById('uploadFolderBtn').addEventListener('click', () => this.showUploadModal('folder'));
+        document.getElementById('systemInfoBtn').addEventListener('click', () => this.showSystemInfo());
+        document.getElementById('checkPhpBtn').addEventListener('click', () => this.checkPHP());
+
+        // Upload events
+        this.bindUploadEvents();
     }
 
     bindModalEvents() {
-        // Add Project Modal
-        const addProjectModal = document.getElementById('addProjectModal');
-        const addProjectForm = document.getElementById('addProjectForm');
-        const closeAddProjectModal = document.getElementById('closeAddProjectModal');
-        const cancelAddProject = document.getElementById('cancelAddProject');
-        const browsePathBtn = document.getElementById('browsePathBtn');
+        // Add Server Modal
+        const addServerModal = document.getElementById('addServerModal');
+        const addServerForm = document.getElementById('addServerForm');
+        const closeAddServerModal = document.getElementById('closeAddServerModal');
+        const cancelAddServer = document.getElementById('cancelAddServer');
+        const browseFolderBtn = document.getElementById('browseFolderBtn');
 
-        closeAddProjectModal.addEventListener('click', () => this.hideModal('addProjectModal'));
-        cancelAddProject.addEventListener('click', () => this.hideModal('addProjectModal'));
-        browsePathBtn.addEventListener('click', () => this.browsePath());
-        addProjectForm.addEventListener('submit', (e) => this.handleAddProject(e));
+        closeAddServerModal.addEventListener('click', () => this.hideModal('addServerModal'));
+        cancelAddServer.addEventListener('click', () => this.hideModal('addServerModal'));
+        browseFolderBtn.addEventListener('click', () => this.browseFolder());
+        addServerForm.addEventListener('submit', (e) => this.handleAddServer(e));
+
+        // Upload Modal
+        const uploadModal = document.getElementById('uploadModal');
+        const closeUploadModal = document.getElementById('closeUploadModal');
+        const cancelUpload = document.getElementById('cancelUpload');
+
+        closeUploadModal.addEventListener('click', () => this.hideModal('uploadModal'));
+        cancelUpload.addEventListener('click', () => this.hideModal('uploadModal'));
 
         // Logs Modal
         const logsModal = document.getElementById('logsModal');
@@ -53,8 +64,14 @@ class WorkspaceServer {
         copyLogsBtn.addEventListener('click', () => this.copyLogs());
         clearLogsBtn.addEventListener('click', () => this.clearLogs());
 
+        // System Info Modal
+        const systemInfoModal = document.getElementById('systemInfoModal');
+        const closeSystemInfoModal = document.getElementById('closeSystemInfoModal');
+
+        closeSystemInfoModal.addEventListener('click', () => this.hideModal('systemInfoModal'));
+
         // Close modals on backdrop click
-        [addProjectModal, logsModal].forEach(modal => {
+        [addServerModal, uploadModal, logsModal, systemInfoModal].forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
                     this.hideModal(modal.id);
@@ -63,118 +80,150 @@ class WorkspaceServer {
         });
     }
 
-    async loadProjects() {
+    bindUploadEvents() {
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            this.handleFileSelection(files);
+        });
+
+        // File input
+        fileInput.addEventListener('change', (e) => {
+            this.handleFileSelection(e.target.files);
+        });
+
+        // Upload button
+        uploadBtn.addEventListener('click', () => this.uploadFiles());
+    }
+
+    async loadServers() {
         try {
             this.showLoading();
-            const response = await fetch('/api/projects');
+            const response = await fetch('/api/servers');
             const data = await response.json();
-            this.projects = data;
-            this.renderProjects();
+            this.servers = data;
+            this.renderServers();
             this.updateStats();
             this.hideLoading();
         } catch (error) {
-            console.error('Failed to load projects:', error);
-            this.showToast('Error loading projects', 'error');
+            console.error('Failed to load servers:', error);
+            this.showToast('Error loading servers', 'error');
             this.hideLoading();
         }
     }
 
-    async refreshProjects() {
+    async refreshServers() {
         try {
-            await this.loadProjects();
-            this.showToast('Projects refreshed', 'success');
+            const response = await fetch('/api/refresh', { method: 'POST' });
+            const data = await response.json();
+            if (data.success) {
+                await this.loadServers();
+                this.showToast('Servers refreshed', 'success');
+            } else {
+                this.showToast('Refresh failed: ' + data.message, 'error');
+            }
         } catch (error) {
-            console.error('Failed to refresh projects:', error);
+            console.error('Failed to refresh servers:', error);
             this.showToast('Refresh failed', 'error');
         }
     }
 
-    renderProjects() {
-        const projectsGrid = document.getElementById('projectsGrid');
-        projectsGrid.innerHTML = '';
+    renderServers() {
+        const serversGrid = document.getElementById('serversGrid');
+        serversGrid.innerHTML = '';
 
-        if (Object.keys(this.projects).length === 0) {
-            projectsGrid.innerHTML = `
+        if (Object.keys(this.servers).length === 0) {
+            serversGrid.innerHTML = `
                 <div class="empty-state">
-                    <i class="fas fa-folder-open"></i>
-                    <h3>No projects found</h3>
-                    <p>Add your first project to get started</p>
-                    <button class="btn btn-primary" onclick="workspaceServer.showAddProjectModal()">
+                    <i class="fas fa-server"></i>
+                    <h3>No servers found</h3>
+                    <p>Add your first server to get started</p>
+                    <button class="btn btn-primary" onclick="serverAdmin.showAddServerModal()">
                         <i class="fas fa-plus"></i>
-                        Add Project
+                        Add Server
                     </button>
                 </div>
             `;
             return;
         }
 
-        Object.entries(this.projects).forEach(([name, project]) => {
-            const projectCard = this.createProjectCard(name, project);
-            projectsGrid.appendChild(projectCard);
+        Object.entries(this.servers).forEach(([name, server]) => {
+            const serverCard = this.createServerCard(name, server);
+            serversGrid.appendChild(serverCard);
         });
     }
 
-    createProjectCard(name, project) {
+    createServerCard(name, server) {
         const card = document.createElement('div');
-        card.className = 'project-card fade-in';
+        card.className = 'server-card fade-in';
         
-        const statusClass = project.status.toLowerCase();
-        const statusIcon = project.status === 'running' ? 'play-circle' : 'stop-circle';
-        const typeIcon = this.getProjectTypeIcon(project.type);
+        const statusClass = server.status.toLowerCase();
+        const statusIcon = server.status === 'Running' ? 'play-circle' : 'stop-circle';
         
         card.innerHTML = `
-            <div class="project-header">
-                <h3 class="project-name">${this.escapeHtml(name)}</h3>
-                <span class="project-status ${statusClass}">
+            <div class="server-header">
+                <h3 class="server-name">${this.escapeHtml(name)}</h3>
+                <span class="server-status ${statusClass}">
                     <i class="fas fa-${statusIcon}"></i>
-                    ${project.status}
+                    ${server.status}
                 </span>
             </div>
-            <div class="project-info">
-                <div class="project-info-item">
+            <div class="server-info">
+                <div class="server-info-item">
                     <i class="fas fa-folder"></i>
-                    <span>${this.escapeHtml(project.source_path || 'N/A')}</span>
+                    <span>${this.escapeHtml(server.folder || 'N/A')}</span>
                 </div>
-                <div class="project-info-item">
+                <div class="server-info-item">
                     <i class="fas fa-network-wired"></i>
-                    <span>Port: ${project.port || 'N/A'}</span>
+                    <span>Port: ${server.port || 'N/A'}</span>
                 </div>
-                <div class="project-info-item">
-                    <i class="${typeIcon}"></i>
-                    <span>Type: ${project.type || 'static'}</span>
+                <div class="server-info-item">
+                    <i class="fas fa-cog"></i>
+                    <span>Type: ${server.type || 'HTTP'}</span>
                 </div>
-                <div class="project-info-item">
-                    <i class="fas fa-route"></i>
-                    <span>Route: ${project.route || '/' + name}</span>
-                </div>
-                ${project.created_at ? `
-                <div class="project-info-item">
+                ${server.start_time ? `
+                <div class="server-info-item">
                     <i class="fas fa-clock"></i>
-                    <span>Created: ${this.formatDate(project.created_at)}</span>
+                    <span>Started: ${this.escapeHtml(server.start_time)}</span>
                 </div>
                 ` : ''}
             </div>
-            <div class="project-actions">
-                ${project.status === 'running' ? `
-                    <button class="btn btn-ghost btn-sm" onclick="workspaceServer.stopProject('${name}')">
+            <div class="server-actions">
+                ${server.status === 'Running' ? `
+                    <button class="btn btn-ghost btn-sm" onclick="serverAdmin.stopServer('${name}')">
                         <i class="fas fa-stop"></i>
                         Stop
                     </button>
-                    <button class="btn btn-primary btn-sm" onclick="workspaceServer.openProject('${name}')">
+                    <button class="btn btn-primary btn-sm" onclick="serverAdmin.openBrowser('${name}')">
                         <i class="fas fa-external-link-alt"></i>
                         Open
                     </button>
                 ` : `
-                    <button class="btn btn-primary btn-sm" onclick="workspaceServer.startProject('${name}')">
+                    <button class="btn btn-primary btn-sm" onclick="serverAdmin.startServer('${name}')">
                         <i class="fas fa-play"></i>
                         Start
                     </button>
                 `}
-                <button class="btn btn-ghost btn-sm" onclick="workspaceServer.viewLogs('${name}')">
+                <button class="btn btn-ghost btn-sm" onclick="serverAdmin.viewLogs('${name}')">
                     <i class="fas fa-file-alt"></i>
                     Logs
                 </button>
-                <button class="btn btn-danger btn-sm" onclick="workspaceServer.deleteProject('${name}')">
+                <button class="btn btn-danger btn-sm" onclick="serverAdmin.deleteServer('${name}')">
                     <i class="fas fa-trash"></i>
                     Delete
                 </button>
@@ -184,30 +233,31 @@ class WorkspaceServer {
         return card;
     }
 
-    getProjectTypeIcon(type) {
-        const icons = {
-            'static': 'fas fa-file-code',
-            'php': 'fab fa-php',
-            'nodejs': 'fab fa-node-js',
-            'python': 'fab fa-python'
-        };
-        return icons[type] || 'fas fa-folder';
-    }
-
     updateStats() {
-        const totalProjects = Object.keys(this.projects).length;
-        const runningProjects = Object.values(this.projects).filter(p => p.status === 'running').length;
-        const stoppedProjects = totalProjects - runningProjects;
-        const activeRoutes = Object.values(this.projects).filter(p => p.status === 'running').length;
+        const totalServers = Object.keys(this.servers).length;
+        const runningServers = Object.values(this.servers).filter(s => s.status === 'Running').length;
+        const stoppedServers = totalServers - runningServers;
 
-        document.getElementById('totalProjects').textContent = totalProjects;
-        document.getElementById('runningProjects').textContent = runningProjects;
-        document.getElementById('stoppedProjects').textContent = stoppedProjects;
-        document.getElementById('activeRoutes').textContent = activeRoutes;
+        document.getElementById('totalServers').textContent = totalServers;
+        document.getElementById('runningServers').textContent = runningServers;
+        document.getElementById('stoppedServers').textContent = stoppedServers;
+        document.getElementById('totalSites').textContent = totalServers; // Assuming each server is a site
     }
 
-    showAddProjectModal() {
-        this.showModal('addProjectModal');
+    showAddServerModal() {
+        this.showModal('addServerModal');
+    }
+
+    showUploadModal(type) {
+        const modal = document.getElementById('uploadModal');
+        const title = document.getElementById('uploadModalTitle');
+        const fileInput = document.getElementById('fileInput');
+        
+        title.textContent = type === 'zip' ? 'Upload ZIP File' : 'Upload Folder';
+        fileInput.accept = type === 'zip' ? '.zip' : '*';
+        fileInput.multiple = type !== 'zip';
+        
+        this.showModal('uploadModal');
     }
 
     showModal(modalId) {
@@ -222,26 +272,30 @@ class WorkspaceServer {
         document.body.style.overflow = '';
         
         // Reset forms
-        if (modalId === 'addProjectModal') {
-            document.getElementById('addProjectForm').reset();
+        if (modalId === 'addServerModal') {
+            document.getElementById('addServerForm').reset();
+        } else if (modalId === 'uploadModal') {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('uploadBtn').disabled = true;
+            document.getElementById('uploadArea').classList.remove('dragover');
         }
     }
 
-    async handleAddProject(e) {
+    async handleAddServer(e) {
         e.preventDefault();
         
         const formData = new FormData(e.target);
         const data = {
-            name: formData.get('name'),
+            folder: formData.get('folder'),
+            port: parseInt(formData.get('port')),
             type: formData.get('type'),
-            source_path: formData.get('source_path'),
-            route: formData.get('route') || undefined,
-            port: formData.get('port') ? parseInt(formData.get('port')) : undefined
+            auto_import: formData.has('auto_import'),
+            auto_start: formData.has('auto_start')
         };
 
         try {
             this.showLoading();
-            const response = await fetch('/api/projects', {
+            const response = await fetch('/api/add_server', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -252,122 +306,162 @@ class WorkspaceServer {
             const result = await response.json();
             
             if (result.success) {
-                this.showToast('Project created successfully', 'success');
-                this.hideModal('addProjectModal');
-                await this.loadProjects();
+                this.showToast(result.message, 'success');
+                this.hideModal('addServerModal');
+                await this.loadServers();
             } else {
                 this.showToast(result.message, 'error');
             }
         } catch (error) {
-            console.error('Failed to create project:', error);
-            this.showToast('Failed to create project', 'error');
+            console.error('Failed to add server:', error);
+            this.showToast('Failed to add server', 'error');
         } finally {
             this.hideLoading();
         }
     }
 
-    async startProject(name) {
+    async startServer(name) {
         try {
             this.showLoading();
-            const response = await fetch(`/api/projects/${name}/start`, {
-                method: 'POST'
+            const response = await fetch('/api/start_server', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name })
             });
 
             const result = await response.json();
             
             if (result.success) {
-                this.showToast('Project started', 'success');
-                await this.loadProjects();
+                this.showToast('Server started', 'success');
+                await this.loadServers();
             } else {
                 this.showToast(result.message, 'error');
             }
         } catch (error) {
-            console.error('Failed to start project:', error);
-            this.showToast('Failed to start project', 'error');
+            console.error('Failed to start server:', error);
+            this.showToast('Failed to start server', 'error');
         } finally {
             this.hideLoading();
         }
     }
 
-    async stopProject(name) {
+    async stopServer(name) {
         try {
             this.showLoading();
-            const response = await fetch(`/api/projects/${name}/stop`, {
-                method: 'POST'
+            const response = await fetch('/api/stop_server', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name })
             });
 
             const result = await response.json();
             
             if (result.success) {
-                this.showToast('Project stopped', 'success');
-                await this.loadProjects();
+                this.showToast('Server stopped', 'success');
+                await this.loadServers();
             } else {
                 this.showToast(result.message, 'error');
             }
         } catch (error) {
-            console.error('Failed to stop project:', error);
-            this.showToast('Failed to stop project', 'error');
+            console.error('Failed to stop server:', error);
+            this.showToast('Failed to stop server', 'error');
         } finally {
             this.hideLoading();
         }
     }
 
-    async deleteProject(name) {
-        if (!confirm(`Are you sure you want to delete project "${name}"?`)) {
+    async deleteServer(name) {
+        if (!confirm(`Are you sure you want to delete server "${name}"?`)) {
             return;
         }
 
         try {
             this.showLoading();
-            const response = await fetch(`/api/projects/${name}`, {
-                method: 'DELETE'
+            const response = await fetch('/api/delete_server', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, delete_files: true })
             });
 
             const result = await response.json();
             
             if (result.success) {
-                this.showToast('Project deleted', 'success');
-                await this.loadProjects();
+                this.showToast('Server deleted', 'success');
+                await this.loadServers();
             } else {
                 this.showToast(result.message, 'error');
             }
         } catch (error) {
-            console.error('Failed to delete project:', error);
-            this.showToast('Failed to delete project', 'error');
+            console.error('Failed to delete server:', error);
+            this.showToast('Failed to delete server', 'error');
         } finally {
             this.hideLoading();
         }
     }
 
-    async openProject(name) {
-        if (!(name in this.projects)) {
-            this.showToast('Project not found', 'error');
-            return;
+    async openBrowser(name) {
+        try {
+            const response = await fetch(`/api/open_browser/${name}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                window.open(result.url, '_blank');
+                this.showToast('Opening in browser', 'success');
+            } else {
+                this.showToast(result.message, 'error');
+            }
+        } catch (error) {
+            console.error('Failed to open browser:', error);
+            this.showToast('Failed to open browser', 'error');
         }
-
-        const project = this.projects[name];
-        if (project.status !== 'running') {
-            this.showToast('Project is not running', 'error');
-            return;
-        }
-
-        const route = project.route || `/${name}`;
-        const url = `${window.location.origin}${route}`;
-        window.open(url, '_blank');
-        this.showToast('Opening project in new tab', 'success');
     }
 
     async viewLogs(name) {
-        this.currentLogsProject = name;
+        this.currentLogsServer = name;
         const modal = document.getElementById('logsModal');
         const title = document.getElementById('logsModalTitle');
         
         title.textContent = `Logs - ${name}`;
         this.showModal('logsModal');
         
-        // For now, show placeholder logs
-        const logsContent = document.getElementById('logsContent');
-        logsContent.innerHTML = '<div class="log-entry info">Logs feature coming soon...</div>';
+        await this.loadLogs(name);
+    }
+
+    async loadLogs(name) {
+        try {
+            const response = await fetch(`/api/server_logs/${name}`);
+            const result = await response.json();
+            
+            const logsContent = document.getElementById('logsContent');
+            logsContent.innerHTML = '';
+            
+            if (result.logs && result.logs.length > 0) {
+                result.logs.forEach(log => {
+                    const logEntry = document.createElement('div');
+                    logEntry.className = `log-entry ${log.type || 'info'}`;
+                    
+                    const timestamp = log.timestamp ? `<span class="log-timestamp">[${log.timestamp}]</span>` : '';
+                    logEntry.innerHTML = `${timestamp}${this.escapeHtml(log.message)}`;
+                    
+                    logsContent.appendChild(logEntry);
+                });
+                
+                // Scroll to bottom
+                logsContent.scrollTop = logsContent.scrollHeight;
+            } else {
+                logsContent.innerHTML = '<div class="log-entry info">No logs available</div>';
+            }
+        } catch (error) {
+            console.error('Failed to load logs:', error);
+            const logsContent = document.getElementById('logsContent');
+            logsContent.innerHTML = '<div class="log-entry error">Failed to load logs</div>';
+        }
     }
 
     copyLogs() {
@@ -386,67 +480,127 @@ class WorkspaceServer {
         logsContent.innerHTML = '<div class="log-entry info">Logs cleared</div>';
     }
 
-    browsePath() {
-        // This would typically open a file dialog
-        // For now, we'll just show a prompt
-        const path = prompt('Enter project path:');
-        if (path) {
-            document.getElementById('projectPath').value = path;
+    handleFileSelection(files) {
+        const uploadBtn = document.getElementById('uploadBtn');
+        uploadBtn.disabled = files.length === 0;
+        
+        if (files.length > 0) {
+            const fileNames = Array.from(files).map(f => f.name).join(', ');
+            this.showToast(`Selected ${files.length} file(s): ${fileNames}`, 'info');
         }
     }
 
-    createQuickProject(type) {
-        const name = prompt(`Enter ${type} project name:`);
-        if (!name) return;
+    async uploadFiles() {
+        const fileInput = document.getElementById('fileInput');
+        const files = fileInput.files;
+        const name = document.getElementById('uploadName').value;
+        const autoRegister = document.getElementById('uploadAutoRegister').checked;
+        const autoStart = document.getElementById('uploadAutoStart').checked;
+        
+        if (files.length === 0) {
+            this.showToast('Please select files to upload', 'warning');
+            return;
+        }
 
-        const path = prompt(`Enter project path:`);
-        if (!path) return;
-
-        const data = {
-            name: name,
-            type: type,
-            source_path: path
-        };
-
-        this.createProject(data);
-    }
-
-    async createProject(data) {
         try {
             this.showLoading();
-            const response = await fetch('/api/projects', {
+            
+            const formData = new FormData();
+            Array.from(files).forEach(file => {
+                formData.append('files[]', file);
+            });
+            formData.append('folder_name', name);
+            formData.append('auto_register', autoRegister);
+            formData.append('auto_start', autoStart);
+
+            const response = await fetch('/api/upload_folder', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
+                body: formData
             });
 
             const result = await response.json();
             
             if (result.success) {
-                this.showToast('Project created successfully', 'success');
-                await this.loadProjects();
+                this.showToast('Files uploaded successfully', 'success');
+                this.hideModal('uploadModal');
+                await this.loadServers();
             } else {
                 this.showToast(result.message, 'error');
             }
         } catch (error) {
-            console.error('Failed to create project:', error);
-            this.showToast('Failed to create project', 'error');
+            console.error('Failed to upload files:', error);
+            this.showToast('Failed to upload files', 'error');
         } finally {
             this.hideLoading();
         }
     }
 
-    uploadProject() {
-        this.showToast('Upload feature coming soon...', 'info');
+    async showSystemInfo() {
+        try {
+            const response = await fetch('/api/system_info');
+            const info = await response.json();
+            
+            const content = document.getElementById('systemInfoContent');
+            content.innerHTML = `
+                <div class="info-item">
+                    <div class="info-item-label">Operating System</div>
+                    <div class="info-item-value">${this.escapeHtml(info.os || 'Unknown')}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-item-label">Python Version</div>
+                    <div class="info-item-value">${this.escapeHtml(info.python_version || 'Unknown')}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-item-label">CPU Cores</div>
+                    <div class="info-item-value">${info.cpu_cores || 'Unknown'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-item-label">Active Servers</div>
+                    <div class="info-item-value">${info.active_servers || 0}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-item-label">Sites Folder</div>
+                    <div class="info-item-value">${this.escapeHtml(info.sites_folder || 'Unknown')}</div>
+                </div>
+            `;
+            
+            this.showModal('systemInfoModal');
+        } catch (error) {
+            console.error('Failed to load system info:', error);
+            this.showToast('Failed to load system info', 'error');
+        }
+    }
+
+    async checkPHP() {
+        try {
+            const response = await fetch('/api/check_php');
+            const result = await response.json();
+            
+            if (result.available) {
+                this.showToast(`PHP is available: ${result.version}`, 'success');
+            } else {
+                this.showToast('PHP is not available', 'warning');
+            }
+        } catch (error) {
+            console.error('Failed to check PHP:', error);
+            this.showToast('Failed to check PHP', 'error');
+        }
+    }
+
+    browseFolder() {
+        // This would typically open a file dialog
+        // For now, we'll just show a prompt
+        const folder = prompt('Enter folder path:');
+        if (folder) {
+            document.getElementById('serverFolder').value = folder;
+        }
     }
 
     startAutoRefresh() {
-        // Refresh every 10 seconds
+        // Refresh every 5 seconds
         this.autoRefreshInterval = setInterval(() => {
-            this.loadProjects();
-        }, 10000);
+            this.loadServers();
+        }, 5000);
     }
 
     stopAutoRefresh() {
@@ -506,30 +660,21 @@ class WorkspaceServer {
         div.textContent = text;
         return div.innerHTML;
     }
-
-    formatDate(dateString) {
-        try {
-            const date = new Date(dateString);
-            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-        } catch (e) {
-            return dateString;
-        }
-    }
 }
 
 // Initialize the application
-const workspaceServer = new WorkspaceServer();
+const serverAdmin = new ServerAdmin();
 
 // Handle page visibility change
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-        workspaceServer.stopAutoRefresh();
+        serverAdmin.stopAutoRefresh();
     } else {
-        workspaceServer.startAutoRefresh();
+        serverAdmin.startAutoRefresh();
     }
 });
 
 // Handle beforeunload
 window.addEventListener('beforeunload', () => {
-    workspaceServer.stopAutoRefresh();
+    serverAdmin.stopAutoRefresh();
 });
