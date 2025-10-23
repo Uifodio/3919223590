@@ -2,9 +2,9 @@
   "test-site": {
     "name": "test-site",
     "folder": "/workspace/sites/test-site",
-    "port": null,
+    "port": 8000,
     "type": "HTTP",
-    "status": "Stopped",
-    "start_time": null
+    "status": "Running",
+    "start_time": "2025-10-23 07:17:27"
   }
 }

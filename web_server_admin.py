@@ -66,13 +66,13 @@ ROOT = Path.cwd()
 SITES_FOLDER = ROOT / 'sites'
 LOGS_FOLDER = ROOT / 'logs'
 PERSIST_FILE = ROOT / 'servers.json'
-CADDY_FOLDER = ROOT / 'caddy'
+APACHE_FOLDER = ROOT / 'apache'
 SETTINGS_FILE = ROOT / 'settings.json'
 
 ALLOWED_EXTENSIONS = {'txt','pdf','png','jpg','jpeg','gif','mp4','avi','mov','mkv','wmv','flv','webm',
                       'php','html','css','js','json','xml','md','py','sql','zip','rar','7z'}
 
-for d in (SITES_FOLDER, LOGS_FOLDER, CADDY_FOLDER):
+for d in (SITES_FOLDER, LOGS_FOLDER, APACHE_FOLDER):
     os.makedirs(d, exist_ok=True)
 
 EXECUTOR = ThreadPoolExecutor(max_workers=RUNTIME_OPTIONS['MAX_WORKERS'])
@@ -145,149 +145,49 @@ def tail_lines(filepath, n=200):
         return []
 
 # -------------------------
-# Caddy Web Server Management
+# Apache Web Server Management
 # -------------------------
-def get_caddy_path():
-    """Get Caddy executable path"""
-    if platform.system() == 'Windows':
-        caddy_exe = CADDY_FOLDER / 'caddy.exe'
-    else:
-        caddy_exe = CADDY_FOLDER / 'caddy'
-    
-    if caddy_exe.exists():
-        return str(caddy_exe)
-    
-    # Fallback to system caddy
-    return shutil.which('caddy') or 'caddy'
+def get_apache_script_path():
+    """Get Apache starter script path"""
+    apache_script = APACHE_FOLDER / 'bin' / 'start-apache.py'
+    return str(apache_script)
 
-def download_caddy():
-    """Download and install Caddy web server"""
+def check_apache_available():
+    """Check if Apache setup is available"""
     try:
-        if platform.system() == 'Windows':
-            url = "https://caddyserver.com/api/download?os=windows&arch=amd64&p=github.com%2Fcaddyserver%2Fcaddy%2Fv2%2Fmodules%2Fstandard"
-            filename = "caddy.exe"
-        else:
-            url = "https://caddyserver.com/api/download?os=linux&arch=amd64&p=github.com%2Fcaddyserver%2Fcaddy%2Fv2%2Fmodules%2Fstandard"
-            filename = "caddy"
-        
-        caddy_path = CADDY_FOLDER / filename
-        
-        if caddy_path.exists():
-            return True, "Caddy already installed"
-        
-        app_logger.info(f"Downloading Caddy from {url}")
-        
-        # Download Caddy
-        import urllib.request
-        urllib.request.urlretrieve(url, caddy_path)
-        
-        # Make executable on Unix systems
-        if platform.system() != 'Windows':
-            os.chmod(caddy_path, 0o755)
-        
-        app_logger.info(f"Caddy downloaded to {caddy_path}")
-        return True, f"Caddy installed successfully"
-        
-    except Exception as e:
-        app_logger.exception("Failed to download Caddy")
-        return False, f"Failed to download Caddy: {str(e)}"
-
-def check_caddy_available():
-    """Check if Caddy is available"""
-    try:
-        caddy_path = get_caddy_path()
-        result = subprocess.run([caddy_path, 'version'], capture_output=True, text=True, timeout=5)
-        return result.returncode == 0
+        apache_script = get_apache_script_path()
+        return os.path.exists(apache_script)
     except:
         return False
 
-def create_caddy_config(site_name, site_path, port, server_type):
-    """Create Caddy configuration for a site"""
-    config_dir = CADDY_FOLDER / 'configs'
-    config_dir.mkdir(exist_ok=True)
-    
-    config_file = config_dir / f"{site_name}.Caddyfile"
-    
-    if server_type == 'PHP':
-        # Caddy with PHP support (using built-in PHP handler)
-        config_content = f""":{port} {{
-    root * {site_path}
-    file_server
-    
-    # Handle PHP files with built-in PHP support
-    try_files {{path}} {{path}}/ /index.php
-    php_fastcgi unix//var/run/php/php-fpm.sock {{
-        index index.php index.html index.htm
-    }}
-    
-    # Fallback to static files if PHP not available
-    @php {{
-        path *.php
-    }}
-    handle @php {{
-        try_files {{path}} /index.html
-        file_server
-    }}
-    
-    log {{
-        output file {LOGS_FOLDER / f"{site_name}_caddy.log"}
-        format json
-    }}
-}}"""
-    else:
-        # Caddy for static files
-        config_content = f""":{port} {{
-    root * {site_path}
-    file_server
-    
-    # Try common index files
-    try_files {{path}} {{path}}/ /index.html /index.php /index.htm
-    
-    log {{
-        output file {LOGS_FOLDER / f"{site_name}_caddy.log"}
-        format json
-    }}
-}}"""
-    
-    with open(config_file, 'w', encoding='utf-8') as f:
-        f.write(config_content)
-    
-    return str(config_file)
-
-def start_caddy_server(site_name, site_path, port, server_type):
-    """Start Caddy server for a site"""
+def start_apache_server(site_name, site_path, port, server_type):
+    """Start Apache-like server for a site"""
     try:
-        if not check_caddy_available():
-            # Try to download Caddy
-            success, message = download_caddy()
-            if not success:
-                return False, f"Caddy not available: {message}"
+        apache_script = get_apache_script_path()
         
-        caddy_path = get_caddy_path()
-        config_file = create_caddy_config(site_name, site_path, port, server_type)
+        if not os.path.exists(apache_script):
+            return False, "Apache script not found"
         
-        # Start Caddy process in background
+        # Start Apache-like server process in background
         process = subprocess.Popen([
-            caddy_path, 'run', '--config', config_file, '--adapter', 'caddyfile'
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, 
-        cwd=str(CADDY_FOLDER))
+            sys.executable, apache_script, site_name, site_path, str(port), server_type
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         
         # Give it a moment to start
-        time.sleep(2)
+        time.sleep(0.5)
         
         if process.poll() is None:
-            # Store the process in our process management
             with LOCK:
                 server_processes[site_name] = process
                 log_queues.setdefault(site_name, queue.Queue())
-            return True, "Caddy server started"
+            return True, "Apache-like server started"
         else:
             stdout, stderr = process.communicate()
-            return False, f"Caddy failed to start: {stderr or stdout}"
+            return False, f"Apache failed to start: {stderr or stdout}"
             
     except Exception as e:
-        app_logger.exception("Failed to start Caddy server")
-        return False, f"Failed to start Caddy: {str(e)}"
+        app_logger.exception("Failed to start Apache server")
+        return False, f"Failed to start Apache: {str(e)}"
 
 # -------------------------
 # System checks
@@ -484,15 +384,15 @@ server.listen({port}, '{bind}', () => console.log('Node listening http://{bind}:
     return str(script)
 
 def start_server_process(name: str, folder: str, port: int, server_type: str, bind_all: bool = True, health_wait: float = 0.2) -> Tuple[bool,str]:
-    """Start server process using Caddy for production-grade support"""
+    """Start server process using Apache for production-grade support"""
     logger = get_server_logger(name)
     try:
         folder_abs = str(Path(folder).absolute())
         
-        # Use built-in servers for now (Caddy integration can be added later)
+        # Use Apache-like server for all content types
         if server_type in ['PHP', 'HTTP', 'Static']:
-            # Use built-in HTTP server for all static content
-            cmd = [sys.executable, '-m', 'http.server', str(int(port)), '--bind', ('0.0.0.0' if bind_all else '127.0.0.1')]
+            # Use Apache-like server with PHP support
+            return start_apache_server(name, folder_abs, port, server_type)
         elif server_type == 'Node.js':
             nodeexec = shutil.which('node')
             if not nodeexec:
@@ -1366,28 +1266,14 @@ def api_check_node():
         app_logger.exception("api_check_node error")
         return jsonify({'available': False, 'version': None})
 
-@app.route('/api/check_caddy')
-def api_check_caddy():
+@app.route('/api/check_apache')
+def api_check_apache():
     try:
-        ok = check_caddy_available()
-        if ok:
-            caddy_path = get_caddy_path()
-            ver = subprocess.run([caddy_path, 'version'], capture_output=True, text=True).stdout.strip()
-        else:
-            ver = None
-        return jsonify({'available': ok, 'version': ver})
+        ok = check_apache_available()
+        return jsonify({'available': ok, 'version': 'Apache-like Server'})
     except Exception:
-        app_logger.exception("api_check_caddy error")
+        app_logger.exception("api_check_apache error")
         return jsonify({'available': False, 'version': None})
-
-@app.route('/api/install_caddy', methods=['POST'])
-def api_install_caddy():
-    try:
-        success, message = download_caddy()
-        return jsonify({'success': success, 'message': message})
-    except Exception as e:
-        app_logger.exception("api_install_caddy error")
-        return jsonify({'success': False, 'message': str(e)})
 
 def save_settings_to_disk():
     """Save current settings to disk"""
@@ -1473,22 +1359,16 @@ def api_system_info():
             'active_servers': len([s for s in servers.values() if s.get('status')=='Running']),
             'total_servers': len(servers),
             'sites_folder': str(SITES_FOLDER),
-            'caddy_available': check_caddy_available(),
+            'apache_available': check_apache_available(),
             'node_available': check_node_available(),
             'memory_total': (psutil.virtual_memory().total // (1024**3) if PSUTIL_AVAILABLE else None),
             'memory_available': (psutil.virtual_memory().available // (1024**3) if PSUTIL_AVAILABLE else None),
             'disk_free': (psutil.disk_usage('/').free // (1024**3) if PSUTIL_AVAILABLE else None)
         }
         
-        # Add Caddy version if available
-        if info['caddy_available']:
-            try:
-                caddy_path = get_caddy_path()
-                caddy_ver = subprocess.run([caddy_path, 'version'], capture_output=True, text=True, timeout=3)
-                if caddy_ver.returncode == 0:
-                    info['caddy_version'] = caddy_ver.stdout.splitlines()[0] if caddy_ver.stdout else 'Unknown'
-            except:
-                info['caddy_version'] = 'Unknown'
+        # Add Apache version if available
+        if info['apache_available']:
+            info['apache_version'] = 'Apache-like Server v1.0'
         
         # Add Node.js version if available
         if info['node_available']:
@@ -1533,7 +1413,7 @@ def shutdown_all():
 if __name__ == '__main__':
     app_logger.info("Modern Server Administrator - production-ready (final)")
     app_logger.info("Sites: %s, Logs: %s", SITES_FOLDER, LOGS_FOLDER)
-    app_logger.info("Caddy available: %s, Node available: %s", check_caddy_available(), check_node_available())
+    app_logger.info("Apache available: %s, Node available: %s", check_apache_available(), check_node_available())
     # persist and ensure discovered sites are registered
     save_servers_to_disk()
     # Start Flask with binding so UI is reachable from devices

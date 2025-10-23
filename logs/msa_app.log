@@ -45,3 +45,8 @@ NameError: name 'start_monitor_thread' is not defined
 2025-10-23 00:39:05,690 INFO: Modern Server Administrator - production-ready (final)
 2025-10-23 00:39:05,690 INFO: Sites: /workspace/sites, Logs: /workspace/logs
 2025-10-23 00:39:05,784 INFO: Caddy available: True, Node available: True
+2025-10-23 07:17:11,798 INFO: Background monitor started (interval 2.0)
+2025-10-23 07:17:11,798 INFO: Settings loaded from disk
+2025-10-23 07:17:11,805 INFO: Modern Server Administrator - production-ready (final)
+2025-10-23 07:17:11,805 INFO: Sites: /workspace/sites, Logs: /workspace/logs
+2025-10-23 07:17:11,821 INFO: Apache available: True, Node available: True
