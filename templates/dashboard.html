@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workspace Server - Multi-Project Development</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-code"></i>
+                    <span>Workspace Server</span>
+                </div>
+                <div class="status-indicators">
+                    <div class="status-item">
+                        <i class="fas fa-server"></i>
+                        <span>Proxy: localhost:8000</span>
+                    </div>
+                    <div class="status-item">
+                        <i class="fab fa-php"></i>
+                        <span class="status-{{ 'success' if php_available else 'error' }}">
+                            PHP {{ 'Available' if php_available else 'Not Found' }}
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <i class="fab fa-node-js"></i>
+                        <span class="status-{{ 'success' if node_available else 'error' }}">
+                            Node.js {{ 'Available' if node_available else 'Not Found' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-ghost" id="refreshBtn">
+                    <i class="fas fa-sync-alt"></i>
+                    Refresh
+                </button>
+                <button class="btn btn-primary" id="addProjectBtn">
+                    <i class="fas fa-plus"></i>
+                    Add Project
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-folder"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="totalProjects">0</div>
+                        <div class="stat-label">Total Projects</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon running">
+                        <i class="fas fa-play-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="runningProjects">0</div>
+                        <div class="stat-label">Running</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon stopped">
+                        <i class="fas fa-stop-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="stoppedProjects">0</div>
+                        <div class="stat-label">Stopped</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="activeRoutes">0</div>
+                        <div class="stat-label">Active Routes</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projects Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-folder-open"></i>
+                        Projects
+                    </h2>
+                    <div class="section-actions">
+                        <button class="btn btn-ghost btn-sm" id="viewAllLogsBtn">
+                            <i class="fas fa-file-alt"></i>
+                            View All Logs
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="projects-grid" id="projectsGrid">
+                    <!-- Projects will be dynamically loaded here -->
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-bolt"></i>
+                        Quick Actions
+                    </h2>
+                </div>
+                <div class="quick-actions">
+                    <button class="quick-action-btn" id="uploadProjectBtn">
+                        <i class="fas fa-upload"></i>
+                        <span>Upload Project</span>
+                    </button>
+                    <button class="quick-action-btn" id="createStaticBtn">
+                        <i class="fas fa-file-code"></i>
+                        <span>Create Static Site</span>
+                    </button>
+                    <button class="quick-action-btn" id="createPhpBtn">
+                        <i class="fab fa-php"></i>
+                        <span>Create PHP Project</span>
+                    </button>
+                    <button class="quick-action-btn" id="createNodeBtn">
+                        <i class="fab fa-node-js"></i>
+                        <span>Create Node.js Project</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Project Modal -->
+    <div class="modal" id="addProjectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Project</h3>
+                <button class="modal-close" id="closeAddProjectModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addProjectForm">
+                    <div class="form-group">
+                        <label for="projectName">Project Name</label>
+                        <input type="text" id="projectName" name="name" placeholder="Enter project name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="projectType">Project Type</label>
+                        <select id="projectType" name="type" required>
+                            <option value="static">Static Site</option>
+                            <option value="php">PHP Application</option>
+                            <option value="nodejs">Node.js Application</option>
+                            <option value="python">Python Application</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="projectPath">Source Path</label>
+                        <div class="input-group">
+                            <input type="text" id="projectPath" name="source_path" placeholder="Enter or select project path" required>
+                            <button type="button" class="btn btn-ghost" id="browsePathBtn">
+                                <i class="fas fa-folder-open"></i>
+                                Browse
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="projectRoute">Route (optional)</label>
+                        <input type="text" id="projectRoute" name="route" placeholder="e.g., /myproject">
+                        <small>Leave empty to use project name</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="projectPort">Port (optional)</label>
+                        <input type="number" id="projectPort" name="port" placeholder="Auto-assign">
+                        <small>Leave empty for auto-assignment</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" id="cancelAddProject">Cancel</button>
+                <button type="submit" class="btn btn-primary" form="addProjectForm">Add Project</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Logs Modal -->
+    <div class="modal modal-large" id="logsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="logsModalTitle">Project Logs</h3>
+                <div class="modal-actions">
+                    <button class="btn btn-ghost btn-sm" id="copyLogsBtn">
+                        <i class="fas fa-copy"></i>
+                        Copy
+                    </button>
+                    <button class="btn btn-ghost btn-sm" id="clearLogsBtn">
+                        <i class="fas fa-trash"></i>
+                        Clear
+                    </button>
+                    <button class="modal-close" id="closeLogsModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="logs-container" id="logsContainer">
+                    <div class="logs-content" id="logsContent">
+                        <!-- Logs will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading...</span>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
