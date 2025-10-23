@@ -63,18 +63,16 @@ app = Flask(__name__)
 app.secret_key = 'modern_server_admin_2024'
 
 ROOT = Path.cwd()
-UPLOAD_FOLDER = ROOT / 'uploads'
 SITES_FOLDER = ROOT / 'sites'
 LOGS_FOLDER = ROOT / 'logs'
 PERSIST_FILE = ROOT / 'servers.json'
-PHP_LOCAL_FOLDER = ROOT / 'php'
 CADDY_FOLDER = ROOT / 'caddy'
 SETTINGS_FILE = ROOT / 'settings.json'
 
 ALLOWED_EXTENSIONS = {'txt','pdf','png','jpg','jpeg','gif','mp4','avi','mov','mkv','wmv','flv','webm',
                       'php','html','css','js','json','xml','md','py','sql','zip','rar','7z'}
 
-for d in (UPLOAD_FOLDER, SITES_FOLDER, LOGS_FOLDER, PHP_LOCAL_FOLDER, CADDY_FOLDER):
+for d in (SITES_FOLDER, LOGS_FOLDER, CADDY_FOLDER):
     os.makedirs(d, exist_ok=True)
 
 EXECUTOR = ThreadPoolExecutor(max_workers=RUNTIME_OPTIONS['MAX_WORKERS'])
@@ -211,13 +209,24 @@ def create_caddy_config(site_name, site_path, port, server_type):
     config_file = config_dir / f"{site_name}.Caddyfile"
     
     if server_type == 'PHP':
-        # Caddy with PHP-FPM
+        # Caddy with PHP support (using built-in PHP handler)
         config_content = f""":{port} {{
     root * {site_path}
     file_server
     
+    # Handle PHP files with built-in PHP support
+    try_files {{path}} {{path}}/ /index.php
     php_fastcgi unix//var/run/php/php-fpm.sock {{
-        index index.php index.html
+        index index.php index.html index.htm
+    }}
+    
+    # Fallback to static files if PHP not available
+    @php {{
+        path *.php
+    }}
+    handle @php {{
+        try_files {{path}} /index.html
+        file_server
     }}
     
     log {{
@@ -230,6 +239,9 @@ def create_caddy_config(site_name, site_path, port, server_type):
         config_content = f""":{port} {{
     root * {site_path}
     file_server
+    
+    # Try common index files
+    try_files {{path}} {{path}}/ /index.html /index.php /index.htm
     
     log {{
         output file {LOGS_FOLDER / f"{site_name}_caddy.log"}
@@ -274,23 +286,7 @@ def start_caddy_server(site_name, site_path, port, server_type):
 # -------------------------
 # System checks
 # -------------------------
-def get_php_path():
-    local = str(PHP_LOCAL_FOLDER / ('php.exe' if platform.system() == 'Windows' else 'php'))
-    if Path(local).exists(): return local
-    w = shutil.which('php')
-    if w: return w
-    if platform.system() == 'Windows':
-        for p in [r'C:\php\php.exe', r'C:\xampp\php\php.exe', r'C:\wamp\bin\php\php.exe']:
-            if Path(p).exists(): return p
-    return 'php'
-
-def check_php_available():
-    try:
-        p = get_php_path()
-        r = subprocess.run([p,'--version'], capture_output=True, text=True, timeout=3)
-        return r.returncode == 0
-    except:
-        return False
+# PHP functionality removed - Caddy handles all web serving
 
 def get_node_path():
     return shutil.which('node') or 'node'
@@ -488,7 +484,7 @@ def start_server_process(name: str, folder: str, port: int, server_type: str, bi
         folder_abs = str(Path(folder).absolute())
         
         # Use Caddy for all server types for production-grade support
-        if server_type in ['PHP', 'HTTP']:
+        if server_type in ['PHP', 'HTTP', 'Static']:
             # Try Caddy first (production-grade)
             if check_caddy_available():
                 success, msg = start_caddy_server(name, folder_abs, port, server_type)
@@ -512,12 +508,7 @@ def start_server_process(name: str, folder: str, port: int, server_type: str, bi
                     logger.warning(f"Caddy failed, falling back to built-in server: {msg}")
             
             # Fallback to built-in servers
-            if server_type == 'PHP':
-                php = get_php_path()
-                if not check_php_available():
-                    return False, "PHP not available"
-                cmd = [php, '-S', f"{'0.0.0.0' if bind_all else '127.0.0.1'}:{int(port)}", '-t', folder_abs, '-d', 'display_errors=1', '-d', 'log_errors=1']
-            elif server_type == 'HTTP':
+            if server_type == 'HTTP':
                 cmd = [sys.executable, '-m', 'http.server', str(int(port)), '--bind', ('0.0.0.0' if bind_all else '127.0.0.1')]
         elif server_type == 'Node.js':
             nodeexec = shutil.which('node')
@@ -728,7 +719,18 @@ def discover_and_load():
                     meta['status'] = 'Stopped'
 
 # Load settings and discover sites
-load_settings_from_disk()
+if SETTINGS_FILE.exists():
+    try:
+        with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+            saved_settings = json.load(f)
+        # Update RUNTIME_OPTIONS with saved settings
+        for key, value in saved_settings.items():
+            if key in RUNTIME_OPTIONS:
+                RUNTIME_OPTIONS[key] = value
+        app_logger.info("Settings loaded from disk")
+    except Exception as e:
+        app_logger.warning(f"Failed to load settings from disk: {e}")
+
 discover_and_load()
 
 # If AUTO_RESTORE_RUNNING True, try to start servers that were previously 'Running' on disk
@@ -1369,15 +1371,7 @@ def api_server_logs_stream(server_name):
         }
     )
 
-@app.route('/api/check_php')
-def api_check_php():
-    try:
-        ok = check_php_available()
-        ver = subprocess.run([get_php_path(),'--version'], capture_output=True, text=True).stdout.splitlines()[0] if ok else None
-        return jsonify({'available': ok, 'version': ver})
-    except Exception:
-        app_logger.exception("api_check_php error")
-        return jsonify({'available': False, 'version': None})
+# PHP check removed - Caddy handles all web serving
 
 @app.route('/api/check_node')
 def api_check_node():
@@ -1411,20 +1405,6 @@ def api_install_caddy():
     except Exception as e:
         app_logger.exception("api_install_caddy error")
         return jsonify({'success': False, 'message': str(e)})
-
-def load_settings_from_disk():
-    """Load settings from disk on startup"""
-    try:
-        if SETTINGS_FILE.exists():
-            with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
-                saved_settings = json.load(f)
-            # Update RUNTIME_OPTIONS with saved settings
-            for key, value in saved_settings.items():
-                if key in RUNTIME_OPTIONS:
-                    RUNTIME_OPTIONS[key] = value
-            app_logger.info("Settings loaded from disk")
-    except Exception as e:
-        app_logger.warning(f"Failed to load settings from disk: {e}")
 
 def save_settings_to_disk():
     """Save current settings to disk"""
@@ -1508,21 +1488,22 @@ def api_system_info():
             'active_servers': len([s for s in servers.values() if s.get('status')=='Running']),
             'total_servers': len(servers),
             'sites_folder': str(SITES_FOLDER),
-            'php_available': check_php_available(),
+            'caddy_available': check_caddy_available(),
             'node_available': check_node_available(),
             'memory_total': (psutil.virtual_memory().total // (1024**3) if PSUTIL_AVAILABLE else None),
             'memory_available': (psutil.virtual_memory().available // (1024**3) if PSUTIL_AVAILABLE else None),
             'disk_free': (psutil.disk_usage('/').free // (1024**3) if PSUTIL_AVAILABLE else None)
         }
         
-        # Add PHP version if available
-        if info['php_available']:
+        # Add Caddy version if available
+        if info['caddy_available']:
             try:
-                php_ver = subprocess.run([get_php_path(), '--version'], capture_output=True, text=True, timeout=3)
-                if php_ver.returncode == 0:
-                    info['php_version'] = php_ver.stdout.splitlines()[0] if php_ver.stdout else 'Unknown'
+                caddy_path = get_caddy_path()
+                caddy_ver = subprocess.run([caddy_path, 'version'], capture_output=True, text=True, timeout=3)
+                if caddy_ver.returncode == 0:
+                    info['caddy_version'] = caddy_ver.stdout.splitlines()[0] if caddy_ver.stdout else 'Unknown'
             except:
-                info['php_version'] = 'Unknown'
+                info['caddy_version'] = 'Unknown'
         
         # Add Node.js version if available
         if info['node_available']:
@@ -1567,12 +1548,12 @@ def shutdown_all():
 if __name__ == '__main__':
     app_logger.info("Modern Server Administrator - production-ready (final)")
     app_logger.info("Sites: %s, Logs: %s", SITES_FOLDER, LOGS_FOLDER)
-    app_logger.info("PHP available: %s, Node available: %s", check_php_available(), check_node_available())
+    app_logger.info("Caddy available: %s, Node available: %s", check_caddy_available(), check_node_available())
     # persist and ensure discovered sites are registered
     save_servers_to_disk()
     # Start Flask with binding so UI is reachable from devices
     try:
-        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+        app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)
     except KeyboardInterrupt:
         shutdown_all()
         app_logger.info("Goodbye")
@@ -1580,3 +1561,6 @@ if __name__ == '__main__':
         app_logger.exception("Fatal app error")
         shutdown_all()
         sys.exit(1)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080, debug=False)
