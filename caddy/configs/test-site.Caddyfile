@@ -1,0 +1,12 @@
+:8008 {
+    root * /workspace/sites/test-site
+    file_server
+    
+    # Try common index files
+    try_files {path} {path}/ /index.html /index.php /index.htm
+    
+    log {
+        output file /workspace/logs/test-site_caddy.log
+        format json
+    }
+}

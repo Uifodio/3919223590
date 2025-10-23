@@ -266,18 +266,24 @@ def start_caddy_server(site_name, site_path, port, server_type):
         caddy_path = get_caddy_path()
         config_file = create_caddy_config(site_name, site_path, port, server_type)
         
-        # Start Caddy process
+        # Start Caddy process in background
         process = subprocess.Popen([
             caddy_path, 'run', '--config', config_file, '--adapter', 'caddyfile'
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, 
+        cwd=str(CADDY_FOLDER))
         
         # Give it a moment to start
-        time.sleep(1)
+        time.sleep(2)
         
         if process.poll() is None:
+            # Store the process in our process management
+            with LOCK:
+                server_processes[site_name] = process
+                log_queues.setdefault(site_name, queue.Queue())
             return True, "Caddy server started"
         else:
-            return False, "Caddy failed to start"
+            stdout, stderr = process.communicate()
+            return False, f"Caddy failed to start: {stderr or stdout}"
             
     except Exception as e:
         app_logger.exception("Failed to start Caddy server")
@@ -483,33 +489,10 @@ def start_server_process(name: str, folder: str, port: int, server_type: str, bi
     try:
         folder_abs = str(Path(folder).absolute())
         
-        # Use Caddy for all server types for production-grade support
+        # Use built-in servers for now (Caddy integration can be added later)
         if server_type in ['PHP', 'HTTP', 'Static']:
-            # Try Caddy first (production-grade)
-            if check_caddy_available():
-                success, msg = start_caddy_server(name, folder_abs, port, server_type)
-                if success:
-                    # Find the Caddy process
-                    time.sleep(1)
-                    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                        try:
-                            if 'caddy' in proc.info['name'].lower() and str(port) in ' '.join(proc.info['cmdline']):
-                                proc_obj = subprocess.Popen(['echo', 'dummy'])  # Create a dummy process object
-                                proc_obj.pid = proc.info['pid']
-                                with LOCK:
-                                    server_processes[name] = proc_obj
-                                    log_queues.setdefault(name, queue.Queue())
-                                logger.info("Started Caddy server successfully")
-                                return True, "Caddy server started"
-                        except:
-                            continue
-                    return False, "Caddy started but process not found"
-                else:
-                    logger.warning(f"Caddy failed, falling back to built-in server: {msg}")
-            
-            # Fallback to built-in servers
-            if server_type == 'HTTP':
-                cmd = [sys.executable, '-m', 'http.server', str(int(port)), '--bind', ('0.0.0.0' if bind_all else '127.0.0.1')]
+            # Use built-in HTTP server for all static content
+            cmd = [sys.executable, '-m', 'http.server', str(int(port)), '--bind', ('0.0.0.0' if bind_all else '127.0.0.1')]
         elif server_type == 'Node.js':
             nodeexec = shutil.which('node')
             if not nodeexec:
@@ -1461,7 +1444,9 @@ def api_update_settings():
             global monitor_thread
             if 'monitor_thread' in globals():
                 monitor_thread.cancel()
-            start_monitor_thread()
+            # Start new monitor thread
+            monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
+            monitor_thread.start()
         
         return jsonify({
             'success': True,
@@ -1553,7 +1538,7 @@ if __name__ == '__main__':
     save_servers_to_disk()
     # Start Flask with binding so UI is reachable from devices
     try:
-        app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)
+        app.run(host='0.0.0.0', port=3000, debug=False, threaded=True)
     except KeyboardInterrupt:
         shutdown_all()
         app_logger.info("Goodbye")
@@ -1563,4 +1548,4 @@ if __name__ == '__main__':
         sys.exit(1)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=False)
+    app.run(host='0.0.0.0', port=3000, debug=False)
