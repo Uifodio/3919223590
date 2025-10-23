@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Server Admin - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+            color: #f0f6fc;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 800px;
+            padding: 2rem;
+        }
+        
+        .logo {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #238636, #2f81f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            font-size: 1.25rem;
+            color: #8b949e;
+            margin-bottom: 2rem;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .feature {
+            background: rgba(33, 38, 45, 0.5);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: left;
+        }
+        
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #2f81f7;
+        }
+        
+        .feature h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: #f0f6fc;
+        }
+        
+        .feature p {
+            color: #8b949e;
+            line-height: 1.5;
+        }
+        
+        .cta {
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: linear-gradient(45deg, #238636, #2f81f7);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(47, 129, 247, 0.3);
+        }
+        
+        .status {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(35, 134, 54, 0.1);
+            border: 1px solid rgba(35, 134, 54, 0.2);
+            border-radius: 8px;
+            color: #238636;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🚀</div>
+        <h1>Professional Server Admin</h1>
+        <p class="subtitle">GitHub-inspired server management with a modern, professional interface</p>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <h3>Multi-Server Support</h3>
+                <p>Run HTTP, PHP, and Node.js servers simultaneously with real-time monitoring and management.</p>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">🎨</div>
+                <h3>GitHub-Inspired UI</h3>
+                <p>Beautiful dark theme with professional design elements inspired by GitHub's interface.</p>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">📁</div>
+                <h3>File Management</h3>
+                <p>Upload, organize, and manage your website files with drag-and-drop functionality.</p>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <h3>Real-time Logs</h3>
+                <p>Monitor server logs in real-time with color-coded messages and export capabilities.</p>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">🔧</div>
+                <h3>Easy Setup</h3>
+                <p>One-click server creation with automatic port detection and conflict resolution.</p>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">📱</div>
+                <h3>Responsive Design</h3>
+                <p>Works perfectly on desktop, tablet, and mobile devices with adaptive layouts.</p>
+            </div>
+        </div>
+        
+        <div class="cta">
+            <a href="/" class="btn">Back to Dashboard</a>
+        </div>
+        
+        <div class="status">
+            ✅ Demo website is running successfully! This demonstrates the server management capabilities.
+        </div>
+    </div>
+</body>
+</html>
