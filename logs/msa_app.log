@@ -50,3 +50,38 @@ NameError: name 'start_monitor_thread' is not defined
 2025-10-23 07:17:11,805 INFO: Modern Server Administrator - production-ready (final)
 2025-10-23 07:17:11,805 INFO: Sites: /workspace/sites, Logs: /workspace/logs
 2025-10-23 07:17:11,821 INFO: Apache available: True, Node available: True
+2025-10-23 07:40:33,124 INFO: Background monitor started (interval 2.0)
+2025-10-23 07:40:33,124 INFO: Settings loaded from disk
+2025-10-23 07:40:33,125 ERROR: load_servers_from_disk failed
+Traceback (most recent call last):
+  File "/workspace/web_server_admin.py", line 261, in load_servers_from_disk
+    data = json.load(f)
+  File "/usr/lib/python3.13/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/usr/lib/python3.13/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+2025-10-23 07:40:33,133 INFO: Modern Server Administrator - production-ready (final)
+2025-10-23 07:40:33,133 INFO: Sites: /workspace/sites, Logs: /workspace/logs
+2025-10-23 07:40:33,145 INFO: Apache available: True, Node available: True
+2025-10-23 07:40:48,814 ERROR: start_server_process failed
+Traceback (most recent call last):
+  File "/workspace/web_server_admin.py", line 420, in start_server_process
+    save_servers()
+    ^^^^^^^^^^^^
+NameError: name 'save_servers' is not defined. Did you mean: 'api_servers'?
+2025-10-23 08:42:58,969 ERROR: start_server_process failed
+Traceback (most recent call last):
+  File "/workspace/web_server_admin.py", line 420, in start_server_process
+    if success:
+            ^^^
+NameError: name 'save_servers' is not defined. Did you mean: 'api_servers'?

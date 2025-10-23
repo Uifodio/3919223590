@@ -130,6 +130,13 @@ def is_port_in_use(port:int, host='0.0.0.0') -> bool:
     except Exception:
         return False
 
+def find_available_port(start_port=8000):
+    """Find an available port starting from start_port"""
+    for port in range(start_port, start_port + 100):
+        if not is_port_in_use(port):
+            return port
+    return None
+
 def tail_lines(filepath, n=200):
     try:
         with open(filepath, 'rb') as f:
@@ -163,18 +170,30 @@ def check_apache_available():
 def start_apache_server(site_name, site_path, port, server_type):
     """Start Apache-like server for a site"""
     try:
-        apache_script = get_apache_script_path()
+        # Choose the appropriate server script based on platform
+        if platform.system() == 'Windows':
+            php_server_script = APACHE_FOLDER / 'bin' / 'php-server-windows.py'
+        else:
+            php_server_script = APACHE_FOLDER / 'bin' / 'php-server.py'
         
-        if not os.path.exists(apache_script):
-            return False, "Apache script not found"
+        if not os.path.exists(php_server_script):
+            return False, "Apache PHP server script not found"
         
         # Start Apache-like server process in background
-        process = subprocess.Popen([
-            sys.executable, apache_script, site_name, site_path, str(port), server_type
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if platform.system() == 'Windows':
+            # Windows-specific process creation
+            process = subprocess.Popen([
+                sys.executable, str(php_server_script), str(port), site_path
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, 
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+        else:
+            # Unix/Linux process creation
+            process = subprocess.Popen([
+                sys.executable, str(php_server_script), str(port), site_path
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         
         # Give it a moment to start
-        time.sleep(0.5)
+        time.sleep(1.0)
         
         if process.poll() is None:
             with LOCK:
@@ -192,7 +211,7 @@ def start_apache_server(site_name, site_path, port, server_type):
 # -------------------------
 # System checks
 # -------------------------
-# PHP functionality removed - Caddy handles all web serving
+# PHP functionality handled by Apache-like server
 
 def get_node_path():
     return shutil.which('node') or 'node'
@@ -389,10 +408,33 @@ def start_server_process(name: str, folder: str, port: int, server_type: str, bi
     try:
         folder_abs = str(Path(folder).absolute())
         
+        # Find an available port if the requested one is in use
+        actual_port = find_available_port(port)
+        if actual_port != port:
+            logger.info(f"Port {port} in use, using port {actual_port} instead")
+        
         # Use Apache-like server for all content types
         if server_type in ['PHP', 'HTTP', 'Static']:
             # Use Apache-like server with PHP support
-            return start_apache_server(name, folder_abs, port, server_type)
+            success, message = start_apache_server(name, folder_abs, actual_port, server_type)
+            if success:
+                # Store server info with correct port
+                with LOCK:
+                    server_info = {
+                        'name': name,
+                        'folder': folder_abs,
+                        'port': actual_port,
+                        'type': server_type,
+                        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'status': 'Running'
+                    }
+                    servers[name] = server_info
+                    save_servers()
+                logger.info(f"Server started: {name} on port {actual_port}")
+            return success, message
+        else:
+            # Fallback to built-in server for other types
+            return False, f"Unsupported server type: {server_type}"
         elif server_type == 'Node.js':
             nodeexec = shutil.which('node')
             if not nodeexec:
@@ -1254,7 +1296,7 @@ def api_server_logs_stream(server_name):
         }
     )
 
-# PHP check removed - Caddy handles all web serving
+# PHP check handled by Apache-like server
 
 @app.route('/api/check_node')
 def api_check_node():

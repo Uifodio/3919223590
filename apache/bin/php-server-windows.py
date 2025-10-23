@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Portable PHP Server - Apache Alternative
+Windows-Compatible PHP Server - Apache Alternative
 Provides PHP support using Python's built-in server with PHP-CGI
+Optimized for Windows compatibility
 """
 
 import os
@@ -14,6 +15,7 @@ from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import urllib.parse
 import mimetypes
+import platform
 
 class PHPRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -50,6 +52,8 @@ class PHPRequestHandler(SimpleHTTPRequestHandler):
             env['SERVER_PORT'] = str(self.server.server_port)
             env['CONTENT_TYPE'] = self.headers.get('Content-Type', '')
             env['CONTENT_LENGTH'] = self.headers.get('Content-Length', '0')
+            env['SERVER_SOFTWARE'] = 'Apache-like Server/1.0'
+            env['DOCUMENT_ROOT'] = str(Path(file_path).parent)
             
             # Read POST data if any
             post_data = b''
@@ -64,19 +68,30 @@ class PHPRequestHandler(SimpleHTTPRequestHandler):
             else:
                 # Try to find PHP in system
                 php_cmd = 'php'
-                if os.name == 'nt':  # Windows
+                if platform.system() == 'nt':  # Windows
                     php_cmd = 'php.exe'
                 cmd = [php_cmd, file_path]
             
             # Execute PHP
-            process = subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=env,
-                cwd=os.path.dirname(file_path)
-            )
+            if platform.system() == 'nt':  # Windows
+                process = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    env=env,
+                    cwd=os.path.dirname(file_path),
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                )
+            else:
+                process = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    env=env,
+                    cwd=os.path.dirname(file_path)
+                )
             
             stdout, stderr = process.communicate(input=post_data)
             
@@ -127,7 +142,7 @@ def start_server(port, document_root, php_cgi_path=None):
     
     try:
         server = HTTPServer(('0.0.0.0', port), handler)
-        print(f"PHP Server running on http://localhost:{port}")
+        print(f"Apache-like Server running on http://localhost:{port}")
         print(f"Document root: {document_root}")
         print("Press Ctrl+C to stop")
         server.serve_forever()
@@ -137,8 +152,8 @@ def start_server(port, document_root, php_cgi_path=None):
         print(f"Error starting server: {e}")
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("Usage: python php-server.py <port> <document_root> [php_cgi_path]")
+    if len(sys.argv) < 3:
+        print("Usage: python php-server-windows.py <port> <document_root> [php_cgi_path]")
         sys.exit(1)
     
     port = int(sys.argv[1])

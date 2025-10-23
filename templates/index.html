@@ -68,7 +68,7 @@
                         <i class="fas fa-sliders-h"></i>
                     </button>
 
-                    <!-- Caddy handles all web serving - no separate PHP installation needed -->
+                    <!-- Apache-like server handles all web serving with PHP support -->
                 </div>
             </div>
         </header>
@@ -144,7 +144,7 @@
                             </label>
                             <select id="serverType" style="color: var(--text-primary); background: var(--bg-input); border: 2px solid var(--border-input);">
                                 <option value="HTTP" style="background: var(--bg-secondary); color: var(--text-primary);">HTTP Server</option>
-                                <option value="Static" style="background: var(--bg-secondary); color: var(--text-primary);">Static Server (Caddy)</option>
+                                <option value="Static" style="background: var(--bg-secondary); color: var(--text-primary);">Static Server (Apache)</option>
                                 <option value="Node.js" style="background: var(--bg-secondary); color: var(--text-primary);">Node.js Server</option>
                             </select>
                         </div>
@@ -385,8 +385,8 @@
             const installBtn = document.getElementById('installPhpBtn');
             if (installBtn) {
                 installBtn.addEventListener('click', () => {
-                    // Caddy handles all web serving - no separate installation needed
-                    alert('Caddy web server is already integrated and handles all web serving including PHP.');
+                    // Apache-like server handles all web serving - no separate installation needed
+                    alert('Apache-like server is already integrated and handles all web serving including PHP.');
                 });
             }
         });
