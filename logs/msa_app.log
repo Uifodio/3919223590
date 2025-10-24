@@ -1,0 +1,4 @@
+2025-10-23 23:02:30,263 INFO: Background monitor started (interval 2.0)
+2025-10-23 23:02:30,276 INFO: Modern Server Administrator - production-ready (final)
+2025-10-23 23:02:30,278 INFO: Sites: /workspace/sites, Logs: /workspace/logs
+2025-10-23 23:02:30,381 INFO: PHP available: True, Node available: True
