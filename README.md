@@ -1,249 +1,248 @@
-# Modern Server Administrator
+# 🚀 Windows-Compatible Workspace Server
 
-A professional, bulletproof server management tool with GitHub-themed dark UI, full PHP support, file management, and standalone EXE build capability.
+**Professional Multi-Project Development Environment**
 
-## 🚀 Features
+A production-style local development server that can run PHP, Node.js, Python, and static sites simultaneously through a central Python reverse proxy. Perfect for multi-project development with unified access through one localhost port.
 
-### Server Management
-- **Multiple Servers**: Run up to 10 servers simultaneously
-- **Port Assignment**: Custom ports with conflict detection
-- **Server Types**: HTTP, PHP, Node.js support
-- **Real-time Status**: Live monitoring with status badges
-- **One-click Control**: Start/stop servers with professional buttons
+![Workspace Server](https://img.shields.io/badge/Version-2.0-blue)
+![Python](https://img.shields.io/badge/Python-3.7+-green)
+![PHP](https://img.shields.io/badge/PHP-8.3+-purple)
+![Node.js](https://img.shields.io/badge/Node.js-18+-green)
+![Windows](https://img.shields.io/badge/Windows-Compatible-blue)
 
-### Professional Logging
-- **Real-time Logs**: Detailed logs in sleek modal windows
-- **Log Export**: Copy logs to clipboard
-- **Error Highlighting**: Color-coded log messages
-- **Professional Display**: Monospace font with timestamps
+## ✨ Features
 
-### File Management
-- **File Browser**: Browse and manage website files
-- **Upload Support**: Drag-and-drop file uploads
-- **Video Support**: Special handling for video files
-- **File Operations**: Delete, view, and organize files
-- **Size & Date Info**: Display file sizes and modification dates
+### 🎯 **Multi-Project Management**
+- **Central Reverse Proxy**: All projects accessible through `localhost:8000`
+- **Multiple Backends**: PHP, Node.js, Python, and static sites simultaneously
+- **Route-Based Access**: Each project gets its own route (e.g., `/myproject`)
+- **Real-time Monitoring**: Live status updates and project management
 
-### GitHub-Themed UI
-- **Dark Theme**: Professional GitHub-inspired dark interface
-- **Modern Design**: Beautiful cards with glassmorphism effects
-- **Responsive Layout**: Works perfectly on all screen sizes
-- **Smooth Animations**: Subtle hover effects and transitions
+### 🪟 **Windows Compatibility**
+- **Portable PHP**: Standalone PHP installation included
+- **Auto-Detection**: Automatically finds PHP and Node.js installations
+- **Auto-Installation**: One-click installation of dependencies
+- **Windows Paths**: Supports common Windows development environments
 
-### PHP Support
-- **Auto-Detection**: Automatically detects PHP installation
-- **Auto-Installation**: Windows auto-installer for PHP
-- **Full Support**: Complete PHP built-in server implementation
-- **Error Handling**: Proper PHP error logging and display
+### 🎨 **Professional Interface**
+- **Modern UI**: GitHub-themed dark interface with professional styling
+- **Real-time Dashboard**: Live project status and statistics
+- **Project Management**: Add, start, stop, and delete projects easily
+- **File Upload**: Drag-and-drop project uploads and ZIP extraction
+- **Logging**: Real-time logs for each project with export capabilities
 
-### Standalone EXE
-- **Windows EXE**: Build standalone executable
-- **Auto-Installer**: Professional installation script
-- **No Dependencies**: Runs without Python installation
-- **Portable**: Can run from any location
+### ⚡ **Development Features**
+- **Hot Reloading**: Automatic server restart on file changes
+- **Port Management**: Automatic port assignment with conflict detection
+- **Process Monitoring**: Background monitoring of all running servers
+- **Error Handling**: Comprehensive error logging and user feedback
 
-## 🛠️ Installation
+## 🚀 Quick Start
 
-### Quick Start (Windows)
-1. **Download** the application files
-2. **Run** `start.bat` to start the application
-3. **Open** your browser to `http://localhost:5000`
+### **One-Click Setup (Recommended)**
 
-### Manual Installation
+1. **Download** the workspace server files
+2. **Run** `setup_complete.bat` as Administrator
+3. **Wait** for automatic setup to complete
+4. **Run** `start_workspace.bat` to start the server
+5. **Open** your browser to `http://localhost:8000`
+
+### **Manual Setup**
+
 1. **Install Python 3.7+** from [python.org](https://python.org)
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. **Run the application**:
-   ```bash
-   python web_server_admin.py
-   ```
-
-### Build Standalone EXE (Windows)
-1. **Install build dependencies**:
-   ```bash
-   pip install pyinstaller
-   ```
-2. **Build EXE**:
-   ```bash
-   python build_exe.py
-   ```
-3. **Install application**:
-   ```bash
-   install.bat
-   ```
-
-## 🎯 Usage
-
-### Starting a Server
-1. **Select Folder**: Click "Browse" to select your website folder
-2. **Set Port**: Enter port number (1000-65535)
-3. **Choose Type**: Select HTTP, PHP, or Node.js
-4. **Add Server**: Click "Add Server"
-
-### Managing Servers
-- **View Logs**: Double-click any server to view detailed logs
-- **Open Browser**: Click "Open Browser" to view your website
-- **Stop Server**: Click "Stop Server" to stop the server
-
-### File Management
-- **Upload Files**: Use upload buttons to add files
-- **Upload Videos**: Special video upload with format validation
-- **Delete Files**: Select and delete unwanted files
-- **Browse Files**: View all files in your website folder
-
-### PHP Support
-- **Auto-Detection**: Application automatically detects PHP
-- **Auto-Installation**: Use "Install PHP" button for Windows
-- **Full Support**: Complete PHP server functionality
-
-## 🔧 System Requirements
-
-- **Python 3.7+** (for source version)
-- **Operating System**: Windows 10/11, macOS, or Linux
-- **Memory**: 4GB RAM minimum
-- **Disk Space**: 100MB for application + space for websites
-- **Browser**: Modern web browser (Chrome, Firefox, Safari, Edge)
+2. **Run** `setup_complete.bat` to install dependencies
+3. **Start** the server with `start_workspace.bat`
 
 ## 📁 Project Structure
 
 ```
-Modern Server Administrator/
+workspace-server/
 ├── web_server_admin.py          # Main Flask application
-├── templates/index.html         # GitHub-themed UI
-├── static/css/style.css         # Professional styling
-├── static/js/app.js            # Interactive functionality
-├── requirements.txt            # Python dependencies
-├── build_exe.py               # EXE build script
-├── start.bat                  # Windows startup script
-├── install.bat                # Windows installer
-├── demo.py                    # Demo setup script
-├── test_complete.py           # Comprehensive test suite
-├── demo_website/              # Sample website files
-│   ├── index.html            # HTML demo
-│   ├── index.php             # PHP demo
-│   ├── style.css             # Modern CSS
-│   └── script.js             # Interactive JavaScript
-└── uploads/                   # File upload directory
+├── templates/
+│   └── index.html               # Modern dashboard UI
+├── static/
+│   ├── css/style.css            # Professional styling
+│   └── js/app.js                # Interactive functionality
+├── php_standalone/              # Portable PHP installation
+│   ├── php.exe                  # PHP executable
+│   ├── php.ini                  # PHP configuration
+│   └── ...                      # PHP extensions
+├── sites/                       # Project storage
+├── logs/                        # Server logs
+├── uploads/                     # File uploads
+├── requirements.txt             # Python dependencies
+├── setup_complete.bat           # Complete setup script
+├── start_workspace.bat          # Windows startup script
+└── README.md                    # This file
 ```
+
+## 🎯 Usage
+
+### **Adding Projects**
+
+1. **Click "New Project"** in the dashboard
+2. **Select Project Type**:
+   - **Static Site**: HTML, CSS, JS files
+   - **PHP Application**: PHP files with built-in server
+   - **Node.js Application**: Node.js projects with package.json
+   - **Python Application**: Flask, Django, or other Python web apps
+3. **Set Source Path**: Point to your project folder
+4. **Configure Route**: Optional custom route (defaults to project name)
+5. **Start Project**: Click "Start" to launch the server
+
+### **Project Management**
+
+- **Start/Stop**: Control individual projects
+- **View Logs**: Real-time logging for debugging
+- **Open in Browser**: Direct access to project URLs
+- **Delete Projects**: Remove projects and clean up files
+
+### **Accessing Projects**
+
+All projects are accessible through the central proxy:
+
+- **Dashboard**: `http://localhost:8000`
+- **Project Routes**: `http://localhost:8000/projectname`
+- **Custom Routes**: `http://localhost:8000/custom-route`
+
+## 🔧 Configuration
+
+### **Runtime Options**
+
+The server can be configured by modifying `RUNTIME_OPTIONS` in `web_server_admin.py`:
+
+```python
+RUNTIME_OPTIONS = {
+    'ENABLE_REVERSE_PROXY': True,      # Enable reverse proxy
+    'PROXY_PORT': 8000,                # Main proxy port
+    'PROXY_HOST': '0.0.0.0',          # Main proxy host
+    'AUTO_OPEN_BROWSER': True,         # Auto-open browser on Windows
+    'WINDOWS_AUTO_INSTALL': True,      # Auto-install PHP/Node.js
+    'AUTO_REFRESH_INTERVAL': 2.0,      # UI refresh interval
+    'MAX_WORKERS': 32,                 # Thread pool size
+    'LOG_TAIL_LINES': 200,             # Log lines to display
+}
+```
+
+### **Windows-Specific Settings**
+
+The server automatically detects common Windows development environments:
+
+- **PHP Paths**: Portable PHP, XAMPP, WAMP, Laragon, standalone PHP
+- **Node.js Paths**: Program Files, user installations
+- **Auto-Installation**: Downloads and installs missing dependencies
 
 ## 🎨 UI Features
 
-### GitHub Theme
-- **Dark Background**: Professional dark interface
-- **Blue Accents**: GitHub-inspired color scheme
-- **Modern Typography**: Inter font family
-- **Smooth Animations**: Subtle hover effects
+### **Dashboard**
+- **Project Grid**: Visual project cards with status indicators
+- **Statistics**: Running/stopped project counts
+- **Quick Actions**: One-click project creation
+- **Real-time Updates**: Auto-refreshing project status
 
-### Professional Design
-- **Card Layout**: Beautiful server cards
-- **Status Indicators**: Visual feedback for all operations
-- **Responsive Design**: Perfect on all screen sizes
-- **Intuitive Controls**: Easy-to-use interface
+### **Project Cards**
+- **Status Indicators**: Visual running/stopped status
+- **Project Info**: Type, port, route, creation date
+- **Action Buttons**: Start, stop, view logs, delete
+- **Type Icons**: Visual indicators for different project types
+
+### **Modals**
+- **Add Project**: Comprehensive project creation form
+- **View Logs**: Real-time log viewing with export
+- **System Info**: Environment and dependency status
 
 ## 🔒 Security Features
 
 - **Port Validation**: Prevents port conflicts
 - **File Type Validation**: Secure file uploads
-- **Error Handling**: Comprehensive error management
-- **Process Management**: Safe server process handling
+- **Path Sanitization**: Safe file path handling
+- **Process Isolation**: Each project runs in its own process
 
 ## 🚀 Advanced Features
 
-### Auto-Installation
-- **PHP Auto-Install**: Windows PHP auto-installer
-- **Dependency Management**: Automatic dependency checking
-- **System Detection**: Automatic system requirement detection
+### **Reverse Proxy**
+- **Unified Access**: All projects through one port
+- **Route Management**: Automatic route assignment
+- **Load Balancing**: Distribute requests to appropriate backends
+- **Error Handling**: Graceful fallbacks for failed projects
 
-### Professional Logging
-- **Real-time Monitoring**: Live log updates
-- **Error Tracking**: Comprehensive error logging
-- **Export Functionality**: Copy logs to clipboard
+### **Process Management**
+- **Background Monitoring**: Continuous process health checks
+- **Graceful Shutdown**: Proper cleanup on exit
+- **Resource Management**: Efficient memory and CPU usage
+- **Log Rotation**: Automatic log file management
 
-### File Management
-- **Multiple Upload**: Support for multiple file uploads
-- **Video Support**: Special video file handling
-- **File Organization**: Easy file management
+### **File Management**
+- **Upload Support**: Drag-and-drop file uploads
+- **ZIP Extraction**: Automatic project extraction
+- **File Browser**: Browse and manage project files
+- **Size Tracking**: File size and modification date display
 
 ## 🧪 Testing
 
-Run the comprehensive test suite:
-```bash
-python test_complete.py
-```
-
-Tests include:
-- Import validation
-- File structure verification
-- Web application functionality
-- PHP detection
-- File operations
-- Demo files validation
-- Server startup testing
+### **Manual Testing**
+1. **Start the server**: `start_workspace.bat`
+2. **Access dashboard**: `http://localhost:8000`
+3. **Add a project**: Create a test project
+4. **Start project**: Verify it starts successfully
+5. **Access project**: Open in browser via proxy
+6. **View logs**: Check real-time logging
+7. **Stop project**: Verify clean shutdown
 
 ## 📊 Performance
 
 - **Lightweight**: Minimal memory usage
-- **Fast**: Quick server startup and response
-- **Efficient**: Optimized for performance
-- **Scalable**: Supports multiple servers
+- **Fast Startup**: Quick project initialization
+- **Efficient**: Optimized for multiple concurrent projects
+- **Scalable**: Supports up to 20 projects simultaneously
 
 ## 🎯 Target Users
 
-- **Web Developers**: Easy local server management
-- **Students**: Learning web development
-- **Designers**: Quick website testing
-- **Professionals**: Efficient development workflows
+- **Web Developers**: Multi-project development workflows
+- **Students**: Learning different web technologies
+- **Designers**: Quick website testing and prototyping
+- **Professionals**: Efficient development environments
+- **Teams**: Shared development server setup
 
 ## 🔧 Troubleshooting
 
-### Common Issues
+### **Common Issues**
 
-**Application Won't Start**
+**Server Won't Start**
 - Verify Python 3.7+ is installed
-- Check if all dependencies are installed
-- Run `python test_complete.py` to diagnose issues
+- Check if port 8000 is available
+- Run `pip install -r requirements.txt`
 
-**PHP Servers Won't Work**
-- Use "Install PHP" button in the application
-- Or install PHP manually from [php.net](https://php.net)
+**PHP Projects Won't Work**
+- Use "Check PHP" button to verify installation
+- Install PHP manually if auto-detection fails
+- Check PHP path in system PATH
 
-**Port Already in Use**
-- Choose a different port number
-- Check if another application is using the port
+**Node.js Projects Won't Work**
+- Use "Check Node.js" button to verify installation
+- Install Node.js manually if auto-detection fails
+- Verify package.json exists in project folder
 
-**File Upload Fails**
-- Check folder permissions
-- Verify file type is allowed
-- Ensure sufficient disk space
+**Projects Not Accessible**
+- Check if project is running (green status)
+- Verify route is correct
+- Check firewall settings
 
-### Getting Help
+### **Getting Help**
 
-1. **Check System Info**: Click info button in the application
-2. **Review Logs**: Check server logs for error messages
-3. **Run Tests**: Use the test suite to diagnose issues
-4. **Check Dependencies**: Ensure all requirements are installed
+1. **Check System Info**: Click info button in dashboard
+2. **Review Logs**: Check project logs for errors
+3. **Verify Dependencies**: Use check buttons for PHP/Node.js
+4. **Check Ports**: Ensure no port conflicts
 
 ## 📈 Future Enhancements
 
 - **Database Integration**: Support for database management
 - **SSL Certificate Management**: Easy HTTPS setup
-- **Team Collaboration**: Multi-user server management
+- **Team Collaboration**: Multi-user project sharing
 - **Plugin System**: Extensible architecture
 - **Mobile App**: Companion mobile application
 - **Cloud Integration**: Deploy to cloud platforms
-
-## 🏆 Success Metrics
-
-- ✅ **All Core Features**: Server management, file operations, logging
-- ✅ **Professional UI**: GitHub-themed dark interface
-- ✅ **Cross-platform**: Works on Windows, Mac, Linux
-- ✅ **Easy Installation**: One-command setup
-- ✅ **Comprehensive Testing**: Full test suite
-- ✅ **Standalone EXE**: Windows executable build
-- ✅ **PHP Support**: Full PHP server support
-- ✅ **File Management**: Complete file operations
 
 ## 📄 License
 
@@ -255,4 +254,14 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ---
 
-**Modern Server Administrator** - Professional server management with a GitHub-themed interface that makes web development easier and more enjoyable.
+**Windows-Compatible Workspace Server** - Professional multi-project development environment that makes web development easier and more efficient.
+
+## 🎉 What's New in v2.0
+
+- **Complete UI Redesign**: Modern, professional interface
+- **Portable PHP**: Standalone PHP installation included
+- **Enhanced Windows Support**: Better compatibility and auto-setup
+- **Improved Performance**: Faster startup and better resource management
+- **Better Error Handling**: More informative error messages and logging
+- **Mobile Responsive**: Works great on all screen sizes
+- **Dark Theme**: Professional dark interface with GitHub-inspired design

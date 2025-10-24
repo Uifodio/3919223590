@@ -90,6 +90,7 @@ PHP_LOCAL_FOLDER = ROOT / 'php'
 
 # Windows-specific paths for auto-detection
 WINDOWS_PHP_PATHS = [
+    r'php_standalone\php.exe',  # Portable PHP
     r'C:\php\php.exe',
     r'C:\xampp\php\php.exe',
     r'C:\wamp\bin\php\php.exe',
