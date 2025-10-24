@@ -218,8 +218,9 @@ class UnifiedServerAdmin {
             serverStatus.className = 'server-status';
 
             const statusBadge = document.createElement('span');
-            statusBadge.className = `status-badge status-${(server.status || 'Stopped').toLowerCase()}`;
-            statusBadge.textContent = server.status || 'Stopped';
+            const status = server.status || 'stopped';
+            statusBadge.className = `status-badge status-${status.toLowerCase()}`;
+            statusBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
 
             serverStatus.appendChild(statusBadge);
             header.appendChild(serverInfo);
@@ -281,7 +282,7 @@ class UnifiedServerAdmin {
 
     updateStats(servers) {
         const totalServers = Object.keys(servers).length;
-        const runningServers = Object.values(servers).filter(s => s.status === 'Running').length;
+        const runningServers = Object.values(servers).filter(s => s.status === 'running').length;
         const phpServers = Object.values(servers).filter(s => s.type === 'PHP').length;
         const nodeServers = Object.values(servers).filter(s => s.type === 'Node.js').length;
 

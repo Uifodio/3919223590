@@ -40,6 +40,7 @@ app.config.from_object(Config)
 servers = {}
 background_monitor = None
 monitor_running = False
+server_processes = {}  # Track running processes
 
 def load_servers():
     """Load servers from JSON file"""
@@ -92,6 +93,7 @@ def start_static_server(name, port, site_path):
             stderr=subprocess.PIPE,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
         )
+        server_processes[name] = process
         return True, f"Static server started on port {port}"
     except Exception as e:
         return False, f"Failed to start static server: {e}"
@@ -108,6 +110,7 @@ def start_php_server(name, port, site_path):
             stderr=subprocess.PIPE,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
         )
+        server_processes[name] = process
         return True, f"PHP server started on port {port}"
     except Exception as e:
         return False, f"Failed to start PHP server: {e}"
@@ -140,6 +143,7 @@ def start_nodejs_server(name, port, site_path):
             stderr=subprocess.PIPE,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
         )
+        server_processes[name] = process
         return True, f"Node.js server started on port {port}"
     except Exception as e:
         return False, f"Failed to start Node.js server: {e}"
@@ -151,15 +155,23 @@ def background_monitor_worker():
     
     while monitor_running:
         try:
-            # Update server status
+            # Update server status based on process status
             for name, server in servers.items():
                 if server.get('status') == 'running':
-                    # Check if process is still running (simplified check)
-                    port = server.get('port')
-                    if port and not is_port_available(port):
-                        server['status'] = 'running'
+                    if name in server_processes:
+                        process = server_processes[name]
+                        if process.poll() is None:  # Process is still running
+                            server['status'] = 'running'
+                        else:
+                            server['status'] = 'stopped'
+                            del server_processes[name]
                     else:
-                        server['status'] = 'stopped'
+                        # Check if port is still in use
+                        port = server.get('port')
+                        if port and not is_port_available(port):
+                            server['status'] = 'running'
+                        else:
+                            server['status'] = 'stopped'
             
             time.sleep(5)  # Check every 5 seconds
         except Exception as e:
@@ -171,6 +183,11 @@ def background_monitor_worker():
 def index():
     """Main page"""
     return render_template('index.html')
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    """Serve static files"""
+    return send_from_directory('static', filename)
 
 @app.route('/api/servers')
 def api_servers():
@@ -206,11 +223,20 @@ def api_add_server():
         success = False
         message = ""
         
-        if server_type == 'static':
+        # Map frontend server types to backend types
+        server_type_mapping = {
+            'Static': 'static',
+            'PHP': 'php', 
+            'Node.js': 'nodejs'
+        }
+        
+        backend_type = server_type_mapping.get(server_type, server_type.lower())
+        
+        if backend_type == 'static':
             success, message = start_static_server(name, port, site_path)
-        elif server_type == 'php':
+        elif backend_type == 'php':
             success, message = start_php_server(name, port, site_path)
-        elif server_type == 'nodejs':
+        elif backend_type == 'nodejs':
             success, message = start_nodejs_server(name, port, site_path)
         else:
             return jsonify({'success': False, 'error': 'Invalid server type'})
@@ -218,7 +244,7 @@ def api_add_server():
         if success:
             servers[name] = {
                 'name': name,
-                'type': server_type,
+                'type': server_type,  # Keep original frontend type for display
                 'port': port,
                 'site_path': site_path,
                 'status': 'running',
@@ -243,7 +269,19 @@ def api_delete_server():
         if name not in servers:
             return jsonify({'success': False, 'error': 'Server not found'})
         
-        # Stop server (simplified - just remove from list)
+        # Stop server process if running
+        if name in server_processes:
+            try:
+                process = server_processes[name]
+                if process.poll() is None:  # Process is still running
+                    process.terminate()
+                    process.wait(timeout=5)
+            except Exception as e:
+                print(f"Error stopping server {name}: {e}")
+            finally:
+                del server_processes[name]
+        
+        # Remove from servers list
         del servers[name]
         save_servers()
         
