@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Node.js Sample Server</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            margin: 0; 
+            min-height: 100vh; 
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: rgba(255,255,255,0.1); 
+            padding: 30px; 
+            border-radius: 15px; 
+            backdrop-filter: blur(10px); 
+        }
+        h1 { text-align: center; margin-bottom: 30px; }
+        .info { 
+            background: rgba(255,255,255,0.2); 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 10px 0; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Node.js Sample Server</h1>
+        <div class="info">
+            <h3>Server Information</h3>
+            <p><strong>Type:</strong> Node.js HTTP Server</p>
+            <p><strong>Status:</strong> Running</p>
+            <p><strong>Started:</strong> <span id="startTime"></span></p>
+        </div>
+        <div class="info">
+            <h3>Features</h3>
+            <ul>
+                <li>Static file serving</li>
+                <li>MIME type detection</li>
+                <li>Security protection</li>
+                <li>Error handling</li>
+            </ul>
+        </div>
+    </div>
+    <script>
+        document.getElementById('startTime').textContent = new Date().toLocaleString();
+    </script>
+</body>
+</html>

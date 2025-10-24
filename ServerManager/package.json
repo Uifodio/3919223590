@@ -1,0 +1,13 @@
+{
+  "name": "professional-server-manager",
+  "version": "1.0.0",
+  "description": "Professional local development server manager for Windows",
+  "main": "server-manager.js",
+  "scripts": {
+    "start": "node server-manager.js",
+    "web": "start www\\index.html"
+  },
+  "keywords": ["server", "development", "nodejs", "php", "windows", "local"],
+  "author": "Professional Server Manager",
+  "license": "MIT"
+}

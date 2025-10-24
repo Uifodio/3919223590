@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Static Server</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        h1 { text-align: center; margin-bottom: 30px; }
+        .info { background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 Static Server Running!</h1>
+        <div class="info">
+            <h3>Server Information</h3>
+            <p><strong>Type:</strong> Static File Server</p>
+            <p><strong>Status:</strong> Running</p>
+            <p><strong>Started:</strong> <span id="startTime"></span></p>
+        </div>
+        <div class="info">
+            <h3>Features</h3>
+            <ul>
+                <li>HTML, CSS, JS file serving</li>
+                <li>Image support (PNG, JPG, GIF, SVG)</li>
+                <li>JSON file serving</li>
+                <li>Directory browsing</li>
+            </ul>
+        </div>
+    </div>
+    <script>
+        document.getElementById('startTime').textContent = new Date().toLocaleString();
+    </script>
+</body>
+</html>
