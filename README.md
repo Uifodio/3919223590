@@ -27,7 +27,17 @@ A professional, production-ready web server administration tool that unifies all
 
 ## 🚀 Quick Start
 
-### 1. Start the Server
+### Windows Users
+```cmd
+start_windows.bat
+```
+Or manually:
+```cmd
+pip install flask psutil
+python web_server_admin_simple.py
+```
+
+### Linux/Mac Users
 ```bash
 python3 start.py
 ```
@@ -116,9 +126,14 @@ python3 start.py
 ## 🛠️ System Requirements
 
 - **Python 3.8+**
-- **Nginx** (installed automatically)
+- **Nginx** (Linux/Mac - installed automatically)
 - **PHP 8.1+** (optional, for PHP sites)
 - **Node.js** (optional, for Node.js sites)
+
+### Windows Compatibility
+- Use `web_server_admin_simple.py` for Windows
+- No nginx required - uses Python's built-in servers
+- All features work except advanced nginx configurations
 
 ## 📦 Installation
 

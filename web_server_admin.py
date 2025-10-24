@@ -28,7 +28,12 @@ import zipfile
 import subprocess
 import threading
 import time
-import yaml
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
+    print("⚠️  YAML not available - using JSON fallback for configurations")
 from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor

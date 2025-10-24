@@ -1,5 +1,5 @@
 @echo off
-echo 🚀 Starting Unified Server Administrator...
+echo 🚀 Starting Unified Server Administrator (Windows)...
 echo ==================================================
 
 REM Check if Python is available
@@ -10,23 +10,21 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Install required packages
+REM Install basic dependencies (skip YAML for Windows)
 echo 📦 Installing dependencies...
-pip install flask psutil pyyaml
+pip install flask psutil
 
 REM Create necessary directories
 if not exist "sites" mkdir sites
 if not exist "logs" mkdir logs
 if not exist "uploads" mkdir uploads
-if not exist "nginx_configs" mkdir nginx_configs
-if not exist "php_fpm_configs" mkdir php_fpm_configs
 
 echo ✅ Directories created
 echo 🌐 Starting web server...
 echo 📱 Open http://localhost:5000 in your browser
 echo ==================================================
 
-REM Start the server
-python web_server_admin.py
+REM Start the simplified server (Windows compatible)
+python web_server_admin_simple.py
 
 pause
