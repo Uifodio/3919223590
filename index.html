@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Server Manager</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-server"></i>
+                    <span>Server Manager</span>
+                </div>
+            </div>
+            
+            <div class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-section="dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#servers" class="nav-item" data-section="servers">
+                    <i class="fas fa-server"></i>
+                    <span>Servers</span>
+                    <span class="badge" id="serverCount">0</span>
+                </a>
+                <a href="#logs" class="nav-item" data-section="logs">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Logs</span>
+                </a>
+                <a href="#settings" class="nav-item" data-section="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span>System Online</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h1 id="pageTitle">Dashboard</h1>
+                    <p id="pageSubtitle">Monitor and manage your local servers</p>
+                </div>
+                <div class="header-right">
+                    <button class="btn btn-primary" id="newServerBtn">
+                        <i class="fas fa-plus"></i>
+                        New Server
+                    </button>
+                    <div class="user-menu">
+                        <img src="https://via.placeholder.com/32" alt="User" class="user-avatar">
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="content-section active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalServers">0</h3>
+                            <p>Total Servers</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon running">
+                            <i class="fas fa-play-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="runningServers">0</h3>
+                            <p>Running</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon stopped">
+                            <i class="fas fa-stop-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="stoppedServers">0</h3>
+                            <p>Stopped</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-memory"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="memoryUsage">0%</h3>
+                            <p>Memory Usage</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Quick Actions</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="quick-actions">
+                                <button class="action-btn" onclick="showNewServerModal()">
+                                    <i class="fas fa-plus"></i>
+                                    <span>Start Node.js Server</span>
+                                </button>
+                                <button class="action-btn" onclick="showNewServerModal('php')">
+                                    <i class="fab fa-php"></i>
+                                    <span>Start PHP Server</span>
+                                </button>
+                                <button class="action-btn" onclick="showNewServerModal('static')">
+                                    <i class="fas fa-file"></i>
+                                    <span>Start Static Server</span>
+                                </button>
+                                <button class="action-btn" onclick="stopAllServers()">
+                                    <i class="fas fa-stop"></i>
+                                    <span>Stop All Servers</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Recent Activity</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="activity-list" id="activityList">
+                                <div class="activity-item">
+                                    <div class="activity-icon">
+                                        <i class="fas fa-info-circle"></i>
+                                    </div>
+                                    <div class="activity-content">
+                                        <p>System initialized</p>
+                                        <span class="activity-time">Just now</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Servers Section -->
+            <section id="servers" class="content-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Server Management</h2>
+                        <p>Manage your local development servers</p>
+                    </div>
+                    <div class="section-actions">
+                        <button class="btn btn-outline" onclick="refreshServers()">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh
+                        </button>
+                        <button class="btn btn-primary" onclick="showNewServerModal()">
+                            <i class="fas fa-plus"></i>
+                            New Server
+                        </button>
+                    </div>
+                </div>
+
+                <div class="servers-grid" id="serversGrid">
+                    <!-- Servers will be dynamically added here -->
+                </div>
+            </section>
+
+            <!-- Logs Section -->
+            <section id="logs" class="content-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>System Logs</h2>
+                        <p>Monitor server logs and system events</p>
+                    </div>
+                    <div class="section-actions">
+                        <button class="btn btn-outline" onclick="clearLogs()">
+                            <i class="fas fa-trash"></i>
+                            Clear Logs
+                        </button>
+                        <button class="btn btn-outline" onclick="exportLogs()">
+                            <i class="fas fa-download"></i>
+                            Export
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-content">
+                        <div class="log-viewer" id="logViewer">
+                            <div class="log-entry">
+                                <span class="log-time">[2024-01-01 12:00:00]</span>
+                                <span class="log-level info">[INFO]</span>
+                                <span class="log-message">Server Manager initialized successfully</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settings" class="content-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Settings</h2>
+                        <p>Configure your server environment</p>
+                    </div>
+                </div>
+
+                <div class="settings-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>General Settings</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="setting-item">
+                                <label for="autoStart">Auto-start servers on boot</label>
+                                <input type="checkbox" id="autoStart" class="toggle">
+                            </div>
+                            <div class="setting-item">
+                                <label for="maxServers">Maximum servers</label>
+                                <select id="maxServers">
+                                    <option value="5">5 servers</option>
+                                    <option value="10" selected>10 servers</option>
+                                    <option value="20">20 servers</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <label for="logLevel">Log level</label>
+                                <select id="logLevel">
+                                    <option value="error">Error</option>
+                                    <option value="warn">Warning</option>
+                                    <option value="info" selected>Info</option>
+                                    <option value="debug">Debug</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Server Defaults</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="setting-item">
+                                <label for="defaultPort">Default starting port</label>
+                                <input type="number" id="defaultPort" value="3000" min="3000" max="9999">
+                            </div>
+                            <div class="setting-item">
+                                <label for="defaultDirectory">Default server directory</label>
+                                <input type="text" id="defaultDirectory" value="C:\ServerManager\servers">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- New Server Modal -->
+    <div id="newServerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Server</h3>
+                <button class="modal-close" onclick="hideNewServerModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="newServerForm">
+                    <div class="form-group">
+                        <label for="serverName">Server Name</label>
+                        <input type="text" id="serverName" placeholder="My Server" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="serverType">Server Type</label>
+                        <select id="serverType" required>
+                            <option value="node">Node.js Server</option>
+                            <option value="php">PHP Server</option>
+                            <option value="static">Static File Server</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="serverPort">Port</label>
+                        <input type="number" id="serverPort" placeholder="3000" min="3000" max="9999" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="serverDirectory">Directory</label>
+                        <input type="text" id="serverDirectory" placeholder="C:\ServerManager\servers\my-server" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="serverDescription">Description (Optional)</label>
+                        <textarea id="serverDescription" placeholder="Describe your server..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideNewServerModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="createServer()">Create Server</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
