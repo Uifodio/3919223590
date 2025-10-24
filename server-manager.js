@@ -5,8 +5,9 @@ const fs = require('fs');
 const path = require('path');
 const { spawn, exec } = require('child_process');
 const readline = require('readline');
+const os = require('os');
 
-class ServerManager {
+class ProfessionalServerManager {
     constructor() {
         this.servers = new Map();
         this.rl = readline.createInterface({
@@ -15,6 +16,9 @@ class ServerManager {
         });
         this.availablePorts = new Set();
         this.initializePorts();
+        this.isWindows = os.platform() === 'win32';
+        this.webPort = 8080;
+        this.startWebInterface();
     }
 
     initializePorts() {
@@ -33,6 +37,51 @@ class ServerManager {
         return null;
     }
 
+    startWebInterface() {
+        const server = http.createServer((req, res) => {
+            let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
+            
+            // Security: prevent directory traversal
+            filePath = path.resolve(filePath);
+            if (!filePath.startsWith(__dirname)) {
+                res.writeHead(403);
+                res.end('Forbidden');
+                return;
+            }
+            
+            fs.readFile(filePath, (err, data) => {
+                if (err) {
+                    if (err.code === 'ENOENT') {
+                        res.writeHead(404);
+                        res.end('File not found');
+                    } else {
+                        res.writeHead(500);
+                        res.end('Server error');
+                    }
+                } else {
+                    const ext = path.extname(filePath);
+                    const contentType = {
+                        '.html': 'text/html',
+                        '.css': 'text/css',
+                        '.js': 'text/javascript',
+                        '.json': 'application/json',
+                        '.png': 'image/png',
+                        '.jpg': 'image/jpeg',
+                        '.gif': 'image/gif',
+                        '.svg': 'image/svg+xml'
+                    }[ext] || 'text/plain';
+                    
+                    res.writeHead(200, { 'Content-Type': contentType });
+                    res.end(data);
+                }
+            });
+        });
+
+        server.listen(this.webPort, () => {
+            console.log(`🌐 Web interface running on http://localhost:${this.webPort}`);
+        });
+    }
+
     async startNodeServer(name, port, directory) {
         return new Promise((resolve, reject) => {
             const serverPath = path.join(directory, 'server.js');
@@ -44,7 +93,9 @@ class ServerManager {
 
             const server = spawn('node', [serverPath], {
                 cwd: directory,
-                stdio: ['pipe', 'pipe', 'pipe']
+                stdio: ['pipe', 'pipe', 'pipe'],
+                shell: this.isWindows,
+                env: { ...process.env, PORT: port }
             });
 
             server.stdout.on('data', (data) => {
@@ -78,8 +129,13 @@ class ServerManager {
 
     async startPHPServer(name, port, directory) {
         return new Promise((resolve, reject) => {
-            const server = spawn('php', ['-S', `localhost:${port}`, '-t', directory], {
-                stdio: ['pipe', 'pipe', 'pipe']
+            const phpPath = this.isWindows ? 
+                path.join(process.cwd(), 'bin', 'php', 'php.exe') : 
+                'php';
+            
+            const server = spawn(phpPath, ['-S', `localhost:${port}`, '-t', directory], {
+                stdio: ['pipe', 'pipe', 'pipe'],
+                shell: this.isWindows
             });
 
             server.stdout.on('data', (data) => {
@@ -115,6 +171,8 @@ class ServerManager {
         const template = `const http = require('http');
 const fs = require('fs');
 const path = require('path');
+
+const PORT = process.env.PORT || ${port};
 
 const server = http.createServer((req, res) => {
     let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
@@ -155,8 +213,27 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(${port}, () => {
-    console.log(\`Node.js server running on http://localhost:${port}\`);
+server.listen(PORT, () => {
+    console.log(\`🚀 Node.js server running on http://localhost:\${PORT}\`);
+    console.log(\`📁 Serving files from: \${__dirname}\`);
+    console.log(\`⏰ Started at: \${new Date().toLocaleString()}\`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log('SIGINT received, shutting down gracefully');
+    server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+    });
 });`;
         
         fs.writeFileSync(serverPath, template);
@@ -166,11 +243,14 @@ server.listen(${port}, () => {
         const indexPath = path.join(directory, 'index.php');
         if (!fs.existsSync(indexPath)) {
             const template = `<?php
+echo "<!DOCTYPE html>";
+echo "<html><head><title>PHP Server</title></head><body>";
 echo "<h1>PHP Server Running</h1>";
 echo "<p>Server started at: " . date('Y-m-d H:i:s') . "</p>";
 echo "<p>PHP Version: " . phpversion() . "</p>";
 echo "<p>Document Root: " . __DIR__ . "</p>";
-echo "<p>Request URI: " . $_SERVER['REQUEST_URI'] . "</p>";
+echo "<p>Request URI: " . ($_SERVER['REQUEST_URI'] ?? '/') . "</p>";
+echo "</body></html>";
 ?>`;
             fs.writeFileSync(indexPath, template);
         }
@@ -179,7 +259,16 @@ echo "<p>Request URI: " . $_SERVER['REQUEST_URI'] . "</p>";
     stopServer(port) {
         const server = this.servers.get(port);
         if (server) {
-            server.process.kill();
+            if (this.isWindows) {
+                // On Windows, use taskkill
+                exec(`taskkill /PID ${server.process.pid} /F`, (error) => {
+                    if (error) {
+                        console.log(`Could not kill process ${server.process.pid}: ${error.message}`);
+                    }
+                });
+            } else {
+                server.process.kill();
+            }
             this.servers.delete(port);
             this.availablePorts.add(port);
             console.log(`Server on port ${port} stopped.`);
@@ -244,14 +333,15 @@ echo "<p>Request URI: " . $_SERVER['REQUEST_URI'] . "</p>";
     }
 
     async showMenu() {
-        console.log('\n=== Server Manager ===');
+        console.log('\n=== Professional Server Manager ===');
         console.log('1. Start new server');
         console.log('2. Stop server');
         console.log('3. List running servers');
         console.log('4. Stop all servers');
-        console.log('5. Exit');
+        console.log('5. Open web interface');
+        console.log('6. Exit');
         
-        const choice = await this.question('Choose option (1-5): ');
+        const choice = await this.question('Choose option (1-6): ');
         
         switch (choice) {
             case '1':
@@ -266,17 +356,17 @@ echo "<p>Request URI: " . $_SERVER['REQUEST_URI'] . "</p>";
                 break;
             case '4':
                 this.servers.forEach((server, port) => {
-                    server.process.kill();
+                    this.stopServer(port);
                 });
-                this.servers.clear();
-                this.availablePorts.clear();
-                this.initializePorts();
                 console.log('All servers stopped.');
                 break;
             case '5':
+                console.log(`Web interface: http://localhost:${this.webPort}`);
+                break;
+            case '6':
                 console.log('Stopping all servers...');
                 this.servers.forEach((server) => {
-                    server.process.kill();
+                    this.stopServer(server.port);
                 });
                 this.rl.close();
                 process.exit(0);
@@ -285,7 +375,7 @@ echo "<p>Request URI: " . $_SERVER['REQUEST_URI'] . "</p>";
                 console.log('Invalid choice.');
         }
         
-        if (choice !== '5') {
+        if (choice !== '6') {
             await this.showMenu();
         }
     }
@@ -294,12 +384,14 @@ echo "<p>Request URI: " . $_SERVER['REQUEST_URI'] . "</p>";
         console.log('🚀 Professional Server Manager');
         console.log('Manage up to 10 local servers simultaneously');
         console.log('Supports Node.js and PHP servers');
+        console.log(`Platform: ${os.platform()} ${os.arch()}`);
+        console.log(`Web interface: http://localhost:${this.webPort}`);
         
         // Handle process termination
         process.on('SIGINT', () => {
             console.log('\nShutting down all servers...');
             this.servers.forEach((server) => {
-                server.process.kill();
+                this.stopServer(server.port);
             });
             this.rl.close();
             process.exit(0);
@@ -310,5 +402,5 @@ echo "<p>Request URI: " . $_SERVER['REQUEST_URI'] . "</p>";
 }
 
 // Run the server manager
-const manager = new ServerManager();
+const manager = new ProfessionalServerManager();
 manager.run().catch(console.error);
