@@ -1,0 +1,113 @@
+.toolbar {
+  display: flex;
+  background-color: #2d2d30;
+  border-bottom: 1px solid #3e3e42;
+  height: 40px;
+  align-items: center;
+  padding: 0 8px;
+  gap: 8px;
+  z-index: 999;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 24px;
+  background-color: #3e3e42;
+  margin: 0 4px;
+}
+
+.toolbar-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  color: #d4d4d4;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  min-height: 28px;
+}
+
+.toolbar-button:hover {
+  background-color: #3e3e42;
+  border-color: #555;
+}
+
+.toolbar-button:active {
+  background-color: #2d2d30;
+}
+
+.toolbar-button.active {
+  background-color: #264f78;
+  border-color: #007acc;
+  color: #ffffff;
+}
+
+.toolbar-button .icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.toolbar-button .text {
+  font-weight: 500;
+}
+
+/* Button states */
+.toolbar-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-button:disabled:hover {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .toolbar {
+    height: 36px;
+    padding: 0 6px;
+    gap: 6px;
+  }
+  
+  .toolbar-button {
+    padding: 4px 8px;
+    min-height: 24px;
+    font-size: 11px;
+  }
+  
+  .toolbar-button .icon {
+    font-size: 12px;
+  }
+  
+  .toolbar-button .text {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .toolbar {
+    height: 32px;
+    padding: 0 4px;
+    gap: 4px;
+  }
+  
+  .toolbar-button {
+    padding: 3px 6px;
+    min-height: 20px;
+  }
+  
+  .toolbar-separator {
+    margin: 0 2px;
+  }
+}

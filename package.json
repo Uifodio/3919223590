@@ -1,0 +1,64 @@
+{
+  "name": "anora-editor",
+  "version": "1.0.0",
+  "description": "Professional Unity Code Editor - Fast, Lightweight, and Professional",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"npm run dev:react\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
+    "dev:react": "vite",
+    "dev:electron": "electron .",
+    "build": "npm run build:react",
+    "build:react": "vite build",
+    "build:electron": "electron-builder",
+    "dist": "npm run build && npm run build:electron"
+  },
+  "keywords": [
+    "unity",
+    "code-editor",
+    "electron",
+    "react",
+    "typescript",
+    "csharp",
+    "python",
+    "javascript"
+  ],
+  "author": "Anora Editor Team",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "electron-store": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.0",
+    "@vitejs/plugin-react": "^4.0.4",
+    "concurrently": "^8.2.0",
+    "electron": "^25.3.1",
+    "electron-builder": "^24.6.4",
+    "typescript": "^5.1.6",
+    "vite": "^4.4.9",
+    "wait-on": "^7.0.1"
+  },
+  "build": {
+    "appId": "com.anora.editor",
+    "productName": "Anora Editor",
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
