@@ -1,25 +1,32 @@
+//#MSA_UPDATE_START#
 {
-    "AllowedCode": "00000, 00001, 00002",
-    "latestVersion": "1.0.0",
-    "updateMessage": "Initial release of Modern Server Administrator",
-    "updateLink": "https://your-download-link.com/version1",
+    "AllowedCode": "00000, 00001, 00002, 00003",
+    "latestVersion": "1.2.0",
+    "updateMessage": "🎄 Christmas Update! New themes and improved performance",
+    "updateLink": "https://your-download-link.com/v1.2.0",
+    
     "frontendFiles": {
         "engine/templates/index.html": {
-            "githubPath": "engine/templates/index.html"
+            "githubPath": "engine/templates/index.html",
+            "mediafireUrl": "https://www.mediafire.com/file/abc123/index.html/file",
+            "cdnUrl": "https://your-cdn.com/msa/files/index.html",
+            "hash": "a1b2c3d4e5f678901234567890123456"
         },
         "engine/static/css/style.css": {
-            "githubPath": "engine/static/css/style.css"
-        },
-        "engine/static/js/script.js": {
-            "githubPath": "engine/static/js/script.js"
+            "githubPath": "engine/static/css/style.css", 
+            "mediafireUrl": "https://www.mediafire.com/file/def456/style.css/file",
+            "cdnUrl": "https://your-cdn.com/msa/files/style.css",
+            "hash": "b2c3d4e5f678901234567890123456a1"
         }
     },
+    
     "backendFiles": {
         "engine/server_manager.py": {
-            "githubPath": "engine/server_manager.py"
-        },
-        "engine/update_modern_server_administrator_system.py": {
-            "githubPath": "engine/update_modern_server_administrator_system.py"
+            "githubPath": "engine/server_manager.py",
+            "mediafireUrl": "https://www.mediafire.com/file/ghi789/server_manager.py/file", 
+            "cdnUrl": "https://your-cdn.com/msa/files/server_manager.py",
+            "hash": "c3d4e5f678901234567890123456a1b2"
         }
     }
 }
+//#MSA_UPDATE_END#
