@@ -1,6 +1,25 @@
 {
-  "updateCode": "000w0",
-  "latestVersion": "1.0.2",
-  "updateMessage": "New beta update available! Please download the latest version.",
-  "updateLink": "whatever link I add"
+    "AllowedCode": "00000, 00001, 00002",
+    "latestVersion": "1.0.0",
+    "updateMessage": "Initial release of Modern Server Administrator",
+    "updateLink": "https://your-download-link.com/version1",
+    "frontendFiles": {
+        "engine/templates/index.html": {
+            "githubPath": "engine/templates/index.html"
+        },
+        "engine/static/css/style.css": {
+            "githubPath": "engine/static/css/style.css"
+        },
+        "engine/static/js/script.js": {
+            "githubPath": "engine/static/js/script.js"
+        }
+    },
+    "backendFiles": {
+        "engine/server_manager.py": {
+            "githubPath": "engine/server_manager.py"
+        },
+        "engine/update_modern_server_administrator_system.py": {
+            "githubPath": "engine/update_modern_server_administrator_system.py"
+        }
+    }
 }
